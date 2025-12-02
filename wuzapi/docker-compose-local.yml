@@ -1,0 +1,26 @@
+# Docker Compose para desenvolvimento local
+# Usa serviços serverless externos (Neon DB + CloudAMQP)
+# Só sobe o WuzAPI server
+
+services:
+  wuzapi:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "${WUZAPI_PORT:-8080}:8080"
+    env_file:
+      - .env
+    volumes:
+      # Persiste sessões WhatsApp localmente
+      - wuzapi_sessions:/app/dbdata
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  wuzapi_sessions:
