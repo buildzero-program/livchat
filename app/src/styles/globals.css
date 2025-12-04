@@ -48,10 +48,47 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
-/* LivChat.ai - Dark theme with Purple accent */
+/* LivChat.ai - Theme System with Purple accent */
 :root {
   --radius: 0.625rem;
-  /* Dark theme as default */
+  /* Light theme */
+  --background: #FAFAFA;
+  --foreground: #0A0A0A;
+  --card: #FFFFFF;
+  --card-foreground: #0A0A0A;
+  --popover: #FFFFFF;
+  --popover-foreground: #0A0A0A;
+  /* Purple primary (#8B5CF6) */
+  --primary: #7C3AED;
+  --primary-foreground: #FFFFFF;
+  --secondary: #F4F4F5;
+  --secondary-foreground: #18181B;
+  --muted: #F4F4F5;
+  --muted-foreground: #71717A;
+  --accent: #7C3AED;
+  --accent-foreground: #FFFFFF;
+  --destructive: #DC2626;
+  --border: #E4E4E7;
+  --input: #E4E4E7;
+  --ring: #7C3AED;
+  --chart-1: #7C3AED;
+  --chart-2: #8B5CF6;
+  --chart-3: #A78BFA;
+  --chart-4: #16A34A;
+  --chart-5: #2563EB;
+  /* Sidebar */
+  --sidebar: #F4F4F5;
+  --sidebar-foreground: #0A0A0A;
+  --sidebar-primary: #7C3AED;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #E4E4E7;
+  --sidebar-accent-foreground: #18181B;
+  --sidebar-border: #E4E4E7;
+  --sidebar-ring: #7C3AED;
+}
+
+/* Dark theme */
+.dark {
   --background: #0A0A0A;
   --foreground: #FAFAFA;
   --card: #141414;
@@ -76,7 +113,8 @@
   --chart-3: #C4B5FD;
   --chart-4: #22C55E;
   --chart-5: #3B82F6;
-  --sidebar: #0A0A0A;
+  /* Sidebar */
+  --sidebar: #111111;
   --sidebar-foreground: #FAFAFA;
   --sidebar-primary: #8B5CF6;
   --sidebar-primary-foreground: #FFFFFF;
@@ -122,30 +160,39 @@
   animation: scan-line 1.5s ease-in-out infinite;
 }
 
-/* Custom scrollbar */
+/* Custom scrollbar - vertical only */
 ::-webkit-scrollbar {
   width: 8px;
-  height: 8px;
+  height: 0; /* Hide horizontal scrollbar */
+}
+
+::-webkit-scrollbar:horizontal {
+  display: none;
+  height: 0;
 }
 
 ::-webkit-scrollbar-track {
-  background: #1F1F1F;
+  background: var(--muted);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #3F3F46;
+  background: var(--border);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #8B5CF6;
+  background: var(--primary);
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    @apply overflow-x-hidden;
+  }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground overflow-x-hidden;
   }
 }
+

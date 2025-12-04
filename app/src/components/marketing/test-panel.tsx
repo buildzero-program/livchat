@@ -8,7 +8,7 @@ import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { MOCK_CURL_EXAMPLE } from "~/lib/mock-data";
-import { maskPhone, PRICING } from "~/lib/constants";
+import { formatPhone, PRICING } from "~/lib/constants";
 import type { ValidationResult } from "~/server/api/routers/demo";
 
 interface SendResponse {
@@ -355,7 +355,7 @@ export function TestPanel({
         {/* Bottom Status */}
         <div className="px-6 py-4 bg-[#111111] border-t border-border flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-4 text-sm">
-            {jid && <span>{maskPhone(jid)}</span>}
+            {jid && <span>{formatPhone(jid)}</span>}
             {apiKey && (
               <button
                 onClick={handleCopyApiKey}

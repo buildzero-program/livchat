@@ -5,6 +5,7 @@ import { Inter, JetBrains_Mono } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 
 import { TRPCReactProvider } from "~/trpc/react";
+import { ThemeProvider } from "~/lib/theme";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -45,10 +46,13 @@ export default function RootLayout({
     <ClerkProvider>
       <html
         lang="pt-BR"
-        className={`${inter.variable} ${jetbrainsMono.variable} dark`}
+        className={`${inter.variable} ${jetbrainsMono.variable}`}
+        suppressHydrationWarning
       >
-        <body className="font-sans antialiased">
-          <TRPCReactProvider>{children}</TRPCReactProvider>
+        <body className="font-sans antialiased" suppressHydrationWarning>
+          <ThemeProvider>
+            <TRPCReactProvider>{children}</TRPCReactProvider>
+          </ThemeProvider>
         </body>
       </html>
     </ClerkProvider>
