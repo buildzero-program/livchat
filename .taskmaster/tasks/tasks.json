@@ -1,0 +1,275 @@
+{
+  "master": {
+    "tasks": [
+      {
+        "id": "1",
+        "title": "Create Logger Module with Abstract Interface",
+        "description": "Implement the core logger module at src/server/lib/logger.ts with typed interfaces, emit function, and Logger class that outputs JSON-structured logs via console.log for Sentry capture.",
+        "details": "Create src/server/lib/logger.ts with:\n\n1. Define LogContext interface:\n```typescript\ninterface LogContext {\n  deviceId?: string;\n  instanceId?: string;\n  userId?: string;\n  organizationId?: string;\n}\n```\n\n2. Define LogPayload interface extending LogContext:\n```typescript\ninterface LogPayload extends LogContext {\n  timestamp: string;  // ISO 8601\n  level: 'debug' | 'info' | 'warn' | 'error';\n  action: string;\n  message: string;\n  duration?: number;\n  [key: string]: unknown;\n}\n```\n\n3. Implement emit function (abstraction point for future Axiom migration):\n```typescript\nfunction emit(payload: LogPayload): void {\n  console.log(JSON.stringify(payload));\n}\n```\n\n4. Implement Logger class with:\n- Private context: LogContext field\n- withContext(ctx: LogContext): Logger - returns child logger with merged context\n- info(action: string, message: string, data?: object): void\n- warn(action: string, message: string, data?: object): void\n- error(action: string, message: string, error?: Error, data?: object): void\n- time<T>(action: string, message: string, fn: () => Promise<T>, data?: object): Promise<T> - async timing helper\n- Private log() method that calls emit() with full payload\n\n5. Export singleton instance: export const logger = new Logger();",
+        "testStrategy": "Create unit tests in src/server/lib/logger.test.ts:\n1. Test that logger.info() outputs valid JSON to console\n2. Test withContext() properly merges context\n3. Test error() includes errorName and errorMessage fields\n4. Test time() measures duration correctly and includes it in output\n5. Mock console.log to capture output and validate JSON structure matches LogPayload schema",
+        "priority": "high",
+        "dependencies": [],
+        "status": "in-progress",
+        "subtasks": [],
+        "complexity": 4,
+        "recommendedSubtasks": 0,
+        "expansionPrompt": "Implement logger.ts with LogContext/LogPayload interfaces, emit function, and Logger class with withContext, info, warn, error, and time methods",
+        "updatedAt": "2025-12-06T14:28:48.207Z"
+      },
+      {
+        "id": "2",
+        "title": "Define Standardized Action Constants",
+        "description": "Create a constants file or type definitions for all standardized log actions (device.*, instance.*, orphan.*, wuzapi.*, user.*, demo.*, auth.*) to ensure consistency across the codebase.",
+        "details": "Add to src/server/lib/logger.ts or create separate src/server/lib/log-actions.ts:\n\n```typescript\n// Action prefixes for type safety and autocomplete\nexport const LogActions = {\n  // Device actions\n  DEVICE_CREATE: 'device.create',\n  DEVICE_REUSE: 'device.reuse',\n  \n  // Instance actions\n  INSTANCE_CREATE: 'instance.create',\n  INSTANCE_RESOLVE: 'instance.resolve',\n  \n  // Orphan management\n  ORPHAN_SEARCH: 'orphan.search',\n  ORPHAN_ADOPT: 'orphan.adopt',\n  ORPHAN_CLEANUP: 'orphan.cleanup',\n  ORPHAN_DELETE: 'orphan.delete',\n  \n  // WuzAPI calls\n  WUZAPI_STATUS: 'wuzapi.status',\n  WUZAPI_CONNECT: 'wuzapi.connect',\n  WUZAPI_SEND: 'wuzapi.send',\n  WUZAPI_LOGOUT: 'wuzapi.logout',\n  \n  // User management\n  USER_SYNC: 'user.sync',\n  USER_CREATE: 'user.create',\n  USER_CLAIM: 'user.claim',\n  \n  // Demo endpoints\n  DEMO_VALIDATE: 'demo.validate',\n  DEMO_SEND: 'demo.send',\n  \n  // Auth\n  AUTH_SUCCESS: 'auth.success',\n  AUTH_ERROR: 'auth.error',\n  \n  // tRPC\n  TRPC_REQUEST: 'trpc.request',\n} as const;\n\nexport type LogAction = (typeof LogActions)[keyof typeof LogActions];\n```\n\nOptionally update Logger class to accept LogAction type for action parameter.",
+        "testStrategy": "1. Verify all action constants are unique strings\n2. Verify type inference works correctly with LogAction type\n3. Create a test that imports LogActions and verifies expected values exist",
+        "priority": "high",
+        "dependencies": [
+          "1"
+        ],
+        "status": "pending",
+        "subtasks": [],
+        "complexity": 2,
+        "recommendedSubtasks": 0,
+        "expansionPrompt": "Create LogActions constant object with all action strings and export LogAction type for type safety"
+      },
+      {
+        "id": "3",
+        "title": "Migrate demo.ts Console Logs to Structured Logger",
+        "description": "Replace all console.log/warn/error calls in src/server/api/routers/demo.ts with the new structured logger, adding proper context (deviceId, instanceId) and timing for WuzAPI calls.",
+        "details": "In src/server/api/routers/demo.ts:\n\n1. Import logger: `import { logger } from '~/server/lib/logger';`\n\n2. In status procedure (lines 79-206):\n   - Create request-scoped logger: `const log = logger.withContext({ deviceId: device.id });`\n   - Replace line 104-107: `log.info('instance.resolve', 'Instance resolved', { strategy: 'orphan_reuse', instanceId: instanceData.instance.id });`\n   - Replace line 114-116: `log.info('instance.create', 'Created new instance', { instanceId: instance.id });`\n   - Replace line 118: `log.error('instance.create', 'Failed to create instance', error);`\n   - Replace line 138: `log.warn('wuzapi.connect', 'Failed to connect', connectError);`\n   - Wrap WuzAPI calls with log.time(): `const statusRes = await log.time('wuzapi.status', 'Fetched WuzAPI status', () => client.getStatus(), { instanceId: instance.id });`\n   - Replace line 176-178: `log.info('orphan.cleanup', 'Cleanup completed', { deleted });`\n   - Replace line 182: `log.error('orphan.cleanup', 'Background cleanup error', err);`\n   - Replace line 188: `log.error('demo.status', 'Error fetching status', error);`\n\n3. For send procedure:\n   - Add timing for client.sendText()\n   - Log demo.send action after successful send\n\n4. For disconnect procedure:\n   - Add timing for client.logout()\n   - Log wuzapi.logout action",
+        "testStrategy": "1. Run existing demo.ts tests to ensure functionality unchanged\n2. Manually test demo flow and verify JSON logs appear in console\n3. Check Sentry dashboard to verify logs are captured with proper structure\n4. Verify logs contain deviceId, instanceId where appropriate\n5. Verify duration field appears in timed operations",
+        "priority": "high",
+        "dependencies": [
+          "1",
+          "2"
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Import logger and replace console calls in status procedure",
+            "description": "Add the structured logger import and replace all 7 console.log/warn/error calls in the status procedure (lines 104-188) with properly contextualized logger calls.",
+            "dependencies": [],
+            "details": "1. Add import at top: `import { logger } from '~/server/lib/logger';`\n2. Create request-scoped logger after device check: `const log = logger.withContext({ deviceId: device.id });`\n3. Replace line 104-107 (orphan reuse): `log.info('instance.resolve', 'Instance resolved', { strategy: 'orphan_reuse', instanceId: instanceData.instance.id });`\n4. Replace line 114-116 (new instance): `log.info('instance.create', 'Created new instance', { instanceId: instance.id });`\n5. Replace line 118 (create error): `log.error('instance.create', 'Failed to create instance', error);`\n6. Replace line 138 (connect warning): `log.warn('wuzapi.connect', 'Failed to connect', connectError);`\n7. Replace line 176-178 (cleanup success): `log.info('orphan.cleanup', 'Cleanup completed', { deleted });`\n8. Replace line 182 (cleanup error): `log.error('orphan.cleanup', 'Background cleanup error', err);`\n9. Replace line 188 (status error): `log.error('demo.status', 'Error fetching status', error);`",
+            "status": "pending",
+            "testStrategy": "1. Run existing demo.ts tests with `bun test --filter demo`\n2. Manually test demo flow and verify JSON logs appear in console\n3. Verify logs contain deviceId and instanceId where appropriate\n4. Ensure no console.log/warn/error statements remain in status procedure",
+            "parentId": "undefined"
+          },
+          {
+            "id": 2,
+            "title": "Add timing wrappers for WuzAPI calls using logger.time()",
+            "description": "Wrap all WuzAPI client calls with logger.time() to capture duration metrics for getStatus, connect, sendText, logout, getPairingCode, and checkNumbers operations.",
+            "dependencies": [
+              1
+            ],
+            "details": "1. In status procedure, wrap getStatus calls (lines 130, 136):\n   `const statusRes = await log.time('wuzapi.status', 'Fetched WuzAPI status', () => client.getStatus(), { instanceId: instance.id });`\n2. Wrap connect call (line 134):\n   `await log.time('wuzapi.connect', 'Connected to WuzAPI', () => client.connect(['Message']), { instanceId: instance.id });`\n3. In send procedure (line 378), wrap getStatus:\n   `const status = await log.time('wuzapi.status', 'Checked status before send', () => client.getStatus(), { instanceId: instance.id });`\n4. In send procedure (line 387), wrap sendText:\n   `const res = await log.time('wuzapi.send', 'Sent text message', () => client.sendText(input.phone, input.message), { instanceId: instance.id, phone: input.phone });`\n5. In disconnect procedure (line 434), wrap logout:\n   `await log.time('wuzapi.logout', 'Logged out from WuzAPI', () => client.logout(), { instanceId: instance.id });`\n6. In pairing procedure (line 240), wrap getPairingCode:\n   `const res = await log.time('wuzapi.pairing', 'Generated pairing code', () => client.getPairingCode(input.phone), { phone: input.phone });`\n7. In validate procedure (lines 291, 305), wrap checkNumbers:\n   `const exactRes = await log.time('wuzapi.checkNumbers', 'Checked exact number', () => client.checkNumbers([phone]), { phone });`",
+            "status": "pending",
+            "testStrategy": "1. Run full test suite to ensure timing wrappers don't break functionality\n2. Verify logs show duration field for all WuzAPI calls\n3. Test each procedure and confirm timing logs appear with correct action names\n4. Check that context (instanceId, phone) is properly included in timing logs",
+            "parentId": "undefined"
+          },
+          {
+            "id": 3,
+            "title": "Add structured logs to pairing, validate, send, and disconnect procedures",
+            "description": "Add appropriate info/error logs to the remaining procedures (pairing, validate, send, disconnect) for action tracking and error handling.",
+            "dependencies": [
+              1,
+              2
+            ],
+            "details": "1. In pairing procedure (after line 214), create scoped logger:\n   `const log = logger.withContext({ deviceId: device.id });`\n2. After successful pairing (line 244), add:\n   `log.info('demo.pairing', 'Pairing code generated', { phone: input.phone });`\n\n3. In validate procedure (after line 263), create scoped logger:\n   `const log = logger.withContext({ deviceId: device.id });`\n4. Log validation results:\n   - For valid_unique: `log.info('demo.validate', 'Number validated', { status: 'valid_unique', phone, verifiedName });`\n   - For valid_variant: `log.info('demo.validate', 'Number validated with variant', { status: 'valid_variant', originalPhone: phone, normalizedPhone: variant });`\n   - For invalid: `log.info('demo.validate', 'Number invalid', { phone });`\n\n5. In send procedure (after line 346), create scoped logger:\n   `const log = logger.withContext({ deviceId: device.id, instanceId: instance.id });`\n6. After successful send (line 391), add:\n   `log.info('demo.send', 'Message sent', { phone: input.phone, messageId: res.data.Id, messagesUsed: newUsage.used });`\n\n7. In disconnect procedure (after line 411), create scoped logger:\n   `const log = logger.withContext({ deviceId: device.id });`\n8. After successful logout (line 441), add:\n   `log.info('demo.disconnect', 'WhatsApp disconnected', { instanceId: instance.id });`",
+            "status": "pending",
+            "testStrategy": "1. Run full test suite: `bun test`\n2. Manually test each procedure and verify appropriate logs appear\n3. Verify no console.log/warn/error statements remain in demo.ts\n4. Check Sentry dashboard to verify logs are captured with proper structure\n5. Confirm all logs have deviceId context and instanceId where applicable",
+            "parentId": "undefined"
+          }
+        ],
+        "complexity": 5,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down into: 1) Import logger and replace console calls in status procedure (lines 104-188), 2) Add timing wrappers for WuzAPI calls (getStatus, connect, sendText), 3) Add structured logs to pairing/validate/send/disconnect procedures"
+      },
+      {
+        "id": "4",
+        "title": "Migrate instance.ts Console Logs to Structured Logger",
+        "description": "Replace all console.log/warn/error calls in src/server/lib/instance.ts with the structured logger, adding context and timing for orphan operations and WuzAPI instance creation.",
+        "details": "In src/server/lib/instance.ts:\n\n1. Import logger: `import { logger } from './logger';`\n\n2. In createInstanceForDevice (line 132-180):\n   - Replace line 152: `logger.error('instance.create', 'Failed to create WuzAPI instance', error);`\n   - Add success log after line 168: `logger.info('instance.create', 'Instance created', { deviceId, instanceId: instance.id, providerId });`\n\n3. In getOrReuseVirginOrphan (line 353-424):\n   - Replace line 389: `logger.warn('orphan.adopt', 'Logout failed during adoption', error, { orphanId: orphan.id });`\n   - Replace line 413-415: `logger.info('orphan.adopt', 'Virgin orphan adopted', { deviceId, instanceId: adopted.id, reuseCount: adopted.reuseCount });`\n\n4. In cleanupAbusedOrphans (line 435-499):\n   - Add start log: `logger.info('orphan.cleanup', 'Starting cleanup batch');`\n   - Replace line 486-488: `logger.info('orphan.delete', 'Deleted abused orphan', { instanceId: orphan.id });`\n   - Replace line 490: `logger.error('orphan.delete', 'Failed to delete orphan', error, { instanceId: orphan.id });`\n   - Replace line 496: `logger.error('orphan.cleanup', 'Cleanup batch error', error);`\n   - Add timing for batch operation\n\n5. Consider adding timing to WuzAPI logout calls in cleanup loop",
+        "testStrategy": "1. Run existing instance.ts tests\n2. Test orphan adoption flow and verify logs show strategy, reuseCount\n3. Test cleanup process and verify proper logging\n4. Check that error logs include error details\n5. Verify no console.log statements remain in instance.ts",
+        "priority": "high",
+        "dependencies": [
+          "1",
+          "2"
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Replace logs in createInstanceForDevice (line 152)",
+            "description": "Migrate the console.error call in createInstanceForDevice function to use structured logger, and add a success log after instance creation.",
+            "dependencies": [],
+            "details": "In src/server/lib/instance.ts:\n\n1. Add logger import at top of file: `import { logger } from './logger';`\n\n2. Replace line 152 (in catch block):\n   - FROM: `console.error(\"Failed to create WuzAPI instance:\", error);`\n   - TO: `logger.error('instance.create', 'Failed to create WuzAPI instance', error);`\n\n3. Add success log after line 168 (after `.returning()`):\n   ```typescript\n   logger.info('instance.create', 'Instance created', { \n     deviceId, \n     instanceId: instance.id, \n     providerId \n   });\n   ```\n\nThis covers the single console statement in createInstanceForDevice plus adds a success log for visibility into instance creation.",
+            "status": "pending",
+            "testStrategy": "1. Verify logger import is added correctly\n2. Test error path by mocking createWuzAPIInstance to throw\n3. Test success path and verify structured log appears with deviceId, instanceId, providerId\n4. Verify original error is still thrown after logging",
+            "parentId": "undefined"
+          },
+          {
+            "id": 2,
+            "title": "Replace logs in getOrReuseVirginOrphan (lines 389, 413-415)",
+            "description": "Migrate console.warn and console.log calls in getOrReuseVirginOrphan function to use structured logger with proper context including orphanId and reuseCount.",
+            "dependencies": [
+              1
+            ],
+            "details": "In src/server/lib/instance.ts, in getOrReuseVirginOrphan function:\n\n1. Replace line 389 (in catch block for logout):\n   - FROM: `console.warn(\\`[orphan-reuse] Logout failed for ${orphan.id}:\\`, error);`\n   - TO: `logger.warn('orphan.adopt', 'Logout failed during adoption', error, { orphanId: orphan.id });`\n\n2. Replace lines 413-415 (after successful adoption):\n   - FROM:\n     ```typescript\n     console.log(\n       `[orphan-reuse] Device ${deviceId.slice(0, 8)}... adopted virgin orphan ${adopted.id} (reuse #${adopted.reuseCount})`\n     );\n     ```\n   - TO:\n     ```typescript\n     logger.info('orphan.adopt', 'Virgin orphan adopted', { \n       deviceId, \n       instanceId: adopted.id, \n       reuseCount: adopted.reuseCount \n     });\n     ```\n\nNote: The reuseCount is available from the returned `adopted` object after the UPDATE...RETURNING query.",
+            "status": "pending",
+            "testStrategy": "1. Test orphan adoption flow and verify log contains strategy='orphan.adopt'\n2. Verify reuseCount is correctly extracted from returned adopted instance\n3. Test logout failure path and verify warning log with orphanId\n4. Verify deviceId context is included in adoption success log",
+            "parentId": "undefined"
+          },
+          {
+            "id": 3,
+            "title": "Replace logs and add timing in cleanupAbusedOrphans (lines 486-496)",
+            "description": "Migrate all console.log/error calls in cleanupAbusedOrphans function to structured logger, add batch start/end logging, and implement timing for the cleanup operation.",
+            "dependencies": [
+              1
+            ],
+            "details": "In src/server/lib/instance.ts, in cleanupAbusedOrphans function:\n\n1. Add batch start log after line 439 (before try block or at start):\n   ```typescript\n   const startTime = Date.now();\n   logger.info('orphan.cleanup', 'Starting cleanup batch');\n   ```\n\n2. Replace line 486-488 (in loop, after successful delete):\n   - FROM: `console.log(\\`[cleanup] Deleted abused orphan ${orphan.id} (token was leaked)\\`);`\n   - TO: `logger.info('orphan.delete', 'Deleted abused orphan', { instanceId: orphan.id });`\n\n3. Replace line 490 (in loop catch block):\n   - FROM: `console.error(\\`[cleanup] Failed to delete ${orphan.id}:\\`, error);`\n   - TO: `logger.error('orphan.delete', 'Failed to delete orphan', error, { instanceId: orphan.id });`\n\n4. Replace line 496 (outer catch block):\n   - FROM: `console.error(\"[cleanup] Error in cleanupAbusedOrphans:\", error);`\n   - TO: `logger.error('orphan.cleanup', 'Cleanup batch error', error);`\n\n5. Add batch completion log before returning deletedCount:\n   ```typescript\n   logger.info('orphan.cleanup', 'Cleanup batch completed', { \n     deletedCount, \n     duration: Date.now() - startTime \n   });\n   ```\n\nThe timing captures total batch duration including all logout calls and database operations.",
+            "status": "pending",
+            "testStrategy": "1. Test cleanup flow with abused orphans and verify batch start/end logs\n2. Verify timing (duration) is captured and logged\n3. Test individual delete success and verify orphan.delete log with instanceId\n4. Test individual delete failure and verify error log with context\n5. Test batch-level error and verify orphan.cleanup error log\n6. Run grep to verify no console.log/warn/error statements remain in instance.ts",
+            "parentId": "undefined"
+          }
+        ],
+        "complexity": 5,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down into: 1) Replace logs in createInstanceForDevice (lines 152-168), 2) Replace logs in getOrReuseVirginOrphan (lines 389-415), 3) Replace logs and add timing in cleanupAbusedOrphans (lines 486-496)"
+      },
+      {
+        "id": "5",
+        "title": "Migrate user.ts Console Logs to Structured Logger",
+        "description": "Replace all console.log calls in src/server/lib/user.ts with the structured logger, adding proper context for user sync, creation, and instance claiming operations.",
+        "details": "In src/server/lib/user.ts:\n\n1. Import logger: `import { logger } from './logger';`\n\n2. In syncUserFromClerk (line 20-145):\n   - Create context logger at start (after getting user data): `const log = logger.withContext({ userId: user?.id });`\n   \n   - Replace line 85-87 (new user created):\n   ```typescript\n   log.info('user.create', 'New user created', { \n     userId: user.id, \n     organizationId: organization.id,\n     email: user.email \n   });\n   ```\n   \n   - Replace line 93-96 (instances claimed for new user):\n   ```typescript\n   log.info('user.claim', 'Instances claimed for new user', { \n     count: claimed,\n     organizationId: organization.id \n   });\n   ```\n   \n   - Replace line 119 (user synced):\n   ```typescript\n   log.info('user.sync', 'User synced from Clerk', { userId: user.id });\n   ```\n   \n   - Replace line 127-129 (instances claimed for existing user):\n   ```typescript\n   log.info('user.claim', 'Instances claimed for existing user', { \n     count: claimed,\n     organizationId: organization.id \n   });\n   ```\n\n3. Optionally add isNew flag to distinguish new vs synced users",
+        "testStrategy": "1. Run user sync flow and verify logs appear with correct structure\n2. Test new user creation and verify user.create log\n3. Test instance claiming and verify user.claim log with count\n4. Verify userId context is present in all logs\n5. Verify no console.log statements remain in user.ts",
+        "priority": "medium",
+        "dependencies": [
+          "1",
+          "2"
+        ],
+        "status": "pending",
+        "subtasks": [],
+        "complexity": 3,
+        "recommendedSubtasks": 0,
+        "expansionPrompt": "Replace 4 console.log statements in syncUserFromClerk with structured logger calls including userId context"
+      },
+      {
+        "id": "6",
+        "title": "Migrate trpc.ts Console Logs to Structured Logger",
+        "description": "Replace console.log/error calls in src/server/api/trpc.ts with the structured logger, adding device creation/reuse logging and enhancing request timing logs with structured context.",
+        "details": "In src/server/api/trpc.ts:\n\n1. Import logger: `import { logger } from '~/server/lib/logger';`\n\n2. In createTRPCContext (line 32-67):\n   - After successful getOrCreateDevice (around line 46-56), add device logging:\n   ```typescript\n   if (device.isNew) {\n     logger.info('device.create', 'New device created', { \n       deviceId: device.id,\n       ipAddress,\n       userAgent \n     });\n   } else {\n     logger.info('device.reuse', 'Device reused', { deviceId: device.id });\n   }\n   ```\n   \n   - Replace line 58: `logger.error('device.create', 'Error creating device', error);`\n\n3. In timingMiddleware (line 117-132):\n   - Create request-scoped logger with available context\n   - Replace line 129: \n   ```typescript\n   logger.info('trpc.request', 'Request completed', {\n     path,\n     duration: end - start,\n   });\n   ```\n   \n4. In authMiddleware (line 149-175):\n   - Replace line 161: `logger.error('auth.error', 'Failed to sync user', error, { clerkUserId });`\n   - Optionally add auth.success log on successful sync\n\nNote: Device context may not be available in all middleware - log what's available.",
+        "testStrategy": "1. Test new device creation and verify device.create log with ipAddress, userAgent\n2. Test returning device and verify device.reuse log\n3. Verify request timing logs appear with path and duration\n4. Test auth failure and verify auth.error log\n5. Verify no console.log/error statements remain in trpc.ts",
+        "priority": "medium",
+        "dependencies": [
+          "1",
+          "2"
+        ],
+        "status": "pending",
+        "subtasks": [],
+        "complexity": 4,
+        "recommendedSubtasks": 0,
+        "expansionPrompt": "Replace console statements in createTRPCContext (line 58), timingMiddleware (line 129), and authMiddleware (line 161) with structured logger"
+      },
+      {
+        "id": "7",
+        "title": "Migrate tRPC Route Handler Error Logs",
+        "description": "Update src/app/api/trpc/[trpc]/route.ts to use structured logger for tRPC error handling in development mode.",
+        "details": "In src/app/api/trpc/[trpc]/route.ts:\n\n1. Import logger: `import { logger } from '~/server/lib/logger';`\n\n2. Replace the onError handler (lines 24-31):\n```typescript\nonError:\n  env.NODE_ENV === 'development'\n    ? ({ path, error }) => {\n        logger.error('trpc.error', 'tRPC procedure failed', error, {\n          path: path ?? '<no-path>',\n        });\n      }\n    : ({ path, error }) => {\n        // In production, still log errors for Sentry\n        logger.error('trpc.error', 'tRPC procedure failed', error, {\n          path: path ?? '<no-path>',\n        });\n      },\n```\n\nNote: Consider whether to log in production as well since Sentry will capture it. The development-only check was originally for console output visibility, but with structured logs going to Sentry, production logging may be desired.",
+        "testStrategy": "1. Trigger a tRPC error in development and verify structured log appears\n2. Verify error includes path and error details\n3. Check that error is captured in Sentry with proper structure",
+        "priority": "low",
+        "dependencies": [
+          "1",
+          "2"
+        ],
+        "status": "pending",
+        "subtasks": [],
+        "complexity": 2,
+        "recommendedSubtasks": 0,
+        "expansionPrompt": "Replace console.error in onError handler with logger.error call in src/app/api/trpc/[trpc]/route.ts"
+      },
+      {
+        "id": "8",
+        "title": "Add Request Context to Logger in tRPC Middleware",
+        "description": "Enhance the tRPC context to include a request-scoped logger with deviceId/userId context that can be passed through procedures automatically.",
+        "details": "In src/server/api/trpc.ts:\n\n1. Modify createTRPCContext to create a context-aware logger:\n```typescript\nimport { logger, type Logger } from '~/server/lib/logger';\n\nexport const createTRPCContext = async (opts: { headers: Headers }) => {\n  // ... existing device creation code ...\n\n  // Create request-scoped logger with device context\n  const log = device \n    ? logger.withContext({ deviceId: device.id })\n    : logger;\n\n  return {\n    db,\n    device,\n    log,  // Add logger to context\n    ...opts,\n  };\n};\n```\n\n2. Update authMiddleware to enhance logger with userId:\n```typescript\nconst authMiddleware = t.middleware(async ({ ctx, next }) => {\n  // ... existing auth code ...\n\n  // Enhance logger with user context\n  const log = ctx.log.withContext({ \n    userId: user.id,\n    organizationId: user.organizationId \n  });\n\n  return next({\n    ctx: {\n      ...ctx,\n      user,\n      clerkUserId,\n      log,  // Override with enhanced logger\n    },\n  });\n});\n```\n\n3. Update demo.ts procedures to use ctx.log instead of creating logger:\n```typescript\nstatus: publicProcedure.query(async ({ ctx }) => {\n  const { device, log } = ctx;\n  // Use log directly - already has deviceId context\n  log.info('instance.resolve', 'Resolving instance');\n});\n```\n\n4. Export Logger type from logger.ts for type annotations",
+        "testStrategy": "1. Verify ctx.log is available in procedures\n2. Test that publicProcedure has deviceId in logs\n3. Test that protectedProcedure has deviceId + userId in logs\n4. Verify context properly chains through withContext calls",
+        "priority": "medium",
+        "dependencies": [
+          "1",
+          "6"
+        ],
+        "status": "pending",
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 0,
+        "expansionPrompt": "Modify createTRPCContext to add request-scoped logger to context, update authMiddleware to enhance logger with user context, update demo.ts to use ctx.log"
+      },
+      {
+        "id": "9",
+        "title": "Add Timing Helpers for WuzAPI Operations",
+        "description": "Wrap all WuzAPI client calls with logger.time() to automatically capture operation duration for performance monitoring.",
+        "details": "Review and ensure all WuzAPI calls are wrapped with timing:\n\n1. In demo.ts status procedure:\n```typescript\n// Wrap getStatus\nconst statusRes = await log.time(\n  'wuzapi.status',\n  'Fetched WuzAPI status',\n  () => client.getStatus(),\n  { instanceId: instance.id }\n);\n\n// Wrap connect\nawait log.time(\n  'wuzapi.connect', \n  'Connected to WuzAPI',\n  () => client.connect(['Message']),\n  { instanceId: instance.id }\n);\n```\n\n2. In demo.ts send procedure:\n```typescript\nconst res = await log.time(\n  'wuzapi.send',\n  'Message sent',\n  () => client.sendText(input.phone, input.message),\n  { instanceId: instance.id, phone: input.phone }\n);\n```\n\n3. In demo.ts disconnect procedure:\n```typescript\nawait log.time(\n  'wuzapi.logout',\n  'Logged out from WuzAPI',\n  () => client.logout(),\n  { instanceId: instance.id }\n);\n```\n\n4. In demo.ts pairing procedure:\n```typescript\nconst res = await log.time(\n  'wuzapi.pairing',\n  'Generated pairing code',\n  () => client.getPairingCode(input.phone),\n  { instanceId: instance.id }\n);\n```\n\n5. In demo.ts validate procedure:\n```typescript\nconst exactRes = await log.time(\n  'wuzapi.check',\n  'Checked number on WhatsApp',\n  () => client.checkNumbers([phone]),\n  { instanceId: instance.id }\n);\n```\n\n6. In instance.ts orphan adoption:\n```typescript\nawait log.time(\n  'wuzapi.logout',\n  'Logout orphan before adoption',\n  () => client.logout(),\n  { orphanId: orphan.id }\n);\n```",
+        "testStrategy": "1. Execute each WuzAPI operation and verify duration field in logs\n2. Check P95 latency values are reasonable (typically 100-2000ms for WuzAPI calls)\n3. Verify failed operations still log duration\n4. Test that Sentry can filter by wuzapi.* actions and show duration metrics",
+        "priority": "medium",
+        "dependencies": [
+          "3",
+          "4"
+        ],
+        "status": "pending",
+        "subtasks": [],
+        "complexity": 4,
+        "recommendedSubtasks": 0,
+        "expansionPrompt": "Wrap all WuzAPI client calls (getStatus, connect, sendText, logout, getPairingCode, checkNumbers) with logger.time() in demo.ts and instance.ts"
+      },
+      {
+        "id": "10",
+        "title": "Validate Sentry Integration and Dashboard Filters",
+        "description": "Verify that structured logs are properly captured by Sentry, test filtering capabilities in the Sentry dashboard, and document the filtering syntax for the team.",
+        "details": "1. Verify Sentry configuration in sentry.server.config.ts:\n   - Confirm consoleLoggingIntegration is capturing all levels\n   - Ensure JSON logs are parsed correctly\n\n2. Test log capture in Sentry dashboard:\n   - Trigger various actions (demo.status, orphan.adopt, user.create, etc.)\n   - Navigate to Sentry Logs/Issues\n   - Verify structured fields are searchable\n\n3. Test these filter queries in Sentry:\n   - `action:demo.status AND deviceId:*` - filter by action and device\n   - `action:orphan.* AND duration:>1000` - slow orphan operations\n   - `level:error AND action:wuzapi.*` - WuzAPI errors\n   - `userId:* AND action:demo.send` - user message sends\n   - `action:instance.create` - new instance creation\n\n4. Verify breadcrumbs show event trail before errors\n\n5. Document findings:\n   - Create a section in project docs about log filtering\n   - List available actions and their fields\n   - Provide example queries for common debugging scenarios\n\n6. Optional: Set up Sentry alerts for critical errors:\n   - Alert on high error rate for wuzapi.* actions\n   - Alert on orphan cleanup failures",
+        "testStrategy": "1. Manually trigger each log action type\n2. Verify each appears in Sentry with correct structure\n3. Test at least 5 filter queries work correctly\n4. Verify breadcrumbs appear before error events\n5. Check that duration metrics can be graphed in Sentry\n6. Confirm deviceId, userId, instanceId are filterable",
+        "priority": "medium",
+        "dependencies": [
+          "3",
+          "4",
+          "5",
+          "6"
+        ],
+        "status": "pending",
+        "subtasks": [],
+        "complexity": 3,
+        "recommendedSubtasks": 0,
+        "expansionPrompt": "Trigger all log action types, verify Sentry capture with structured fields, test filter queries, document findings"
+      },
+      {
+        "id": "11",
+        "title": "Final Cleanup - Remove All Remaining Console Statements",
+        "description": "Perform a final audit to ensure all console.log/warn/error statements are replaced with structured logger calls, and add ESLint rule to prevent future console usage.",
+        "details": "1. Run grep to find remaining console statements:\n   ```bash\n   grep -r 'console\\.' src/server --include='*.ts'\n   ```\n\n2. Expected files that should have NO console statements after migration:\n   - src/server/api/routers/demo.ts\n   - src/server/lib/instance.ts\n   - src/server/lib/user.ts\n   - src/server/api/trpc.ts\n   - src/app/api/trpc/[trpc]/route.ts\n   - src/server/lib/device.ts (add logging if needed)\n\n3. Replace any remaining console statements found\n\n4. Add ESLint rule to prevent future console usage (optional but recommended):\n   In .eslintrc.js or eslint.config.js:\n   ```javascript\n   rules: {\n     'no-console': ['error', { allow: [] }],\n   }\n   ```\n   \n   Or for files that legitimately need console (like logger.ts):\n   ```javascript\n   overrides: [\n     {\n       files: ['src/server/lib/logger.ts'],\n       rules: {\n         'no-console': 'off',\n       },\n     },\n   ],\n   ```\n\n5. Run linter and fix any new violations\n\n6. Update PR checklist or contribution guide to mention structured logging requirement",
+        "testStrategy": "1. Run grep to verify zero console statements outside logger.ts\n2. Run ESLint and verify no-console rule triggers on new console usage\n3. Build project to ensure no TypeScript errors\n4. Run test suite to ensure all tests pass\n5. Manual smoke test of main user flows",
+        "priority": "low",
+        "dependencies": [
+          "3",
+          "4",
+          "5",
+          "6",
+          "7"
+        ],
+        "status": "pending",
+        "subtasks": [],
+        "complexity": 3,
+        "recommendedSubtasks": 0,
+        "expansionPrompt": "Run grep to find remaining console statements, replace any found, add ESLint no-console rule with exception for logger.ts"
+      }
+    ],
+    "metadata": {
+      "version": "1.0.0",
+      "lastModified": "2025-12-06T14:28:48.208Z",
+      "taskCount": 11,
+      "completedCount": 0,
+      "tags": [
+        "master"
+      ]
+    }
+  }
+}
