@@ -6,12 +6,14 @@ import type { ValidationResult } from "~/server/api/routers/demo";
 
 const POLLING_INTERVAL_MS = 2000;
 const STORAGE_KEY = "livchat_demo_state";
+const STORAGE_TTL_MS = 24 * 60 * 60 * 1000; // 24 horas
 
-// Estado cacheado no localStorage
+// Estado cacheado no localStorage com TTL
 interface CachedState {
   loggedIn: boolean;
   jid?: string;
   apiKey?: string;
+  expiresAt: number; // timestamp de expiração
 }
 
 // Funções de localStorage (safe para SSR)
@@ -20,16 +22,29 @@ function getStoredState(): CachedState | null {
   try {
     const cached = localStorage.getItem(STORAGE_KEY);
     if (!cached) return null;
-    return JSON.parse(cached) as CachedState;
+
+    const state = JSON.parse(cached) as CachedState;
+
+    // Verificar expiração (segurança extra)
+    if (state.expiresAt && state.expiresAt < Date.now()) {
+      clearStoredState();
+      return null;
+    }
+
+    return state;
   } catch {
     return null;
   }
 }
 
-function setStoredState(state: CachedState): void {
+function setStoredState(state: Omit<CachedState, "expiresAt">): void {
   if (typeof window === "undefined") return;
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    const stateWithTTL: CachedState = {
+      ...state,
+      expiresAt: Date.now() + STORAGE_TTL_MS, // Expira em 24h
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(stateWithTTL));
   } catch {
     // Ignore storage errors
   }
@@ -51,8 +66,14 @@ export interface UseDemoReturn {
   qrCode: string | undefined;
   jid: string | undefined;
   apiKey: string | undefined;
+  instanceId: string | undefined;
   isLoading: boolean;
   isError: boolean;
+
+  // Message usage
+  messagesUsed: number;
+  messagesLimit: number;
+  messagesRemaining: number;
 
   // Mutations
   pairing: {
@@ -121,13 +142,17 @@ export function useDemo(): UseDemoReturn {
   // Sincroniza localStorage quando backend retorna dados
   useEffect(() => {
     if (statusQuery.data) {
-      const newState: CachedState = {
+      const newState = {
         loggedIn: statusQuery.data.loggedIn,
         jid: statusQuery.data.jid,
         apiKey: statusQuery.data.apiKey,
       };
       setStoredState(newState);
-      setOptimisticState(newState);
+      // setOptimisticState precisa do expiresAt para o tipo CachedState
+      setOptimisticState({
+        ...newState,
+        expiresAt: Date.now() + STORAGE_TTL_MS,
+      });
     }
   }, [statusQuery.data]);
 
@@ -165,8 +190,14 @@ export function useDemo(): UseDemoReturn {
     qrCode: statusQuery.data?.qrCode,
     jid,
     apiKey, // Usa cache otimista para evitar flash
+    instanceId: statusQuery.data?.instanceId,
     isLoading: statusQuery.isLoading && !optimisticState, // Só mostra loading se não tem cache
     isError: statusQuery.isError,
+
+    // Message usage
+    messagesUsed: statusQuery.data?.messagesUsed ?? 0,
+    messagesLimit: statusQuery.data?.messagesLimit ?? 50,
+    messagesRemaining: statusQuery.data?.messagesRemaining ?? 50,
 
     // Pairing mutation
     pairing: {

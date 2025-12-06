@@ -3,6 +3,11 @@
 // ===========================================
 
 export const APP_NAME = "LivChat.ai";
+
+// Device & Session
+export const DEVICE_COOKIE_NAME = "livchat_device";
+export const DEVICE_COOKIE_MAX_AGE = 30 * 24 * 60 * 60; // 30 dias em segundos
+export const DEMO_MESSAGE_LIMIT = 50;
 export const APP_TAGLINE = "Envie fácil. Escale rápido.";
 export const APP_DESCRIPTION =
   "WhatsApp API para desenvolvedores, martech e AI agents.";

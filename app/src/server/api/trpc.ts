@@ -6,11 +6,16 @@
  * TL;DR - This is where all the tRPC server stuff is created and plugged in. The pieces you will
  * need to use are documented accordingly near the end.
  */
-import { initTRPC } from "@trpc/server";
+import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import { ZodError } from "zod";
+import { cookies } from "next/headers";
+import { auth } from "@clerk/nextjs/server";
 
 import { db } from "~/server/db";
+import { getOrCreateDevice, type DeviceInfo } from "~/server/lib/device";
+import { syncUserFromClerk, type SyncedUser } from "~/server/lib/user";
+import { DEVICE_COOKIE_NAME, DEVICE_COOKIE_MAX_AGE } from "~/lib/constants";
 
 /**
  * 1. CONTEXT
@@ -25,8 +30,38 @@ import { db } from "~/server/db";
  * @see https://trpc.io/docs/server/context
  */
 export const createTRPCContext = async (opts: { headers: Headers }) => {
+  const cookieStore = await cookies();
+  const existingToken = cookieStore.get(DEVICE_COOKIE_NAME)?.value;
+
+  // Extrair IP e User-Agent
+  const ipAddress =
+    opts.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+    opts.headers.get("x-real-ip") ??
+    "unknown";
+  const userAgent = opts.headers.get("user-agent") ?? undefined;
+
+  // Buscar ou criar device
+  let device: DeviceInfo | null = null;
+  try {
+    device = await getOrCreateDevice(existingToken, ipAddress, userAgent);
+
+    // Se novo device, setar cookie
+    if (device.isNew) {
+      cookieStore.set(DEVICE_COOKIE_NAME, device.token, {
+        path: "/",
+        maxAge: DEVICE_COOKIE_MAX_AGE,
+        sameSite: "lax",
+        httpOnly: false, // Precisa ser acessível no client
+      });
+    }
+  } catch (error) {
+    console.error("Error creating device:", error);
+    // Não bloquear request se device falhar
+  }
+
   return {
     db,
+    device,
     ...opts,
   };
 };
@@ -104,3 +139,47 @@ const timingMiddleware = t.middleware(async ({ next, path }) => {
  * are logged in.
  */
 export const publicProcedure = t.procedure.use(timingMiddleware);
+
+/**
+ * Auth middleware
+ *
+ * Validates Clerk auth and syncs user to our database (on-demand).
+ * Also claims any instances from the device to the user's organization.
+ */
+const authMiddleware = t.middleware(async ({ ctx, next }) => {
+  const { userId: clerkUserId } = await auth();
+
+  if (!clerkUserId) {
+    throw new TRPCError({ code: "UNAUTHORIZED" });
+  }
+
+  // Sync user on-demand (cria se não existe, claim instances do device)
+  let user: SyncedUser;
+  try {
+    user = await syncUserFromClerk(clerkUserId, ctx.device?.id);
+  } catch (error) {
+    console.error("[auth] Failed to sync user:", error);
+    throw new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message: "Failed to sync user account",
+    });
+  }
+
+  return next({
+    ctx: {
+      ...ctx,
+      user,
+      clerkUserId,
+    },
+  });
+});
+
+/**
+ * Protected (authenticated) procedure
+ *
+ * Requires Clerk authentication and syncs user to our database.
+ * Use this for any routes that require a logged-in user.
+ */
+export const protectedProcedure = t.procedure
+  .use(timingMiddleware)
+  .use(authMiddleware);
