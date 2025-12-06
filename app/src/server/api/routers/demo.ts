@@ -12,6 +12,7 @@ import {
   cleanupAbusedOrphans,
 } from "~/server/lib/instance";
 import { DEMO_MESSAGE_LIMIT } from "~/lib/constants";
+import { LogActions } from "~/server/lib/logger";
 
 // ============================================
 // VALIDATION TYPES & HELPERS
@@ -77,7 +78,7 @@ export const demoRouter = createTRPCRouter({
    * Cria instance automaticamente se não existir
    */
   status: publicProcedure.query(async ({ ctx }) => {
-    const { device } = ctx;
+    const { device, log } = ctx;
 
     if (!device) {
       throw new TRPCError({
@@ -101,9 +102,10 @@ export const demoRouter = createTRPCRouter({
       instanceData = await getOrReuseVirginOrphan(device.id);
 
       if (instanceData) {
-        console.log(
-          `[demo.status] Reused virgin orphan for device ${device.id.slice(0, 8)}...`
-        );
+        log.info(LogActions.INSTANCE_RESOLVE, "Reused virgin orphan", {
+          strategy: "orphan_reuse",
+          instanceId: instanceData.instance.id,
+        });
       }
     }
 
@@ -111,11 +113,11 @@ export const demoRouter = createTRPCRouter({
     if (!instanceData) {
       try {
         instanceData = await createInstanceForDevice(device.id);
-        console.log(
-          `[demo.status] Created NEW instance for device ${device.id.slice(0, 8)}...`
-        );
+        log.info(LogActions.INSTANCE_CREATE, "Created new instance", {
+          instanceId: instanceData.instance.id,
+        });
       } catch (error) {
-        console.error("[demo.status] Failed to create instance:", error);
+        log.error(LogActions.INSTANCE_CREATE, "Failed to create instance", error);
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Falha ao criar instância WhatsApp",
@@ -127,15 +129,33 @@ export const demoRouter = createTRPCRouter({
 
     try {
       // 5. Buscar status no WuzAPI (com conexão se necessário)
-      let statusRes = await client.getStatus();
+      let statusRes = await log.time(
+        LogActions.WUZAPI_STATUS,
+        "Fetched WuzAPI status",
+        () => client.getStatus(),
+        { instanceId: instance.id }
+      );
 
       if (!statusRes.data.connected) {
         try {
-          await client.connect(["Message"]);
+          await log.time(
+            LogActions.WUZAPI_CONNECT,
+            "Connected to WuzAPI",
+            () => client.connect(["Message"]),
+            { instanceId: instance.id }
+          );
           await new Promise((resolve) => setTimeout(resolve, 2000));
-          statusRes = await client.getStatus();
+          statusRes = await log.time(
+            LogActions.WUZAPI_STATUS,
+            "Fetched WuzAPI status after connect",
+            () => client.getStatus(),
+            { instanceId: instance.id }
+          );
         } catch (connectError) {
-          console.warn("[demo.status] Failed to connect:", connectError);
+          log.warn(LogActions.WUZAPI_CONNECT, "Failed to connect", {
+            instanceId: instance.id,
+            error: connectError instanceof Error ? connectError.message : String(connectError),
+          });
         }
       }
 
@@ -173,19 +193,19 @@ export const demoRouter = createTRPCRouter({
         cleanupAbusedOrphans()
           .then((deleted) => {
             if (deleted > 0) {
-              console.log(
-                `[demo.status] Cleaned up ${deleted} abused orphans in background`
-              );
+              log.info(LogActions.ORPHAN_CLEANUP, "Background cleanup completed", {
+                deleted,
+              });
             }
           })
           .catch((err) => {
-            console.error("[demo.status] Background cleanup error:", err);
+            log.error(LogActions.ORPHAN_CLEANUP, "Background cleanup error", err);
           });
       });
 
       return response;
     } catch (error) {
-      console.error("[demo.status] Error fetching status:", error);
+      log.error(LogActions.DEMO_STATUS, "Error fetching status", error);
 
       // Retorna estado desconectado em caso de erro
       return {
@@ -212,7 +232,7 @@ export const demoRouter = createTRPCRouter({
   pairing: publicProcedure
     .input(z.object({ phone: phoneSchema }))
     .mutation(async ({ ctx, input }) => {
-      const { device } = ctx;
+      const { device, log } = ctx;
 
       if (!device) {
         throw new TRPCError({
@@ -234,10 +254,15 @@ export const demoRouter = createTRPCRouter({
         });
       }
 
-      const { client } = instanceData;
+      const { instance, client } = instanceData;
 
       try {
-        const res = await client.getPairingCode(input.phone);
+        const res = await log.time(
+          LogActions.WUZAPI_PAIRING,
+          "Generated pairing code",
+          () => client.getPairingCode(input.phone),
+          { instanceId: instance.id }
+        );
 
         return {
           success: true,
@@ -261,7 +286,7 @@ export const demoRouter = createTRPCRouter({
   validate: publicProcedure
     .input(z.object({ phone: phoneSchema }))
     .mutation(async ({ ctx, input }): Promise<ValidationResult> => {
-      const { device } = ctx;
+      const { device, log } = ctx;
 
       if (!device) {
         throw new TRPCError({
@@ -283,12 +308,17 @@ export const demoRouter = createTRPCRouter({
         });
       }
 
-      const { client } = instanceData;
+      const { instance, client } = instanceData;
       const phone = input.phone;
 
       try {
         // PASSO 1: Verificar o número EXATAMENTE como digitado
-        const exactRes = await client.checkNumbers([phone]);
+        const exactRes = await log.time(
+          LogActions.WUZAPI_CHECK,
+          "Checked number on WhatsApp",
+          () => client.checkNumbers([phone]),
+          { instanceId: instance.id }
+        );
         const exactResult = exactRes.data.Users?.[0];
 
         if (exactResult?.IsInWhatsapp) {
@@ -302,7 +332,12 @@ export const demoRouter = createTRPCRouter({
         // PASSO 2: Se BR, tentar variante
         if (isBrazilianNumber(phone)) {
           const variant = getAlternativeVariant(phone);
-          const variantRes = await client.checkNumbers([variant]);
+          const variantRes = await log.time(
+            LogActions.WUZAPI_CHECK,
+            "Checked variant number on WhatsApp",
+            () => client.checkNumbers([variant]),
+            { instanceId: instance.id }
+          );
           const variantResult = variantRes.data.Users?.[0];
 
           if (variantResult?.IsInWhatsapp) {
@@ -344,7 +379,7 @@ export const demoRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const { device } = ctx;
+      const { device, log } = ctx;
 
       if (!device) {
         throw new TRPCError({
@@ -375,7 +410,12 @@ export const demoRouter = createTRPCRouter({
       }
 
       // Verificar se está logado
-      const status = await client.getStatus();
+      const status = await log.time(
+        LogActions.WUZAPI_STATUS,
+        "Checked login status before send",
+        () => client.getStatus(),
+        { instanceId: instance.id }
+      );
       if (!status.data.loggedIn) {
         throw new TRPCError({
           code: "PRECONDITION_FAILED",
@@ -384,7 +424,12 @@ export const demoRouter = createTRPCRouter({
       }
 
       try {
-        const res = await client.sendText(input.phone, input.message);
+        const res = await log.time(
+          LogActions.WUZAPI_SEND,
+          "Message sent",
+          () => client.sendText(input.phone, input.message),
+          { instanceId: instance.id, phone: input.phone }
+        );
 
         // Incrementar contador
         const newUsage = await incrementMessageCount(instance.id);
@@ -409,7 +454,7 @@ export const demoRouter = createTRPCRouter({
    * Desconecta (logout) do WhatsApp
    */
   disconnect: publicProcedure.mutation(async ({ ctx }) => {
-    const { device } = ctx;
+    const { device, log } = ctx;
 
     if (!device) {
       throw new TRPCError({
@@ -431,7 +476,12 @@ export const demoRouter = createTRPCRouter({
     const { instance, client } = instanceData;
 
     try {
-      await client.logout();
+      await log.time(
+        LogActions.WUZAPI_LOGOUT,
+        "Logged out from WuzAPI",
+        () => client.logout(),
+        { instanceId: instance.id }
+      );
 
       // Atualizar status no banco
       await syncInstanceStatus(instance.id, {

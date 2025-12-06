@@ -16,6 +16,7 @@ import { db } from "~/server/db";
 import { getOrCreateDevice, type DeviceInfo } from "~/server/lib/device";
 import { syncUserFromClerk, type SyncedUser } from "~/server/lib/user";
 import { DEVICE_COOKIE_NAME, DEVICE_COOKIE_MAX_AGE } from "~/lib/constants";
+import { logger, LogActions, type Logger } from "~/server/lib/logger";
 
 /**
  * 1. CONTEXT
@@ -55,13 +56,19 @@ export const createTRPCContext = async (opts: { headers: Headers }) => {
       });
     }
   } catch (error) {
-    console.error("Error creating device:", error);
+    logger.error(LogActions.DEVICE_CREATE, "Error creating device", error);
     // Não bloquear request se device falhar
   }
+
+  // Create request-scoped logger with device context
+  const log: Logger = device
+    ? logger.withContext({ deviceId: device.id })
+    : logger;
 
   return {
     db,
     device,
+    log,
     ...opts,
   };
 };
@@ -126,7 +133,10 @@ const timingMiddleware = t.middleware(async ({ next, path }) => {
   const result = await next();
 
   const end = Date.now();
-  console.log(`[TRPC] ${path} took ${end - start}ms to execute`);
+  logger.info(LogActions.TRPC_REQUEST, "Request completed", {
+    path,
+    duration: end - start,
+  });
 
   return result;
 });
@@ -158,18 +168,27 @@ const authMiddleware = t.middleware(async ({ ctx, next }) => {
   try {
     user = await syncUserFromClerk(clerkUserId, ctx.device?.id);
   } catch (error) {
-    console.error("[auth] Failed to sync user:", error);
+    logger.error(LogActions.AUTH_ERROR, "Failed to sync user", error, {
+      clerkUserId,
+    });
     throw new TRPCError({
       code: "INTERNAL_SERVER_ERROR",
       message: "Failed to sync user account",
     });
   }
 
+  // Enhance logger with user context
+  const log = ctx.log.withContext({
+    userId: user.id,
+    organizationId: user.organizationId,
+  });
+
   return next({
     ctx: {
       ...ctx,
       user,
       clerkUserId,
+      log,
     },
   });
 });

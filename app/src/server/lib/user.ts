@@ -3,6 +3,7 @@ import { users, organizations } from "~/server/db/schema";
 import { eq } from "drizzle-orm";
 import { claimDeviceInstances } from "./instance";
 import { clerkClient } from "@clerk/nextjs/server";
+import { logger, LogActions } from "./logger";
 
 export interface SyncedUser {
   id: string;
@@ -82,17 +83,21 @@ export async function syncUserFromClerk(
     user = result.user;
     organization = result.organization;
 
-    console.log(
-      `[user] Created new user ${user.id} with org ${organization.id}`
-    );
+    logger.info(LogActions.USER_CREATE, "New user created", {
+      userId: user.id,
+      organizationId: organization.id,
+      email: user.email,
+    });
 
     // Claim instances do device (se fornecido)
     if (deviceId && organization) {
       const claimed = await claimDeviceInstances(deviceId, organization.id);
       if (claimed > 0) {
-        console.log(
-          `[user] Claimed ${claimed} instances for new user ${user.id}`
-        );
+        logger.info(LogActions.USER_CLAIM, "Instances claimed for new user", {
+          userId: user.id,
+          count: claimed,
+          organizationId: organization.id,
+        });
       }
     }
   } else {
@@ -116,7 +121,9 @@ export async function syncUserFromClerk(
 
       if (updatedUser) {
         user = updatedUser;
-        console.log(`[user] Synced user ${user.id} from Clerk`);
+        logger.info(LogActions.USER_SYNC, "User synced from Clerk", {
+          userId: user.id,
+        });
       }
     }
 
@@ -124,9 +131,11 @@ export async function syncUserFromClerk(
     if (deviceId && organization) {
       const claimed = await claimDeviceInstances(deviceId, organization.id);
       if (claimed > 0) {
-        console.log(
-          `[user] Claimed ${claimed} instances for existing user ${user.id}`
-        );
+        logger.info(LogActions.USER_CLAIM, "Instances claimed for existing user", {
+          userId: user.id,
+          count: claimed,
+          organizationId: organization.id,
+        });
       }
     }
   }

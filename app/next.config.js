@@ -4,11 +4,13 @@
  */
 import "./src/env.js";
 import { withSentryConfig } from "@sentry/nextjs";
+import { withAxiom } from "next-axiom";
 
 /** @type {import("next").NextConfig} */
 const config = {};
 
-export default withSentryConfig(config, {
+// Combine Axiom + Sentry (Axiom wraps the base config, Sentry wraps everything)
+export default withSentryConfig(withAxiom(config), {
   // For all available options, see:
   // https://www.npmjs.com/package/@sentry/webpack-plugin#options
 

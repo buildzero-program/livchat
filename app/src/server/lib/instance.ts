@@ -4,6 +4,7 @@ import { eq, and, isNull, isNotNull, lt, ne, or, asc, sql } from "drizzle-orm";
 import { WuzAPIClient, createWuzAPIInstance } from "./wuzapi";
 import { env } from "~/env";
 import { DEMO_MESSAGE_LIMIT } from "~/lib/constants";
+import { logger, LogActions } from "./logger";
 
 const WUZAPI_BASE_URL = env.WUZAPI_URL;
 const WUZAPI_ADMIN_TOKEN = env.WUZAPI_ADMIN_TOKEN;
@@ -149,7 +150,7 @@ export async function createInstanceForDevice(
       "Message" // events
     );
   } catch (error) {
-    console.error("Failed to create WuzAPI instance:", error);
+    logger.error(LogActions.INSTANCE_CREATE, "Failed to create WuzAPI instance", error);
     throw new Error("Failed to create WhatsApp instance");
   }
 
@@ -386,7 +387,10 @@ export async function getOrReuseVirginOrphan(
       await client.logout();
     } catch (error) {
       // Ignorar erro (pode já estar desconectada)
-      console.warn(`[orphan-reuse] Logout failed for ${orphan.id}:`, error);
+      logger.warn(LogActions.ORPHAN_ADOPT, "Logout failed during orphan adoption", {
+        instanceId: orphan.id,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
 
     // Adotar a órfã
@@ -410,9 +414,11 @@ export async function getOrReuseVirginOrphan(
       return null; // Race condition - outra transação pegou
     }
 
-    console.log(
-      `[orphan-reuse] Device ${deviceId.slice(0, 8)}... adopted virgin orphan ${adopted.id} (reuse #${adopted.reuseCount})`
-    );
+    logger.info(LogActions.ORPHAN_ADOPT, "Device adopted virgin orphan", {
+      deviceId: deviceId.slice(0, 8),
+      instanceId: adopted.id,
+      reuseCount: adopted.reuseCount,
+    });
 
     const client = new WuzAPIClient({
       baseUrl: WUZAPI_BASE_URL,
@@ -483,17 +489,20 @@ export async function cleanupAbusedOrphans(): Promise<number> {
         await db.delete(instances).where(eq(instances.id, orphan.id));
         deletedCount++;
 
-        console.log(
-          `[cleanup] Deleted abused orphan ${orphan.id} (token was leaked)`
-        );
+        logger.info(LogActions.ORPHAN_DELETE, "Deleted abused orphan", {
+          instanceId: orphan.id,
+          reason: "token_leaked",
+        });
       } catch (error) {
-        console.error(`[cleanup] Failed to delete ${orphan.id}:`, error);
+        logger.error(LogActions.ORPHAN_DELETE, "Failed to delete orphan", error, {
+          instanceId: orphan.id,
+        });
       }
     }
 
     return deletedCount;
   } catch (error) {
-    console.error("[cleanup] Error in cleanupAbusedOrphans:", error);
+    logger.error(LogActions.ORPHAN_CLEANUP, "Error in cleanupAbusedOrphans", error);
     return 0;
   }
 }
