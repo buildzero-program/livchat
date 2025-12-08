@@ -121,6 +121,12 @@ export const createTRPCRouter = t.router;
  * You can remove this if you don't like it, but it can help catch unwanted waterfalls by simulating
  * network latency that would occur in production but not in local development.
  */
+// Endpoints that are called frequently (polling) - use debug level
+const POLLING_ENDPOINTS = new Set([
+  "whatsapp.status",
+  "whatsapp.list",
+]);
+
 const timingMiddleware = t.middleware(async ({ next, path }) => {
   const start = Date.now();
 
@@ -133,10 +139,14 @@ const timingMiddleware = t.middleware(async ({ next, path }) => {
   const result = await next();
 
   const end = Date.now();
-  logger.info(LogActions.TRPC_REQUEST, "Request completed", {
-    path,
-    duration: end - start,
-  });
+  const duration = end - start;
+
+  // Use debug level for polling endpoints, info for others
+  if (POLLING_ENDPOINTS.has(path)) {
+    logger.debug(LogActions.TRPC_REQUEST, `${path} (${duration}ms)`, { path, duration });
+  } else {
+    logger.info(LogActions.TRPC_REQUEST, "Request completed", { path, duration });
+  }
 
   return result;
 });

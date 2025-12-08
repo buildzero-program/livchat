@@ -3,8 +3,74 @@
  *
  * Sends structured logs to Axiom with filterable fields.
  * Falls back to console.log in development if Axiom is not configured.
+ *
+ * Smart Logging Features:
+ * 1. Log Levels (debug/info/warn/error)
+ * 2. State Change Detection - only logs when state changes
+ * 3. Sampling/Heartbeat - logs every N occurrences with count
+ * 4. Silent Success - always logs errors, success is configurable
  */
 import { Logger as AxiomLogger } from "next-axiom";
+
+// ============================================================================
+// Smart Logging: State & Sampling Tracking
+// ============================================================================
+
+interface SamplingState {
+  count: number;
+  lastLoggedAt: number;
+  lastState: unknown;
+}
+
+// Global tracking for sampling and state changes (per action key)
+const samplingTracker = new Map<string, SamplingState>();
+
+const SAMPLING_INTERVAL = 10; // Log every N occurrences
+const SAMPLING_TIME_MS = 30000; // Or log if 30s passed since last log
+
+function getSamplingKey(action: string, contextId?: string): string {
+  return contextId ? `${action}:${contextId}` : action;
+}
+
+function shouldLogSampled(key: string): { shouldLog: boolean; count: number; elapsed: number } {
+  const now = Date.now();
+  const state = samplingTracker.get(key) ?? { count: 0, lastLoggedAt: now, lastState: null };
+
+  state.count++;
+
+  const elapsed = now - state.lastLoggedAt;
+  const shouldLog = state.count >= SAMPLING_INTERVAL || elapsed >= SAMPLING_TIME_MS;
+
+  if (shouldLog) {
+    const result = { shouldLog: true, count: state.count, elapsed };
+    state.count = 0;
+    state.lastLoggedAt = now;
+    samplingTracker.set(key, state);
+    return result;
+  }
+
+  samplingTracker.set(key, state);
+  return { shouldLog: false, count: state.count, elapsed };
+}
+
+function checkStateChange(key: string, newState: unknown): { changed: boolean; previous: unknown } {
+  const state = samplingTracker.get(key);
+  const previous = state?.lastState;
+
+  // Deep compare for objects, simple compare for primitives
+  const stateStr = JSON.stringify(newState);
+  const prevStr = JSON.stringify(previous);
+  const changed = stateStr !== prevStr;
+
+  if (changed && state) {
+    state.lastState = newState;
+    samplingTracker.set(key, state);
+  } else if (changed) {
+    samplingTracker.set(key, { count: 0, lastLoggedAt: Date.now(), lastState: newState });
+  }
+
+  return { changed, previous };
+}
 
 export interface LogContext {
   deviceId?: string;
@@ -36,36 +102,62 @@ function getAxiomLogger(): AxiomLogger {
 }
 
 /**
+ * Format duration in human-readable format
+ */
+function formatDuration(ms?: number): string {
+  if (ms === undefined) return "";
+  if (ms < 1000) return `${ms}ms`;
+  return `${(ms / 1000).toFixed(1)}s`;
+}
+
+/**
  * Emit a log payload to Axiom with structured fields.
- * Also outputs to console for local dev and Sentry capture.
+ * Console output: pretty in dev (info+), JSON in prod/test.
+ *
+ * In dev: debug level is suppressed from console (still sent to Axiom)
+ * This keeps the terminal clean during polling operations.
  */
 function emit(payload: LogPayload): void {
-  const { level, message, ...fields } = payload;
+  const { level, action, message, duration, timestamp, ...rest } = payload;
 
-  // Always output to console (JSON for Sentry + test compatibility)
-  console.log(JSON.stringify(payload));
+  // Dev: human-readable one-liner (info, warn, error only - NOT debug)
+  // Prod/Test: JSON for Sentry + test compatibility
+  const isDev = process.env.NODE_ENV === "development";
+  if (isDev && level !== "debug") {
+    const dur = duration ? ` (${formatDuration(duration)})` : "";
+    const levelIcon = { debug: "🔍", info: "→", warn: "⚠", error: "✖" }[level];
+    console.log(`${levelIcon} ${action} | ${message}${dur}`);
+  }
+  // Always output JSON in prod (for Sentry)
+  if (!isDev) {
+    console.log(JSON.stringify(payload));
+  }
 
-  // Send to Axiom with structured fields (filterable in production)
-  try {
-    const axiom = getAxiomLogger();
-    switch (level) {
-      case "debug":
-        axiom.debug(message, fields);
-        break;
-      case "info":
-        axiom.info(message, fields);
-        break;
-      case "warn":
-        axiom.warn(message, fields);
-        break;
-      case "error":
-        axiom.error(message, fields);
-        break;
+  // Send to Axiom with structured fields (filterable)
+  // Skip in test environment to avoid fetch errors
+  const isTest = process.env.NODE_ENV === "test" || !process.env.NODE_ENV;
+  if (!isTest) {
+    try {
+      const axiom = getAxiomLogger();
+      const fields = { action, duration, timestamp, ...rest };
+      switch (level) {
+        case "debug":
+          axiom.debug(message, fields);
+          break;
+        case "info":
+          axiom.info(message, fields);
+          break;
+        case "warn":
+          axiom.warn(message, fields);
+          break;
+        case "error":
+          axiom.error(message, fields);
+          break;
+      }
+      axiom.flush().catch(() => {});
+    } catch {
+      // Axiom not configured
     }
-    // Flush immediately to send to Axiom (server-side requirement)
-    axiom.flush().catch(() => {});
-  } catch {
-    // Axiom not configured, console.log already done above
   }
 }
 
@@ -112,6 +204,154 @@ export class Logger {
       const result = await fn();
       const duration = Date.now() - start;
       this.log("info", action, message, undefined, { ...data, duration });
+      return result;
+    } catch (error) {
+      const duration = Date.now() - start;
+      // Show actual error message instead of success message
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.log("error", action, `Failed: ${errorMsg}`, error, { ...data, duration });
+      throw error;
+    }
+  }
+
+  // ==========================================================================
+  // Smart Logging Methods
+  // ==========================================================================
+
+  /**
+   * Sampled timed operation - logs every N occurrences OR every X seconds.
+   * Always logs errors. Shows count of operations since last log.
+   *
+   * Output: "→ wuzapi.status | Heartbeat OK (10 checks in 20s, avg 320ms)"
+   */
+  async timeSampled<T>(
+    action: string,
+    message: string,
+    fn: () => Promise<T>,
+    data?: Record<string, unknown>,
+  ): Promise<T> {
+    const key = getSamplingKey(action, this.context.instanceId ?? this.context.deviceId);
+    const start = Date.now();
+
+    try {
+      const result = await fn();
+      const duration = Date.now() - start;
+
+      const { shouldLog, count, elapsed } = shouldLogSampled(key);
+      if (shouldLog) {
+        const elapsedSec = Math.round(elapsed / 1000);
+        const avgDuration = Math.round(duration); // Could track avg, but using last for simplicity
+        this.log("debug", action, `${message} (${count} checks in ${elapsedSec}s, ${avgDuration}ms)`, undefined, {
+          ...data,
+          duration,
+          sampledCount: count,
+          sampledElapsed: elapsed,
+        });
+      }
+
+      return result;
+    } catch (error) {
+      const duration = Date.now() - start;
+      this.log("error", action, message, error, { ...data, duration });
+      throw error;
+    }
+  }
+
+  /**
+   * State-change timed operation - only logs when the extracted state changes.
+   * Always logs errors. Use for polling where you only care about transitions.
+   *
+   * @param extractState - Function to extract comparable state from result
+   *
+   * Output: "→ wuzapi.status | State changed: connected false→true"
+   */
+  async timeStateChange<T>(
+    action: string,
+    message: string,
+    fn: () => Promise<T>,
+    extractState: (result: T) => unknown,
+    data?: Record<string, unknown>,
+  ): Promise<T> {
+    const key = getSamplingKey(action, this.context.instanceId ?? this.context.deviceId);
+    const start = Date.now();
+
+    try {
+      const result = await fn();
+      const duration = Date.now() - start;
+      const newState = extractState(result);
+
+      const { changed, previous } = checkStateChange(key, newState);
+      if (changed) {
+        const prevStr = previous !== undefined ? JSON.stringify(previous) : "null";
+        const newStr = JSON.stringify(newState);
+        this.log("info", action, `${message}: ${prevStr}→${newStr}`, undefined, {
+          ...data,
+          duration,
+          previousState: previous,
+          newState,
+        });
+      }
+
+      return result;
+    } catch (error) {
+      const duration = Date.now() - start;
+      this.log("error", action, message, error, { ...data, duration });
+      throw error;
+    }
+  }
+
+  /**
+   * Smart timed operation - combines sampling + state change detection.
+   * - Logs immediately on state change (info level)
+   * - Logs heartbeat every N checks or X seconds (debug level)
+   * - Always logs errors (error level)
+   *
+   * Best for polling endpoints like status checks.
+   *
+   * @param extractState - Function to extract state to track for changes
+   */
+  async timeSmart<T>(
+    action: string,
+    message: string,
+    fn: () => Promise<T>,
+    extractState: (result: T) => unknown,
+    data?: Record<string, unknown>,
+  ): Promise<T> {
+    const key = getSamplingKey(action, this.context.instanceId ?? this.context.deviceId);
+    const start = Date.now();
+
+    try {
+      const result = await fn();
+      const duration = Date.now() - start;
+      const newState = extractState(result);
+
+      // Check for state change first (higher priority)
+      const { changed, previous } = checkStateChange(key, newState);
+      if (changed) {
+        const prevStr = previous !== undefined ? JSON.stringify(previous) : "initial";
+        const newStr = JSON.stringify(newState);
+        this.log("info", action, `State changed: ${prevStr}→${newStr}`, undefined, {
+          ...data,
+          duration,
+          previousState: previous,
+          newState,
+          stateChange: true,
+        });
+        return result;
+      }
+
+      // Check sampling for heartbeat
+      const { shouldLog, count, elapsed } = shouldLogSampled(key);
+      if (shouldLog) {
+        const elapsedSec = Math.round(elapsed / 1000);
+        this.log("debug", action, `${message} (${count} checks in ${elapsedSec}s)`, undefined, {
+          ...data,
+          duration,
+          sampledCount: count,
+          heartbeat: true,
+        });
+      }
+
       return result;
     } catch (error) {
       const duration = Date.now() - start;
@@ -183,12 +423,12 @@ export const LogActions = {
   USER_CREATE: "user.create",
   USER_CLAIM: "user.claim",
 
-  // Demo endpoints
-  DEMO_VALIDATE: "demo.validate",
-  DEMO_SEND: "demo.send",
-  DEMO_STATUS: "demo.status",
-  DEMO_PAIRING: "demo.pairing",
-  DEMO_DISCONNECT: "demo.disconnect",
+  // WhatsApp endpoints
+  WHATSAPP_VALIDATE: "whatsapp.validate",
+  WHATSAPP_SEND: "whatsapp.send",
+  WHATSAPP_STATUS: "whatsapp.status",
+  WHATSAPP_PAIRING: "whatsapp.pairing",
+  WHATSAPP_DISCONNECT: "whatsapp.disconnect",
 
   // Auth
   AUTH_SUCCESS: "auth.success",

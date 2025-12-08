@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { api } from "~/trpc/react";
-import type { ValidationResult } from "~/server/api/routers/demo";
+import type { ValidationResult } from "~/server/api/routers/whatsapp";
 
 const POLLING_INTERVAL_MS = 2000;
-const STORAGE_KEY = "livchat_demo_state";
+const STORAGE_KEY = "livchat_whatsapp_state";
 const STORAGE_TTL_MS = 24 * 60 * 60 * 1000; // 24 horas
 
 // Estado cacheado no localStorage com TTL
@@ -59,7 +59,7 @@ function clearStoredState(): void {
   }
 }
 
-export interface UseDemoReturn {
+export interface UseWhatsAppReturn {
   // Status
   isConnected: boolean;
   isLoggedIn: boolean;
@@ -74,6 +74,11 @@ export interface UseDemoReturn {
   messagesUsed: number;
   messagesLimit: number;
   messagesRemaining: number;
+
+  // Task #16: Campos extras para dashboard
+  connectedSince: string | null;
+  deviceName: string | null;
+  pictureUrl: string | null;
 
   // Mutations
   pairing: {
@@ -117,7 +122,7 @@ export interface UseDemoReturn {
   refetchStatus: () => void;
 }
 
-export function useDemo(): UseDemoReturn {
+export function useWhatsApp(): UseWhatsAppReturn {
   // Estado otimista do localStorage (sem TTL!)
   const [optimisticState, setOptimisticState] = useState<CachedState | null>(null);
 
@@ -127,7 +132,7 @@ export function useDemo(): UseDemoReturn {
   }, []);
 
   // Query status with polling when not logged in
-  const statusQuery = api.demo.status.useQuery(undefined, {
+  const statusQuery = api.whatsapp.status.useQuery(undefined, {
     refetchInterval: (query) => {
       // Poll every 2s while waiting for login
       const data = query.state.data;
@@ -157,10 +162,10 @@ export function useDemo(): UseDemoReturn {
   }, [statusQuery.data]);
 
   // Mutations
-  const pairingMutation = api.demo.pairing.useMutation();
-  const validateMutation = api.demo.validate.useMutation();
-  const sendMutation = api.demo.send.useMutation();
-  const disconnectMutation = api.demo.disconnect.useMutation({
+  const pairingMutation = api.whatsapp.pairing.useMutation();
+  const validateMutation = api.whatsapp.validate.useMutation();
+  const sendMutation = api.whatsapp.send.useMutation();
+  const disconnectMutation = api.whatsapp.disconnect.useMutation({
     onSuccess: async () => {
       // Limpa cache local no logout
       clearStoredState();
@@ -198,6 +203,11 @@ export function useDemo(): UseDemoReturn {
     messagesUsed: statusQuery.data?.messagesUsed ?? 0,
     messagesLimit: statusQuery.data?.messagesLimit ?? 50,
     messagesRemaining: statusQuery.data?.messagesRemaining ?? 50,
+
+    // Task #16: Campos extras para dashboard
+    connectedSince: statusQuery.data?.connectedSince ?? null,
+    deviceName: statusQuery.data?.deviceName ?? null,
+    pictureUrl: statusQuery.data?.pictureUrl ?? null,
 
     // Pairing mutation
     pairing: {

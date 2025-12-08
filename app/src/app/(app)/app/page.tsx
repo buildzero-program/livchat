@@ -2,7 +2,7 @@
 
 import { motion, type Variants } from "framer-motion";
 import {
-  ConnectionWidget,
+  InstancesWidget,
   MetricsWidget,
   QuotaWidget,
   ActivityWidget,
@@ -55,7 +55,7 @@ export default function DashboardPage() {
       <div className="grid gap-4 md:grid-cols-2">
         {/* Row 1 */}
         <motion.div variants={itemVariants}>
-          <ConnectionWidget />
+          <InstancesWidget />
         </motion.div>
 
         <motion.div variants={itemVariants}>

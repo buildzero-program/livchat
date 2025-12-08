@@ -14,7 +14,7 @@ import {
 
 import { Input } from "~/components/ui/input";
 import { Button } from "~/components/ui/button";
-import type { ValidationResult } from "~/server/api/routers/demo";
+import type { ValidationResult } from "~/server/api/routers/whatsapp";
 
 // Status da validação
 type ValidationState = "idle" | "validating" | "valid_unique" | "valid_variant" | "valid_ambiguous" | "invalid" | "error";

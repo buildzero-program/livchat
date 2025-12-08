@@ -9,7 +9,7 @@ import { Input } from "~/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { MOCK_CURL_EXAMPLE } from "~/lib/mock-data";
 import { formatPhone, PRICING } from "~/lib/constants";
-import type { ValidationResult } from "~/server/api/routers/demo";
+import type { ValidationResult } from "~/server/api/routers/whatsapp";
 
 interface SendResponse {
   success: boolean;

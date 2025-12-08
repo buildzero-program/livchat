@@ -1,6 +1,6 @@
 {
 	"meta": {
-		"generatedAt": "2025-12-06T13:36:23.237Z",
+		"generatedAt": "2025-12-07T15:44:56.921Z",
 		"tasksAnalyzed": 11,
 		"totalTasks": 11,
 		"analysisCount": 11,
@@ -10,92 +10,92 @@
 	},
 	"complexityAnalysis": [
 		{
-			"taskId": 1,
-			"taskTitle": "Create Logger Module with Abstract Interface",
-			"complexityScore": 4,
-			"recommendedSubtasks": 0,
-			"expansionPrompt": "Implement logger.ts with LogContext/LogPayload interfaces, emit function, and Logger class with withContext, info, warn, error, and time methods",
-			"reasoning": "Greenfield development with clear specification. The module is self-contained with no external dependencies beyond console.log. All interfaces and methods are well-defined in the task details. Single file (~100 LOC) following standard TypeScript patterns. No tests exist yet in the codebase (no *.test.ts found), so test setup may add slight overhead. Complexity is moderate due to the timing helper requiring async handling and proper duration measurement."
-		},
-		{
-			"taskId": 2,
-			"taskTitle": "Define Standardized Action Constants",
+			"taskId": 12,
+			"taskTitle": "Rename demo router to whatsapp router",
 			"complexityScore": 2,
 			"recommendedSubtasks": 0,
-			"expansionPrompt": "Create LogActions constant object with all action strings and export LogAction type for type safety",
-			"reasoning": "Simple constant definitions with no logic. All actions are listed in the task details. This is a straightforward type-safe enum pattern in TypeScript. Can be added directly to logger.ts or as a separate file. Minimal testing needed - just verifying exports exist."
+			"expansionPrompt": "Simple file rename and find-replace task. Rename demo.ts to whatsapp.ts, update exports from demoRouter to whatsappRouter, and update root.ts import.",
+			"reasoning": "Straightforward rename task. Files involved: demo.ts (502 lines), root.ts (24 lines). Changes are mechanical: (1) rename file, (2) change export name demoRouter→whatsappRouter, (3) update root.ts import and registration. No logic changes, no new code. Type checker will catch any missed references. Estimated ~5 minutes."
 		},
 		{
-			"taskId": 3,
-			"taskTitle": "Migrate demo.ts Console Logs to Structured Logger",
-			"complexityScore": 5,
-			"recommendedSubtasks": 3,
-			"expansionPrompt": "Break down into: 1) Import logger and replace console calls in status procedure (lines 104-188), 2) Add timing wrappers for WuzAPI calls (getStatus, connect, sendText), 3) Add structured logs to pairing/validate/send/disconnect procedures",
-			"reasoning": "demo.ts is 451 lines with 7 console statements across 5 procedures (status, pairing, validate, send, disconnect). Requires careful replacement of each console call with proper context, especially managing deviceId and instanceId through the request lifecycle. The status procedure is complex (80+ lines) with async cleanup background task. Wrapping WuzAPI calls with logger.time() requires understanding the existing flow. Existing tests should be run to verify no regressions."
-		},
-		{
-			"taskId": 4,
-			"taskTitle": "Migrate instance.ts Console Logs to Structured Logger",
-			"complexityScore": 5,
-			"recommendedSubtasks": 3,
-			"expansionPrompt": "Break down into: 1) Replace logs in createInstanceForDevice (lines 152-168), 2) Replace logs in getOrReuseVirginOrphan (lines 389-415), 3) Replace logs and add timing in cleanupAbusedOrphans (lines 486-496)",
-			"reasoning": "instance.ts is 499 lines with 6 console statements across 3 functions. The complexity comes from database transactions in getOrReuseVirginOrphan, the batch processing loop in cleanupAbusedOrphans, and ensuring proper error context is captured. Adding timing to the cleanup loop requires careful handling of per-item vs batch timing. The orphan adoption log needs to include reuseCount which requires reading the returned data."
-		},
-		{
-			"taskId": 5,
-			"taskTitle": "Migrate user.ts Console Logs to Structured Logger",
-			"complexityScore": 3,
-			"recommendedSubtasks": 0,
-			"expansionPrompt": "Replace 4 console.log statements in syncUserFromClerk with structured logger calls including userId context",
-			"reasoning": "user.ts is 173 lines with only 4 console.log statements, all within a single function (syncUserFromClerk). The replacements are straightforward with clear context (userId, organizationId, claimed count). No complex timing or error handling patterns needed. The conditional logging for new vs existing users is simple to handle with the existing Logger interface."
-		},
-		{
-			"taskId": 6,
-			"taskTitle": "Migrate trpc.ts Console Logs to Structured Logger",
-			"complexityScore": 4,
-			"recommendedSubtasks": 0,
-			"expansionPrompt": "Replace console statements in createTRPCContext (line 58), timingMiddleware (line 129), and authMiddleware (line 161) with structured logger",
-			"reasoning": "trpc.ts is 186 lines with 3 console statements. The complexity arises from understanding the tRPC context flow and determining what context is available at each middleware stage. Device context exists in createTRPCContext but user context only in authMiddleware. The timing middleware already measures duration, just needs formatting change. Adding device.isNew check requires minor refactor to track creation status."
-		},
-		{
-			"taskId": 7,
-			"taskTitle": "Migrate tRPC Route Handler Error Logs",
+			"taskId": 13,
+			"taskTitle": "Rename useDemo hook to useWhatsApp hook",
 			"complexityScore": 2,
 			"recommendedSubtasks": 0,
-			"expansionPrompt": "Replace console.error in onError handler with logger.error call in src/app/api/trpc/[trpc]/route.ts",
-			"reasoning": "route.ts is only 35 lines with a single console.error statement in the onError handler. The replacement is straightforward - just import logger and call logger.error with the path and error. The only consideration is whether to log in production as well (currently dev-only), which is a simple decision point."
+			"expansionPrompt": "Rename useDemo.ts to useWhatsApp.ts, update function/type names, change all api.demo.* to api.whatsapp.*, and update consumer in hero.tsx.",
+			"reasoning": "Mechanical rename task. Files: useDemo.ts (243 lines), hero.tsx (136 lines - single consumer). Changes: (1) rename file, (2) rename function useDemo→useWhatsApp, (3) rename type UseDemoReturn→UseWhatsAppReturn, (4) update 5 tRPC calls from api.demo.* to api.whatsapp.*, (5) update import in hero.tsx. Depends on task 12 completing first. TypeScript will validate correctness."
 		},
 		{
-			"taskId": 8,
-			"taskTitle": "Add Request Context to Logger in tRPC Middleware",
-			"complexityScore": 5,
+			"taskId": 14,
+			"taskTitle": "Rename demo.test.ts to whatsapp.test.ts",
+			"complexityScore": 2,
 			"recommendedSubtasks": 0,
-			"expansionPrompt": "Modify createTRPCContext to add request-scoped logger to context, update authMiddleware to enhance logger with user context, update demo.ts to use ctx.log",
-			"reasoning": "This task requires modifying the tRPC context type definitions and ensuring proper TypeScript types flow through the middleware chain. The Logger type needs to be exported from logger.ts. Context merging in withContext must chain properly. This affects multiple files (trpc.ts, demo.ts) and requires understanding how tRPC context flows through procedures. Testing requires verifying the context propagation works correctly."
+			"expansionPrompt": "Rename test file, update import to whatsappRouter, update describe blocks and caller factory reference.",
+			"reasoning": "Simple test file rename. File: demo.test.ts (420 lines). Changes: (1) rename file, (2) update import from demo to whatsapp router, (3) update 6 describe block strings, (4) update createCallerFactory call. All mechanical replacements, no test logic changes. Running bun test will verify correctness."
 		},
 		{
-			"taskId": 9,
-			"taskTitle": "Add Timing Helpers for WuzAPI Operations",
+			"taskId": 15,
+			"taskTitle": "Add whatsapp.list procedure for dashboard",
+			"complexityScore": 5,
+			"recommendedSubtasks": 4,
+			"expansionPrompt": "Implement the list procedure: (1) Create protectedProcedure that fetches organization instances using existing getOrganizationInstances helper, (2) For each instance, call WuzAPIClient.getStatus() to get real-time connection status, (3) Fetch organization limits from database, (4) Return formatted response with instances array including id, phoneNumber, deviceName, pictureUrl, connected, loggedIn, connectedSince, messagesUsed, plus total/maxInstances/messagesLimit. Handle WuzAPI errors gracefully by returning offline status. Write unit tests for empty state, populated state, and error handling.",
+			"reasoning": "Medium complexity. Requires: (1) Using protectedProcedure (already exists in trpc.ts), (2) Calling getOrganizationInstances (exists in instance.ts), (3) Iterating instances with Promise.all to fetch WuzAPI status, (4) Error handling for WuzAPI failures, (5) Querying organization for limits. Infrastructure exists but needs orchestration. Need extractPhoneFromJID helper (exists in demo.ts, need to extract or duplicate). Testing requires mocking both DB and WuzAPI responses."
+		},
+		{
+			"taskId": 16,
+			"taskTitle": "Add connectedSince, deviceName, and pictureUrl to whatsapp.status",
+			"complexityScore": 2,
+			"recommendedSubtasks": 0,
+			"expansionPrompt": "Add three new fields to the status procedure response: connectedSince from instance.lastConnectedAt, deviceName from instance.whatsappName with fallback, pictureUrl from instance.whatsappPictureUrl. Update useWhatsApp hook to expose these fields.",
+			"reasoning": "Low complexity. The status procedure already fetches the instance object and has access to all required fields (lastConnectedAt, whatsappName, whatsappPictureUrl exist in schema). Just need to add 3 lines to the response object and 3 fields to the hook's return type. Error fallback already exists, just add nulls for new fields."
+		},
+		{
+			"taskId": 17,
+			"taskTitle": "Install @vercel/blob and create blob-storage helper",
+			"complexityScore": 3,
+			"recommendedSubtasks": 0,
+			"expansionPrompt": "Install @vercel/blob package, create src/server/lib/blob-storage.ts with uploadProfilePicture (fetch from URL, upload to Vercel Blob) and deleteProfilePicture functions. Handle errors gracefully.",
+			"reasoning": "Low-medium complexity. New dependency installation (simple). New file creation with two functions. uploadProfilePicture: fetch image from URL → convert to blob → upload via @vercel/blob put(). deleteProfilePicture: call del() with error handling. Requires BLOB_READ_WRITE_TOKEN env var. Clean greenfield code, no existing code to integrate with. Testing requires mocking @vercel/blob and fetch."
+		},
+		{
+			"taskId": 18,
+			"taskTitle": "Add getAvatar method to WuzAPIClient",
+			"complexityScore": 2,
+			"recommendedSubtasks": 0,
+			"expansionPrompt": "Add WuzAPIAvatarData interface and getAvatar method to WuzAPIClient class in wuzapi.ts. Method should extract phone from JID and call /user/avatar endpoint.",
+			"reasoning": "Simple addition to existing WuzAPIClient class. Pattern already established with 7 existing methods (getStatus, getQR, getPairingCode, sendText, checkNumbers, logout, connect). Just add interface + method following same pattern. ~15 lines of code. Phone extraction from JID pattern exists in demo.ts."
+		},
+		{
+			"taskId": 19,
+			"taskTitle": "Add whatsapp.updateAvatar procedure",
 			"complexityScore": 4,
 			"recommendedSubtasks": 0,
-			"expansionPrompt": "Wrap all WuzAPI client calls (getStatus, connect, sendText, logout, getPairingCode, checkNumbers) with logger.time() in demo.ts and instance.ts",
-			"reasoning": "This task depends on tasks 3 and 4 which will have already added basic logging. The remaining work is ensuring all WuzAPI calls are wrapped with timing. The codebase has ~10 WuzAPI calls across demo.ts and instance.ts. The pattern is repetitive but requires care to ensure proper async handling and that all calls are covered. Error cases need to still log duration even when operations fail."
+			"expansionPrompt": "Create protectedProcedure mutation that: validates instanceId input, gets instance with access check using getInstanceWithAccess, calls client.getAvatar to fetch WhatsApp avatar URL, uploads to Vercel Blob via uploadProfilePicture, saves URL to database. Handle cases: instance not found, not connected, no avatar, upload failure.",
+			"reasoning": "Medium complexity. Orchestrates multiple components: (1) protectedProcedure with input validation, (2) getInstanceWithAccess for auth, (3) WuzAPIClient.getAvatar, (4) uploadProfilePicture from blob-storage, (5) database update. Multiple error cases to handle. Dependencies: tasks 15, 17, 18. All building blocks will exist, just need to wire them together with proper error handling."
 		},
 		{
-			"taskId": 10,
-			"taskTitle": "Validate Sentry Integration and Dashboard Filters",
-			"complexityScore": 3,
-			"recommendedSubtasks": 0,
-			"expansionPrompt": "Trigger all log action types, verify Sentry capture with structured fields, test filter queries, document findings",
-			"reasoning": "Sentry is already configured with consoleLoggingIntegration capturing all log levels. This is primarily a validation and documentation task, not code implementation. Requires manual testing in Sentry dashboard and documenting the filter syntax. No complex code changes needed. The main effort is testing each action type and verifying fields are searchable."
+			"taskId": 20,
+			"taskTitle": "Create InstancesWidget component with carousel",
+			"complexityScore": 6,
+			"recommendedSubtasks": 5,
+			"expansionPrompt": "Create InstancesWidget: (1) Build main component with useState for currentIndex, useQuery for api.whatsapp.list with 30s refetchInterval, (2) Implement carousel navigation with ChevronLeft/Right buttons and index display, (3) Create instance card UI with Avatar, phone number, device name, status badge with animation, uptime display, and action buttons (Reconnect, Disconnect), (4) Create InstancesWidgetSkeleton loading state with animated placeholders, (5) Create InstancesWidgetEmpty state for no instances, (6) Create InstancesWidgetError state. Wire disconnect mutation to api.whatsapp.disconnect. Use existing UI components from ~/components/ui/*.",
+			"reasoning": "Higher complexity frontend component. Requires: (1) State management for carousel, (2) tRPC query integration with polling, (3) Multiple UI states (loading/empty/error/data), (4) Carousel navigation logic with wrap-around, (5) Real-time status display with animated badge, (6) Action buttons with mutation handling. Existing patterns in ConnectionWidget (133 lines) provide good reference. UI primitives (Card, Badge, Avatar, Button, Skeleton) all exist. framer-motion already in use."
 		},
 		{
-			"taskId": 11,
-			"taskTitle": "Final Cleanup - Remove All Remaining Console Statements",
-			"complexityScore": 3,
+			"taskId": 21,
+			"taskTitle": "Update dashboard page to use InstancesWidget",
+			"complexityScore": 1,
 			"recommendedSubtasks": 0,
-			"expansionPrompt": "Run grep to find remaining console statements, replace any found, add ESLint no-console rule with exception for logger.ts",
-			"reasoning": "This is a cleanup task that depends on all previous migrations being complete. The grep command will quickly find any remaining console statements. Adding ESLint rule is straightforward - the project likely uses flat config based on the modern setup. The task is mostly verification with minor config changes. Build and test runs verify no regressions."
+			"expansionPrompt": "Update dashboard/index.ts exports to add InstancesWidget. Update app/(app)/app/page.tsx to import and use InstancesWidget instead of ConnectionWidget.",
+			"reasoning": "Trivial update. dashboard/index.ts: add one export line. page.tsx: change one import and one component reference. Total ~4 lines changed across 2 files. ConnectionWidget can remain for potential LP usage."
+		},
+		{
+			"taskId": 22,
+			"taskTitle": "End-to-end testing and final verification",
+			"complexityScore": 4,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Create E2E verification checklist: (1) Test LP flow - QR display, WhatsApp connection, message sending, counter update, disconnect, (2) Test signup conversion - after LP connection, complete Clerk auth, verify instance claim, verify dashboard redirect, (3) Test dashboard InstancesWidget - verify widget shows instances, test carousel if multiple, verify data accuracy (phone, name, status, avatar), test disconnect, verify polling updates, (4) Code verification - grep for remaining 'demo' references excluding comments, run bun test, bun build, bun typecheck. Document any issues found.",
+			"reasoning": "Medium complexity testing task. Primarily manual testing across multiple user flows. No new code to write, but requires systematic verification. LP flow tests existing functionality with renamed components. Dashboard tests new InstancesWidget with real data. Code verification ensures complete rename. Can be parallelized: one person does UI testing while another does code verification."
 		}
 	]
 }

@@ -279,12 +279,12 @@ describe("LogActions", () => {
     expect(LogActions.USER_CLAIM).toBe("user.claim");
   });
 
-  it("should define all demo actions", () => {
-    expect(LogActions.DEMO_VALIDATE).toBe("demo.validate");
-    expect(LogActions.DEMO_SEND).toBe("demo.send");
-    expect(LogActions.DEMO_STATUS).toBe("demo.status");
-    expect(LogActions.DEMO_PAIRING).toBe("demo.pairing");
-    expect(LogActions.DEMO_DISCONNECT).toBe("demo.disconnect");
+  it("should define all whatsapp actions", () => {
+    expect(LogActions.WHATSAPP_VALIDATE).toBe("whatsapp.validate");
+    expect(LogActions.WHATSAPP_SEND).toBe("whatsapp.send");
+    expect(LogActions.WHATSAPP_STATUS).toBe("whatsapp.status");
+    expect(LogActions.WHATSAPP_PAIRING).toBe("whatsapp.pairing");
+    expect(LogActions.WHATSAPP_DISCONNECT).toBe("whatsapp.disconnect");
   });
 
   it("should define all auth actions", () => {

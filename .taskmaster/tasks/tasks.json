@@ -2,343 +2,264 @@
   "master": {
     "tasks": [
       {
-        "id": "1",
-        "title": "Create Logger Module with Abstract Interface",
-        "description": "Implement the core logger module at src/server/lib/logger.ts with typed interfaces, emit function, and Logger class that outputs JSON-structured logs via console.log for Sentry capture.",
-        "details": "Create src/server/lib/logger.ts with:\n\n1. Define LogContext interface:\n```typescript\ninterface LogContext {\n  deviceId?: string;\n  instanceId?: string;\n  userId?: string;\n  organizationId?: string;\n}\n```\n\n2. Define LogPayload interface extending LogContext:\n```typescript\ninterface LogPayload extends LogContext {\n  timestamp: string;  // ISO 8601\n  level: 'debug' | 'info' | 'warn' | 'error';\n  action: string;\n  message: string;\n  duration?: number;\n  [key: string]: unknown;\n}\n```\n\n3. Implement emit function (abstraction point for future Axiom migration):\n```typescript\nfunction emit(payload: LogPayload): void {\n  console.log(JSON.stringify(payload));\n}\n```\n\n4. Implement Logger class with:\n- Private context: LogContext field\n- withContext(ctx: LogContext): Logger - returns child logger with merged context\n- info(action: string, message: string, data?: object): void\n- warn(action: string, message: string, data?: object): void\n- error(action: string, message: string, error?: Error, data?: object): void\n- time<T>(action: string, message: string, fn: () => Promise<T>, data?: object): Promise<T> - async timing helper\n- Private log() method that calls emit() with full payload\n\n5. Export singleton instance: export const logger = new Logger();",
-        "testStrategy": "Create unit tests in src/server/lib/logger.test.ts:\n1. Test that logger.info() outputs valid JSON to console\n2. Test withContext() properly merges context\n3. Test error() includes errorName and errorMessage fields\n4. Test time() measures duration correctly and includes it in output\n5. Mock console.log to capture output and validate JSON structure matches LogPayload schema",
+        "id": "12",
+        "title": "Rename demo router to whatsapp router",
+        "description": "Rename the demo.ts router file to whatsapp.ts and update all internal references from demoRouter to whatsappRouter for naming consistency",
+        "details": "1. Rename file src/server/api/routers/demo.ts to src/server/api/routers/whatsapp.ts\n2. Inside the renamed file, change:\n   - `export const demoRouter` → `export const whatsappRouter`\n   - Update any internal comments referencing 'demo'\n3. Update src/server/api/root.ts:\n   - Change import: `import { demoRouter } from \"./routers/demo\"` → `import { whatsappRouter } from \"./routers/whatsapp\"`\n   - Change router registration: `demo: demoRouter` → `whatsapp: whatsappRouter`\n4. Ensure all exports maintain the same procedure names (status, pairing, validate, send, disconnect)\n5. Run `bun typecheck` to verify no type errors after rename",
+        "testStrategy": "1. Run `bun typecheck` to verify TypeScript compilation succeeds\n2. Run `bun build` to verify Next.js build succeeds\n3. Verify the tRPC router is accessible via api.whatsapp.* namespace\n4. Manually test the LP (landing page) to ensure QR code and pairing still work",
         "priority": "high",
         "dependencies": [],
+        "status": "done",
+        "subtasks": [],
+        "complexity": 2,
+        "recommendedSubtasks": 0,
+        "expansionPrompt": "Simple file rename and find-replace task. Rename demo.ts to whatsapp.ts, update exports from demoRouter to whatsappRouter, and update root.ts import.",
+        "updatedAt": "2025-12-07T15:52:42.259Z"
+      },
+      {
+        "id": "13",
+        "title": "Rename useDemo hook to useWhatsApp hook",
+        "description": "Rename the useDemo hook to useWhatsApp and update all internal API calls from api.demo.* to api.whatsapp.*",
+        "details": "1. Rename file src/hooks/useDemo.ts to src/hooks/useWhatsApp.ts\n2. Inside the renamed file:\n   - Change function name: `export function useDemo()` → `export function useWhatsApp()`\n   - Change type: `UseDemoReturn` → `UseWhatsAppReturn`\n   - Update all tRPC calls: `api.demo.status` → `api.whatsapp.status`, `api.demo.pairing` → `api.whatsapp.pairing`, etc.\n   - Update import type: `import type { ValidationResult } from \"~/server/api/routers/demo\"` → `import type { ValidationResult } from \"~/server/api/routers/whatsapp\"`\n   - Update localStorage key from `livchat_demo_state` to `livchat_whatsapp_state` (optional, for clarity)\n3. Update all consumers:\n   - src/components/marketing/hero.tsx: Change `import { useDemo } from \"~/hooks/useDemo\"` → `import { useWhatsApp } from \"~/hooks/useWhatsApp\"` and `const demo = useDemo()` → `const whatsapp = useWhatsApp()` (or keep variable name as `demo` for minimal changes)",
+        "testStrategy": "1. Run `bun typecheck` to verify all imports resolve correctly\n2. Run `bun build` to verify Next.js build succeeds\n3. Manually test the LP (landing page) to ensure:\n   - QR code displays correctly\n   - Pairing code generation works\n   - Send message functionality works\n   - Disconnect functionality works",
+        "priority": "high",
+        "dependencies": [
+          "12"
+        ],
+        "status": "done",
+        "subtasks": [],
+        "complexity": 2,
+        "recommendedSubtasks": 0,
+        "expansionPrompt": "Rename useDemo.ts to useWhatsApp.ts, update function/type names, change all api.demo.* to api.whatsapp.*, and update consumer in hero.tsx.",
+        "updatedAt": "2025-12-07T16:06:51.476Z"
+      },
+      {
+        "id": "14",
+        "title": "Rename demo.test.ts to whatsapp.test.ts",
+        "description": "Rename the test file and update all internal references to match the new whatsapp router naming",
+        "details": "1. Rename file tests/unit/server/api/routers/demo.test.ts → whatsapp.test.ts\n2. Update imports:\n   - `import { demoRouter } from \"~/server/api/routers/demo\"` → `import { whatsappRouter } from \"~/server/api/routers/whatsapp\"`\n3. Update describe block: `describe(\"Demo Router\"` → `describe(\"WhatsApp Router\"`\n4. Update all nested describe blocks: `describe(\"demo.status\"` → `describe(\"whatsapp.status\"`, etc.\n5. Update caller factory: `createCallerFactory(demoRouter as any)` → `createCallerFactory(whatsappRouter as any)`\n6. Run all tests to ensure they pass with the new naming",
+        "testStrategy": "1. Run `bun test tests/unit/server/api/routers/whatsapp.test.ts` to verify all tests pass\n2. Run `bun test` to ensure full test suite passes\n3. Verify test coverage is maintained",
+        "priority": "high",
+        "dependencies": [
+          "12"
+        ],
+        "status": "done",
+        "subtasks": [],
+        "complexity": 2,
+        "recommendedSubtasks": 0,
+        "expansionPrompt": "Rename test file, update import to whatsappRouter, update describe blocks and caller factory reference.",
+        "updatedAt": "2025-12-07T16:06:54.213Z"
+      },
+      {
+        "id": "15",
+        "title": "Add whatsapp.list procedure for dashboard",
+        "description": "Create a new protectedProcedure in the whatsapp router to list all instances belonging to the authenticated user's organization",
+        "details": "1. In src/server/api/routers/whatsapp.ts, import protectedProcedure from trpc.ts\n2. Add new procedure `list` using protectedProcedure:\n```typescript\nlist: protectedProcedure.query(async ({ ctx }) => {\n  const { user, log } = ctx;\n  \n  // Import getOrganizationInstances from instance.ts\n  const instances = await getOrganizationInstances(user.organizationId);\n  \n  if (instances.length === 0) {\n    return { instances: [], total: 0, maxInstances: 1 };\n  }\n  \n  // For each instance, fetch current status from WuzAPI\n  const instancesWithStatus = await Promise.all(\n    instances.map(async (instance) => {\n      const client = new WuzAPIClient({\n        baseUrl: WUZAPI_BASE_URL,\n        token: instance.providerToken,\n      });\n      \n      try {\n        const status = await client.getStatus();\n        return {\n          id: instance.id,\n          name: instance.name,\n          phoneNumber: extractPhoneFromJID(instance.whatsappJid),\n          deviceName: instance.whatsappName ?? \"WhatsApp Web\",\n          pictureUrl: instance.whatsappPictureUrl,\n          connected: status.data.connected,\n          loggedIn: status.data.loggedIn,\n          connectedSince: instance.lastConnectedAt?.toISOString() ?? null,\n          messagesUsed: instance.messagesUsedToday,\n        };\n      } catch {\n        return { ...offlineDefaults };\n      }\n    })\n  );\n  \n  // Fetch org for limits\n  const org = await db.query.organizations.findFirst({\n    where: eq(organizations.ownerId, user.id),\n  });\n  \n  return {\n    instances: instancesWithStatus,\n    total: instances.length,\n    maxInstances: org?.maxInstances ?? 1,\n    messagesLimit: org?.maxMessagesPerDay ?? 50,\n  };\n}),\n```\n3. Add necessary imports: organizations from schema, eq from drizzle-orm",
+        "testStrategy": "1. Create unit test in whatsapp.test.ts for whatsapp.list:\n   - Test returns empty array when org has no instances\n   - Test returns instances with status when org has instances\n   - Test handles WuzAPI errors gracefully (returns offline status)\n2. Integration test: Login to dashboard and verify API returns correct data\n3. Test with mock authenticated user context",
+        "priority": "high",
+        "dependencies": [
+          "12",
+          "13",
+          "14"
+        ],
+        "status": "done",
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 4,
+        "expansionPrompt": "Implement the list procedure: (1) Create protectedProcedure that fetches organization instances using existing getOrganizationInstances helper, (2) For each instance, call WuzAPIClient.getStatus() to get real-time connection status, (3) Fetch organization limits from database, (4) Return formatted response with instances array including id, phoneNumber, deviceName, pictureUrl, connected, loggedIn, connectedSince, messagesUsed, plus total/maxInstances/messagesLimit. Handle WuzAPI errors gracefully by returning offline status. Write unit tests for empty state, populated state, and error handling.",
+        "updatedAt": "2025-12-07T16:41:09.973Z"
+      },
+      {
+        "id": "16",
+        "title": "Add connectedSince, deviceName, and pictureUrl to whatsapp.status",
+        "description": "Extend the whatsapp.status response to include additional fields needed by the InstancesWidget",
+        "details": "1. In src/server/api/routers/whatsapp.ts, locate the `status` procedure\n2. Modify the response object to include new fields:\n```typescript\nconst response = {\n  // Existing fields\n  connected: statusRes.data.connected,\n  loggedIn: statusRes.data.loggedIn,\n  qrCode,\n  jid: extractPhoneFromJID(statusRes.data.jid),\n  instanceId: instance.id,\n  apiKey: statusRes.data.loggedIn ? instance.providerToken : undefined,\n  messagesUsed: usage.used,\n  messagesLimit: usage.limit,\n  messagesRemaining: usage.remaining,\n  \n  // NEW FIELDS for InstancesWidget\n  connectedSince: instance.lastConnectedAt?.toISOString() ?? null,\n  deviceName: instance.whatsappName ?? statusRes.data.name ?? \"WhatsApp Web\",\n  pictureUrl: instance.whatsappPictureUrl ?? null,\n};\n```\n3. Update the error fallback response to include these fields with null/default values\n4. Update the useWhatsApp hook to expose these new fields in the return type",
+        "testStrategy": "1. Update existing unit tests to verify new fields are present in response\n2. Test that connectedSince returns null when instance never connected\n3. Test that deviceName falls back to \"WhatsApp Web\" when not set\n4. Test that pictureUrl returns null when not set\n5. Verify hook exposes new fields correctly",
+        "priority": "medium",
+        "dependencies": [
+          "15"
+        ],
+        "status": "done",
+        "subtasks": [],
+        "complexity": 2,
+        "recommendedSubtasks": 0,
+        "expansionPrompt": "Add three new fields to the status procedure response: connectedSince from instance.lastConnectedAt, deviceName from instance.whatsappName with fallback, pictureUrl from instance.whatsappPictureUrl. Update useWhatsApp hook to expose these fields.",
+        "updatedAt": "2025-12-07T16:41:13.241Z"
+      },
+      {
+        "id": "17",
+        "title": "Install @vercel/blob and create blob-storage helper",
+        "description": "Install the @vercel/blob package and create a helper module for uploading and managing profile pictures",
+        "details": "1. Install @vercel/blob: `bun add @vercel/blob`\n2. Create new file src/server/lib/blob-storage.ts:\n```typescript\nimport { put, del } from \"@vercel/blob\";\n\n/**\n * Upload profile picture to Vercel Blob\n * @param imageUrl - Source URL of the image (from WhatsApp)\n * @param instanceId - Instance UUID for unique naming\n * @returns Blob URL of the uploaded image\n */\nexport async function uploadProfilePicture(\n  imageUrl: string,\n  instanceId: string\n): Promise<string> {\n  // Fetch image from WhatsApp\n  const response = await fetch(imageUrl);\n  if (!response.ok) {\n    throw new Error(`Failed to fetch image: ${response.status}`);\n  }\n  \n  const blob = await response.blob();\n  \n  // Upload to Vercel Blob with unique path\n  const { url } = await put(\n    `avatars/${instanceId}.jpg`,\n    blob,\n    { access: \"public\" }\n  );\n  \n  return url;\n}\n\n/**\n * Delete profile picture from Vercel Blob\n */\nexport async function deleteProfilePicture(instanceId: string): Promise<void> {\n  try {\n    await del(`avatars/${instanceId}.jpg`);\n  } catch {\n    // Ignore if file doesn't exist\n  }\n}\n```\n3. Verify BLOB_READ_WRITE_TOKEN is set in .env (already exists per PRD)",
+        "testStrategy": "1. Unit test uploadProfilePicture with mocked fetch and @vercel/blob\n2. Test error handling when source image URL is invalid\n3. Test deleteProfilePicture doesn't throw when file doesn't exist\n4. Integration test: Upload a test image and verify URL is accessible",
+        "priority": "medium",
+        "dependencies": [],
+        "status": "done",
+        "subtasks": [],
+        "complexity": 3,
+        "recommendedSubtasks": 0,
+        "expansionPrompt": "Install @vercel/blob package, create src/server/lib/blob-storage.ts with uploadProfilePicture (fetch from URL, upload to Vercel Blob) and deleteProfilePicture functions. Handle errors gracefully.",
+        "updatedAt": "2025-12-07T16:05:39.238Z"
+      },
+      {
+        "id": "18",
+        "title": "Add getAvatar method to WuzAPIClient",
+        "description": "Extend the WuzAPIClient class to support fetching WhatsApp profile pictures",
+        "details": "1. In src/server/lib/wuzapi.ts, add new interface for avatar response:\n```typescript\nexport interface WuzAPIAvatarData {\n  URL?: string;\n  ID?: string;\n}\n```\n2. Add getAvatar method to WuzAPIClient class:\n```typescript\n/**\n * GET /user/avatar\n * Fetches the profile picture URL for a WhatsApp number\n */\nasync getAvatar(jid: string): Promise<WuzAPIResponse<WuzAPIAvatarData>> {\n  const phone = jid.replace(\"@s.whatsapp.net\", \"\");\n  return this.request<WuzAPIAvatarData>(`/user/avatar?Phone=${phone}&Preview=false`, {\n    method: \"GET\",\n  });\n}\n```\n3. Note: The WuzAPI /user/avatar endpoint requires the phone number without @domain",
+        "testStrategy": "1. Unit test getAvatar returns URL when avatar exists\n2. Unit test getAvatar returns empty URL when user has no avatar\n3. Test phone number extraction from JID format\n4. Mock WuzAPI response in tests",
+        "priority": "medium",
+        "dependencies": [],
+        "status": "done",
+        "subtasks": [],
+        "complexity": 2,
+        "recommendedSubtasks": 0,
+        "expansionPrompt": "Add WuzAPIAvatarData interface and getAvatar method to WuzAPIClient class in wuzapi.ts. Method should extract phone from JID and call /user/avatar endpoint.",
+        "updatedAt": "2025-12-07T16:03:22.925Z"
+      },
+      {
+        "id": "19",
+        "title": "Add whatsapp.updateAvatar procedure",
+        "description": "Create a new protectedProcedure to fetch WhatsApp profile picture and store it in Vercel Blob",
+        "details": "1. In src/server/api/routers/whatsapp.ts, add new mutation:\n```typescript\nimport { uploadProfilePicture } from \"~/server/lib/blob-storage\";\nimport { getInstanceWithAccess } from \"~/server/lib/instance\";\n\nupdateAvatar: protectedProcedure\n  .input(z.object({ instanceId: z.string().uuid() }))\n  .mutation(async ({ ctx, input }) => {\n    const { user, log } = ctx;\n    \n    // Get instance with access check\n    const instanceData = await getInstanceWithAccess(input.instanceId, {\n      organizationId: user.organizationId,\n    });\n    \n    if (!instanceData) {\n      throw new TRPCError({ code: \"NOT_FOUND\", message: \"Instance not found\" });\n    }\n    \n    const { instance, client } = instanceData;\n    \n    if (!instance.whatsappJid) {\n      throw new TRPCError({ code: \"PRECONDITION_FAILED\", message: \"Instance not connected\" });\n    }\n    \n    try {\n      // Fetch avatar from WhatsApp\n      const avatarRes = await client.getAvatar(instance.whatsappJid);\n      \n      if (!avatarRes.data.URL) {\n        return { success: false, pictureUrl: null };\n      }\n      \n      // Upload to Vercel Blob\n      const blobUrl = await uploadProfilePicture(\n        avatarRes.data.URL,\n        instance.id\n      );\n      \n      // Save URL to database\n      await db\n        .update(instances)\n        .set({ \n          whatsappPictureUrl: blobUrl,\n          updatedAt: new Date(),\n        })\n        .where(eq(instances.id, instance.id));\n      \n      return { success: true, pictureUrl: blobUrl };\n    } catch (error) {\n      log.error(LogActions.WUZAPI_AVATAR, \"Failed to update avatar\", error);\n      return { success: false, pictureUrl: null };\n    }\n  }),\n```\n2. Add LogActions.WUZAPI_AVATAR to logger.ts if not exists",
+        "testStrategy": "1. Unit test successful avatar update flow\n2. Test access control - user can only update their org's instances\n3. Test graceful handling when WhatsApp user has no avatar\n4. Test error handling when Blob upload fails\n5. Verify database is updated with new URL",
+        "priority": "medium",
+        "dependencies": [
+          "15",
+          "17",
+          "18"
+        ],
+        "status": "in-progress",
+        "subtasks": [],
+        "complexity": 4,
+        "recommendedSubtasks": 0,
+        "expansionPrompt": "Create protectedProcedure mutation that: validates instanceId input, gets instance with access check using getInstanceWithAccess, calls client.getAvatar to fetch WhatsApp avatar URL, uploads to Vercel Blob via uploadProfilePicture, saves URL to database. Handle cases: instance not found, not connected, no avatar, upload failure.",
+        "updatedAt": "2025-12-07T17:27:01.178Z"
+      },
+      {
+        "id": "20",
+        "title": "Create InstancesWidget component with carousel",
+        "description": "Build the InstancesWidget React component with carousel navigation for multiple instances, real data from tRPC, and proper loading/error/empty states",
+        "details": "1. Create new file src/components/dashboard/instances-widget.tsx:\n```typescript\n\"use client\";\n\nimport { useState } from \"react\";\nimport { api } from \"~/trpc/react\";\nimport { ChevronLeft, ChevronRight, Smartphone, RefreshCw, Power, Wifi, WifiOff, Clock } from \"lucide-react\";\nimport { Card, CardContent, CardHeader, CardTitle } from \"~/components/ui/card\";\nimport { Button } from \"~/components/ui/button\";\nimport { Badge } from \"~/components/ui/badge\";\nimport { Avatar, AvatarImage, AvatarFallback } from \"~/components/ui/avatar\";\nimport { Skeleton } from \"~/components/ui/skeleton\";\nimport { motion } from \"framer-motion\";\nimport { formatRelativeTime } from \"~/lib/mock-dashboard\";\n\nexport function InstancesWidget() {\n  const [currentIndex, setCurrentIndex] = useState(0);\n  \n  const { data, isLoading, error, refetch } = api.whatsapp.list.useQuery(undefined, {\n    refetchInterval: 30000, // Poll every 30s\n  });\n  \n  const disconnectMutation = api.whatsapp.disconnect.useMutation({\n    onSuccess: () => refetch(),\n  });\n  \n  if (isLoading) return <InstancesWidgetSkeleton />;\n  if (error) return <InstancesWidgetError error={error.message} />;\n  if (!data?.instances.length) return <InstancesWidgetEmpty />;\n  \n  const instance = data.instances[currentIndex];\n  const total = data.instances.length;\n  const isOnline = instance?.loggedIn;\n  \n  const goNext = () => setCurrentIndex((i) => (i + 1) % total);\n  const goPrev = () => setCurrentIndex((i) => (i - 1 + total) % total);\n  \n  // Helper to get initials from phone number\n  const getInitials = (phone: string | null) => {\n    if (!phone) return \"WA\";\n    return phone.slice(-2);\n  };\n  \n  return (\n    <Card className=\"relative overflow-hidden\">\n      {/* Glow effect when online */}\n      {isOnline && (\n        <div className=\"absolute inset-0 bg-gradient-to-br from-green-500/5 to-transparent pointer-events-none\" />\n      )}\n      \n      <CardHeader className=\"flex flex-row items-center justify-between space-y-0 pb-2\">\n        <CardTitle className=\"text-sm font-medium flex items-center gap-2\">\n          <Smartphone className=\"h-4 w-4\" />\n          Conexão WhatsApp\n        </CardTitle>\n        \n        {/* Navigation badge for multiple instances */}\n        {total > 1 && (\n          <div className=\"flex items-center gap-1\">\n            <Button variant=\"ghost\" size=\"icon\" className=\"h-6 w-6\" onClick={goPrev}>\n              <ChevronLeft className=\"h-4 w-4\" />\n            </Button>\n            <Badge variant=\"secondary\" className=\"text-xs\">\n              {currentIndex + 1}/{total}\n            </Badge>\n            <Button variant=\"ghost\" size=\"icon\" className=\"h-6 w-6\" onClick={goNext}>\n              <ChevronRight className=\"h-4 w-4\" />\n            </Button>\n          </div>\n        )}\n      </CardHeader>\n      \n      <CardContent className=\"space-y-4\">\n        {/* Avatar and phone info */}\n        <div className=\"flex items-center gap-4\">\n          <Avatar className=\"h-16 w-16\">\n            {instance.pictureUrl ? (\n              <AvatarImage src={instance.pictureUrl} alt={instance.phoneNumber ?? \"\"} />\n            ) : (\n              <AvatarFallback className=\"text-lg\">\n                {getInitials(instance.phoneNumber)}\n              </AvatarFallback>\n            )}\n          </Avatar>\n          <div>\n            <p className=\"text-2xl font-bold tracking-tight\">\n              {instance.phoneNumber ? formatPhoneDisplay(instance.phoneNumber) : \"Não conectado\"}\n            </p>\n            <p className=\"text-xs text-muted-foreground\">\n              {instance.deviceName}\n            </p>\n          </div>\n        </div>\n        \n        {/* Status badge and uptime */}\n        <div className=\"flex items-center gap-4 text-sm text-muted-foreground\">\n          <Badge variant={isOnline ? \"default\" : \"destructive\"} className={isOnline ? \"bg-green-500/10 text-green-500 border-green-500/20\" : \"\"}>\n            <motion.span\n              className={`w-2 h-2 rounded-full mr-1.5 ${isOnline ? \"bg-green-500\" : \"bg-red-500\"}`}\n              animate={isOnline ? { scale: [1, 1.2, 1] } : {}}\n              transition={{ duration: 2, repeat: Infinity }}\n            />\n            {isOnline ? \"Online\" : \"Offline\"}\n          </Badge>\n          {instance.connectedSince && (\n            <div className=\"flex items-center gap-1.5\">\n              <Clock className=\"h-3.5 w-3.5\" />\n              <span>{formatRelativeTime(new Date(instance.connectedSince))}</span>\n            </div>\n          )}\n        </div>\n        \n        {/* Action buttons */}\n        <div className=\"flex gap-2 pt-2\">\n          <Button variant=\"outline\" size=\"sm\" className=\"flex-1\" onClick={() => refetch()}>\n            <RefreshCw className=\"h-3.5 w-3.5 mr-1.5\" />\n            Reconectar\n          </Button>\n          <Button\n            variant=\"outline\"\n            size=\"sm\"\n            className=\"text-red-500 hover:text-red-600 hover:bg-red-500/10\"\n            onClick={() => disconnectMutation.mutate()}\n            disabled={disconnectMutation.isPending}\n          >\n            <Power className=\"h-3.5 w-3.5\" />\n          </Button>\n        </div>\n      </CardContent>\n    </Card>\n  );\n}\n\n// Helper to format phone for display\nfunction formatPhoneDisplay(phone: string): string {\n  if (phone.startsWith(\"55\") && phone.length === 13) {\n    return `+${phone.slice(0, 2)} ${phone.slice(2, 4)} ${phone.slice(4, 9)}-${phone.slice(9)}`;\n  }\n  return `+${phone}`;\n}\n\n// Skeleton loading state\nfunction InstancesWidgetSkeleton() { ... }\n\n// Empty state\nfunction InstancesWidgetEmpty() { ... }\n\n// Error state  \nfunction InstancesWidgetError({ error }: { error: string }) { ... }\n```\n2. Implement skeleton, empty, and error states as shown in PRD section 4.2",
+        "testStrategy": "1. Unit test component renders correctly with mock tRPC data\n2. Test carousel navigation increments/decrements correctly\n3. Test carousel wraps around at boundaries\n4. Test loading skeleton displays during fetch\n5. Test empty state displays when no instances\n6. Test error state displays on API error\n7. Test disconnect button calls mutation\n8. Visual test: Component matches design mockups",
+        "priority": "high",
+        "dependencies": [
+          "15",
+          "16"
+        ],
         "status": "done",
         "subtasks": [
           {
             "id": 1,
-            "title": "Setup test file and test logger.info outputs valid JSON",
-            "description": "Create the test file at tests/unit/server/lib/logger.test.ts and write tests verifying that logger.info() outputs valid JSON-structured logs with all required fields (timestamp, level, action, message).",
+            "title": "Create main InstancesWidget component with tRPC integration",
+            "description": "Build the core InstancesWidget component with useState for carousel index, useQuery for api.whatsapp.list with 30s refetchInterval, and disconnect mutation setup",
             "dependencies": [],
-            "details": "Create tests/unit/server/lib/logger.test.ts with bun:test imports. Write tests that: 1) Mock console.log using spyOn to capture output, 2) Call logger.info('test.action', 'Test message'), 3) Verify output is valid JSON by parsing the captured string, 4) Assert payload contains: timestamp (ISO 8601 format), level='info', action='test.action', message='Test message'. Also test with optional data parameter: logger.info('test.action', 'Test message', { extra: 'data' }) and verify extra fields are included in output.",
+            "details": "Create new file src/components/dashboard/instances-widget.tsx with 'use client' directive. Import useState from react, api from ~/trpc/react, and required lucide icons (ChevronLeft, ChevronRight, Smartphone, RefreshCw, Power, Wifi, WifiOff, Clock). Setup useState(0) for currentIndex. Configure useQuery for api.whatsapp.list with { refetchInterval: 30000 } for 30s polling. Setup useMutation for api.whatsapp.disconnect with onSuccess callback to refetch. Export the InstancesWidget function component with conditional rendering: loading returns skeleton, error returns error state, empty data returns empty state.",
             "status": "pending",
-            "testStrategy": "RED phase: Write tests that call logger.info and assert JSON structure. Tests will fail initially since logger.ts doesn't exist. GREEN phase: Implement minimal LogPayload interface, emit function, and Logger class with info method to make tests pass.",
+            "testStrategy": "Unit test that component calls api.whatsapp.list on mount. Test that disconnect mutation is properly configured with refetch callback. Mock tRPC to verify polling interval configuration.",
             "parentId": "undefined"
           },
           {
             "id": 2,
-            "title": "Test withContext merges context correctly",
-            "description": "Write tests verifying that withContext() returns a child logger that merges parent context with new context and includes context fields in all log outputs.",
+            "title": "Implement carousel navigation with wrap-around logic",
+            "description": "Add carousel navigation UI with ChevronLeft/Right buttons, index badge display, and goNext/goPrev handlers with wrap-around",
             "dependencies": [
               1
             ],
-            "details": "Add tests for withContext behavior: 1) logger.withContext({ deviceId: 'dev-1' }).info() should include deviceId in output, 2) Chained contexts merge correctly: logger.withContext({ deviceId: 'dev-1' }).withContext({ instanceId: 'inst-1' }) should include both fields, 3) Child logger context doesn't affect parent: after creating child, parent.info() should NOT include child's context, 4) Context fields (deviceId, instanceId, userId, organizationId) appear in JSON output alongside standard fields.",
+            "details": "In CardHeader, add navigation controls that only render when total > 1. Create goNext function: setCurrentIndex((i) => (i + 1) % total). Create goPrev function: setCurrentIndex((i) => (i - 1 + total) % total). Render Button variant='ghost' size='icon' className='h-6 w-6' with ChevronLeft/ChevronRight icons. Display Badge variant='secondary' className='text-xs' showing '{currentIndex + 1}/{total}'. Access current instance via data.instances[currentIndex].",
             "status": "pending",
-            "testStrategy": "RED phase: Write tests expecting context merging behavior. GREEN phase: Implement LogContext interface and withContext method that returns new Logger instance with merged context. Implement private context field and modify log() to spread context into payload.",
+            "testStrategy": "Test goNext increments index correctly. Test goPrev decrements correctly. Test wrap-around: goNext at last index goes to 0, goPrev at 0 goes to last. Test navigation UI only renders when total > 1.",
             "parentId": "undefined"
           },
           {
             "id": 3,
-            "title": "Test warn method and error method with error fields",
-            "description": "Write tests for logger.warn() and logger.error() methods, verifying error() includes errorName and errorMessage fields when an Error is passed.",
+            "title": "Build instance card UI with avatar, status, and action buttons",
+            "description": "Create the instance display card with Avatar component, phone number formatting, device name, animated status badge, uptime display, and Reconnect/Disconnect action buttons",
             "dependencies": [
               1
             ],
-            "details": "Add tests for warn and error methods: 1) logger.warn('test.warn', 'Warning message') outputs JSON with level='warn', 2) logger.error('test.error', 'Error message') outputs JSON with level='error', 3) logger.error('test.error', 'Error message', new Error('Something failed')) includes errorName='Error' and errorMessage='Something failed' in output, 4) logger.error with custom error class: class CustomError extends Error - verify errorName reflects custom class name, 5) logger.error with data parameter: logger.error('action', 'msg', error, { userId: '123' }) includes both error fields and extra data.",
+            "details": "Import Card, CardContent, CardHeader, CardTitle, Button, Badge, Avatar, AvatarImage, AvatarFallback from ~/components/ui/*. Import motion from framer-motion and formatRelativeTime from ~/lib/mock-dashboard. Create formatPhoneDisplay helper for Brazilian phone formatting. Create getInitials helper returning last 2 digits or 'WA' fallback. Render Avatar h-16 w-16 with AvatarImage for pictureUrl or AvatarFallback with initials. Display phone number formatted with text-2xl font-bold, device name as text-xs text-muted-foreground. Create animated status Badge with motion.span pulsing circle (scale [1, 1.2, 1] duration 2s repeat Infinity) when online. Show uptime with Clock icon using formatRelativeTime. Add glow effect div when online (bg-gradient-to-br from-green-500/5). Create action buttons: Reconnect (calls refetch), Disconnect (calls disconnectMutation.mutate with isPending disabled state).",
             "status": "pending",
-            "testStrategy": "RED phase: Write tests expecting warn/error behavior with error serialization. GREEN phase: Implement warn() and error() methods, with error() handling optional Error parameter by extracting name and message.",
+            "testStrategy": "Test Avatar renders correctly with pictureUrl when available. Test fallback initials display. Test phone number formatting for Brazilian numbers. Test status badge shows Online/Offline correctly. Test animated pulse only runs when online. Test Disconnect button disabled state during mutation.",
             "parentId": "undefined"
           },
           {
             "id": 4,
-            "title": "Test time method measures and includes duration",
-            "description": "Write tests verifying that logger.time() executes the async function, measures duration in milliseconds, and includes duration field in the log output.",
+            "title": "Create InstancesWidgetSkeleton loading state",
+            "description": "Implement skeleton loading state component with animated placeholders matching the widget layout",
             "dependencies": [
               1
             ],
-            "details": "Add tests for async timing helper: 1) logger.time('test.operation', 'Operation completed', async () => 'result') returns the function's return value, 2) Output JSON includes duration field (number in ms), 3) Duration is approximately correct: use mock timer or actual delay with tolerance (e.g., 50ms delay should result in duration ~50 ±20ms), 4) time() logs at 'info' level by default, 5) Test with async function that throws: logger.time should still measure duration and then re-throw, 6) Context is preserved: logger.withContext({ deviceId: 'x' }).time() should include deviceId in output.",
+            "details": "Create InstancesWidgetSkeleton function component. Import Skeleton from ~/components/ui/skeleton. Wrap in Card with same structure as main widget. In CardHeader, render Skeleton h-4 w-32 for title. In CardContent, render: Skeleton h-16 w-16 rounded-full for avatar, Skeleton h-6 w-40 for phone number, Skeleton h-4 w-24 for device name, Skeleton h-5 w-16 for status badge, Skeleton h-5 w-20 for uptime. Add flex gap-2 pt-2 with two button Skeletons (h-9 flex-1 and h-9 w-9). All Skeletons use animate-pulse via the Skeleton component's built-in animation.",
             "status": "pending",
-            "testStrategy": "RED phase: Write tests expecting time() to measure duration and return function result. GREEN phase: Implement time<T>() method using performance.now() or Date.now() before/after await, calculate duration, log with duration field, and return result.",
+            "testStrategy": "Test skeleton component renders without errors. Test all skeleton elements have correct dimensions matching the main widget. Verify skeleton is displayed when isLoading is true.",
             "parentId": "undefined"
           },
           {
             "id": 5,
-            "title": "Implement logger.ts and export singleton instance",
-            "description": "Create the full logger.ts implementation at src/server/lib/logger.ts with all interfaces, emit function, Logger class, and exported singleton instance.",
-            "dependencies": [
-              1,
-              2,
-              3,
-              4
-            ],
-            "details": "Create src/server/lib/logger.ts with: 1) Export LogContext interface with optional deviceId, instanceId, userId, organizationId fields, 2) Export LogPayload interface extending LogContext with timestamp (string), level ('debug'|'info'|'warn'|'error'), action (string), message (string), optional duration (number), and index signature for additional fields, 3) Implement emit(payload: LogPayload): void that calls console.log(JSON.stringify(payload)), 4) Implement Logger class with private context field, withContext method returning new Logger with merged context, info/warn/error methods, time method, and private log method, 5) Export singleton: export const logger = new Logger(). Run all tests to verify GREEN status.",
-            "status": "pending",
-            "testStrategy": "Run bun test tests/unit/server/lib/logger.test.ts and verify all tests pass. Manually test by importing logger in a file and checking console output format. Verify TypeScript compilation succeeds with no errors.",
-            "parentId": "undefined"
-          }
-        ],
-        "complexity": 4,
-        "recommendedSubtasks": 0,
-        "expansionPrompt": "Implement logger.ts with LogContext/LogPayload interfaces, emit function, and Logger class with withContext, info, warn, error, and time methods",
-        "updatedAt": "2025-12-06T14:41:19.276Z"
-      },
-      {
-        "id": "2",
-        "title": "Define Standardized Action Constants",
-        "description": "Create a constants file or type definitions for all standardized log actions (device.*, instance.*, orphan.*, wuzapi.*, user.*, demo.*, auth.*) to ensure consistency across the codebase.",
-        "details": "Add to src/server/lib/logger.ts or create separate src/server/lib/log-actions.ts:\n\n```typescript\n// Action prefixes for type safety and autocomplete\nexport const LogActions = {\n  // Device actions\n  DEVICE_CREATE: 'device.create',\n  DEVICE_REUSE: 'device.reuse',\n  \n  // Instance actions\n  INSTANCE_CREATE: 'instance.create',\n  INSTANCE_RESOLVE: 'instance.resolve',\n  \n  // Orphan management\n  ORPHAN_SEARCH: 'orphan.search',\n  ORPHAN_ADOPT: 'orphan.adopt',\n  ORPHAN_CLEANUP: 'orphan.cleanup',\n  ORPHAN_DELETE: 'orphan.delete',\n  \n  // WuzAPI calls\n  WUZAPI_STATUS: 'wuzapi.status',\n  WUZAPI_CONNECT: 'wuzapi.connect',\n  WUZAPI_SEND: 'wuzapi.send',\n  WUZAPI_LOGOUT: 'wuzapi.logout',\n  \n  // User management\n  USER_SYNC: 'user.sync',\n  USER_CREATE: 'user.create',\n  USER_CLAIM: 'user.claim',\n  \n  // Demo endpoints\n  DEMO_VALIDATE: 'demo.validate',\n  DEMO_SEND: 'demo.send',\n  \n  // Auth\n  AUTH_SUCCESS: 'auth.success',\n  AUTH_ERROR: 'auth.error',\n  \n  // tRPC\n  TRPC_REQUEST: 'trpc.request',\n} as const;\n\nexport type LogAction = (typeof LogActions)[keyof typeof LogActions];\n```\n\nOptionally update Logger class to accept LogAction type for action parameter.",
-        "testStrategy": "1. Verify all action constants are unique strings\n2. Verify type inference works correctly with LogAction type\n3. Create a test that imports LogActions and verifies expected values exist",
-        "priority": "high",
-        "dependencies": [
-          "1"
-        ],
-        "status": "done",
-        "subtasks": [],
-        "complexity": 2,
-        "recommendedSubtasks": 0,
-        "expansionPrompt": "Create LogActions constant object with all action strings and export LogAction type for type safety",
-        "updatedAt": "2025-12-06T14:43:25.663Z"
-      },
-      {
-        "id": "3",
-        "title": "Migrate demo.ts Console Logs to Structured Logger",
-        "description": "Replace all console.log/warn/error calls in src/server/api/routers/demo.ts with the new structured logger, adding proper context (deviceId, instanceId) and timing for WuzAPI calls.",
-        "details": "In src/server/api/routers/demo.ts:\n\n1. Import logger: `import { logger } from '~/server/lib/logger';`\n\n2. In status procedure (lines 79-206):\n   - Create request-scoped logger: `const log = logger.withContext({ deviceId: device.id });`\n   - Replace line 104-107: `log.info('instance.resolve', 'Instance resolved', { strategy: 'orphan_reuse', instanceId: instanceData.instance.id });`\n   - Replace line 114-116: `log.info('instance.create', 'Created new instance', { instanceId: instance.id });`\n   - Replace line 118: `log.error('instance.create', 'Failed to create instance', error);`\n   - Replace line 138: `log.warn('wuzapi.connect', 'Failed to connect', connectError);`\n   - Wrap WuzAPI calls with log.time(): `const statusRes = await log.time('wuzapi.status', 'Fetched WuzAPI status', () => client.getStatus(), { instanceId: instance.id });`\n   - Replace line 176-178: `log.info('orphan.cleanup', 'Cleanup completed', { deleted });`\n   - Replace line 182: `log.error('orphan.cleanup', 'Background cleanup error', err);`\n   - Replace line 188: `log.error('demo.status', 'Error fetching status', error);`\n\n3. For send procedure:\n   - Add timing for client.sendText()\n   - Log demo.send action after successful send\n\n4. For disconnect procedure:\n   - Add timing for client.logout()\n   - Log wuzapi.logout action",
-        "testStrategy": "1. Run existing demo.ts tests to ensure functionality unchanged\n2. Manually test demo flow and verify JSON logs appear in console\n3. Check Sentry dashboard to verify logs are captured with proper structure\n4. Verify logs contain deviceId, instanceId where appropriate\n5. Verify duration field appears in timed operations",
-        "priority": "high",
-        "dependencies": [
-          "1",
-          "2"
-        ],
-        "status": "done",
-        "subtasks": [
-          {
-            "id": 1,
-            "title": "Import logger and replace console calls in status procedure",
-            "description": "Add the structured logger import and replace all 7 console.log/warn/error calls in the status procedure (lines 104-188) with properly contextualized logger calls.",
-            "dependencies": [],
-            "details": "1. Add import at top: `import { logger } from '~/server/lib/logger';`\n2. Create request-scoped logger after device check: `const log = logger.withContext({ deviceId: device.id });`\n3. Replace line 104-107 (orphan reuse): `log.info('instance.resolve', 'Instance resolved', { strategy: 'orphan_reuse', instanceId: instanceData.instance.id });`\n4. Replace line 114-116 (new instance): `log.info('instance.create', 'Created new instance', { instanceId: instance.id });`\n5. Replace line 118 (create error): `log.error('instance.create', 'Failed to create instance', error);`\n6. Replace line 138 (connect warning): `log.warn('wuzapi.connect', 'Failed to connect', connectError);`\n7. Replace line 176-178 (cleanup success): `log.info('orphan.cleanup', 'Cleanup completed', { deleted });`\n8. Replace line 182 (cleanup error): `log.error('orphan.cleanup', 'Background cleanup error', err);`\n9. Replace line 188 (status error): `log.error('demo.status', 'Error fetching status', error);`",
-            "status": "pending",
-            "testStrategy": "1. Run existing demo.ts tests with `bun test --filter demo`\n2. Manually test demo flow and verify JSON logs appear in console\n3. Verify logs contain deviceId and instanceId where appropriate\n4. Ensure no console.log/warn/error statements remain in status procedure",
-            "parentId": "undefined"
-          },
-          {
-            "id": 2,
-            "title": "Add timing wrappers for WuzAPI calls using logger.time()",
-            "description": "Wrap all WuzAPI client calls with logger.time() to capture duration metrics for getStatus, connect, sendText, logout, getPairingCode, and checkNumbers operations.",
+            "title": "Create InstancesWidgetEmpty and InstancesWidgetError states",
+            "description": "Implement empty state for no instances and error state for API errors with appropriate messaging and CTAs",
             "dependencies": [
               1
             ],
-            "details": "1. In status procedure, wrap getStatus calls (lines 130, 136):\n   `const statusRes = await log.time('wuzapi.status', 'Fetched WuzAPI status', () => client.getStatus(), { instanceId: instance.id });`\n2. Wrap connect call (line 134):\n   `await log.time('wuzapi.connect', 'Connected to WuzAPI', () => client.connect(['Message']), { instanceId: instance.id });`\n3. In send procedure (line 378), wrap getStatus:\n   `const status = await log.time('wuzapi.status', 'Checked status before send', () => client.getStatus(), { instanceId: instance.id });`\n4. In send procedure (line 387), wrap sendText:\n   `const res = await log.time('wuzapi.send', 'Sent text message', () => client.sendText(input.phone, input.message), { instanceId: instance.id, phone: input.phone });`\n5. In disconnect procedure (line 434), wrap logout:\n   `await log.time('wuzapi.logout', 'Logged out from WuzAPI', () => client.logout(), { instanceId: instance.id });`\n6. In pairing procedure (line 240), wrap getPairingCode:\n   `const res = await log.time('wuzapi.pairing', 'Generated pairing code', () => client.getPairingCode(input.phone), { phone: input.phone });`\n7. In validate procedure (lines 291, 305), wrap checkNumbers:\n   `const exactRes = await log.time('wuzapi.checkNumbers', 'Checked exact number', () => client.checkNumbers([phone]), { phone });`",
+            "details": "Create InstancesWidgetEmpty component: Card wrapper with CardHeader showing Smartphone icon and 'Conexão WhatsApp' title. CardContent with WifiOff icon h-8 w-8 text-muted-foreground, heading 'Nenhuma instância', text 'Conecte seu WhatsApp para começar', and Button with Wifi icon 'Conectar WhatsApp' (link to connect flow). Create InstancesWidgetError component accepting { error: string } prop: Card wrapper with CardHeader showing title and destructive Badge 'Erro'. CardContent with AlertCircle icon (import from lucide-react), error message display, and Button variant='outline' with RefreshCw icon 'Tentar novamente' (can onClick reload page or retry).",
             "status": "pending",
-            "testStrategy": "1. Run full test suite to ensure timing wrappers don't break functionality\n2. Verify logs show duration field for all WuzAPI calls\n3. Test each procedure and confirm timing logs appear with correct action names\n4. Check that context (instanceId, phone) is properly included in timing logs",
-            "parentId": "undefined"
-          },
-          {
-            "id": 3,
-            "title": "Add structured logs to pairing, validate, send, and disconnect procedures",
-            "description": "Add appropriate info/error logs to the remaining procedures (pairing, validate, send, disconnect) for action tracking and error handling.",
-            "dependencies": [
-              1,
-              2
-            ],
-            "details": "1. In pairing procedure (after line 214), create scoped logger:\n   `const log = logger.withContext({ deviceId: device.id });`\n2. After successful pairing (line 244), add:\n   `log.info('demo.pairing', 'Pairing code generated', { phone: input.phone });`\n\n3. In validate procedure (after line 263), create scoped logger:\n   `const log = logger.withContext({ deviceId: device.id });`\n4. Log validation results:\n   - For valid_unique: `log.info('demo.validate', 'Number validated', { status: 'valid_unique', phone, verifiedName });`\n   - For valid_variant: `log.info('demo.validate', 'Number validated with variant', { status: 'valid_variant', originalPhone: phone, normalizedPhone: variant });`\n   - For invalid: `log.info('demo.validate', 'Number invalid', { phone });`\n\n5. In send procedure (after line 346), create scoped logger:\n   `const log = logger.withContext({ deviceId: device.id, instanceId: instance.id });`\n6. After successful send (line 391), add:\n   `log.info('demo.send', 'Message sent', { phone: input.phone, messageId: res.data.Id, messagesUsed: newUsage.used });`\n\n7. In disconnect procedure (after line 411), create scoped logger:\n   `const log = logger.withContext({ deviceId: device.id });`\n8. After successful logout (line 441), add:\n   `log.info('demo.disconnect', 'WhatsApp disconnected', { instanceId: instance.id });`",
-            "status": "pending",
-            "testStrategy": "1. Run full test suite: `bun test`\n2. Manually test each procedure and verify appropriate logs appear\n3. Verify no console.log/warn/error statements remain in demo.ts\n4. Check Sentry dashboard to verify logs are captured with proper structure\n5. Confirm all logs have deviceId context and instanceId where applicable",
+            "testStrategy": "Test empty state renders when data.instances is empty array. Test error state renders when useQuery returns error. Test error message is displayed correctly. Test 'Conectar WhatsApp' button in empty state is clickable. Test 'Tentar novamente' button in error state works.",
             "parentId": "undefined"
           }
         ],
-        "complexity": 5,
+        "complexity": 6,
+        "recommendedSubtasks": 5,
+        "expansionPrompt": "Create InstancesWidget: (1) Build main component with useState for currentIndex, useQuery for api.whatsapp.list with 30s refetchInterval, (2) Implement carousel navigation with ChevronLeft/Right buttons and index display, (3) Create instance card UI with Avatar, phone number, device name, status badge with animation, uptime display, and action buttons (Reconnect, Disconnect), (4) Create InstancesWidgetSkeleton loading state with animated placeholders, (5) Create InstancesWidgetEmpty state for no instances, (6) Create InstancesWidgetError state. Wire disconnect mutation to api.whatsapp.disconnect. Use existing UI components from ~/components/ui/*.",
+        "updatedAt": "2025-12-07T17:27:05.875Z"
+      },
+      {
+        "id": "21",
+        "title": "Update dashboard page to use InstancesWidget",
+        "description": "Replace ConnectionWidget with InstancesWidget in the dashboard page and update the component exports",
+        "details": "1. Update src/components/dashboard/index.ts:\n```typescript\nexport { InstancesWidget } from \"./instances-widget\";\nexport { ConnectionWidget } from \"./connection-widget\"; // Keep for LP if needed\nexport { MetricsWidget } from \"./metrics-widget\";\nexport { QuotaWidget } from \"./quota-widget\";\nexport { ActivityWidget } from \"./activity-widget\";\nexport { QuickTestWidget } from \"./quick-test-widget\";\n```\n2. Update src/app/(app)/app/page.tsx:\n```typescript\nimport {\n  InstancesWidget, // Changed from ConnectionWidget\n  MetricsWidget,\n  QuotaWidget,\n  ActivityWidget,\n  QuickTestWidget,\n} from \"~/components/dashboard\";\n\n// In the grid, replace:\n<motion.div variants={itemVariants}>\n  <InstancesWidget /> {/* Was ConnectionWidget */}\n</motion.div>\n```\n3. Keep ConnectionWidget file for potential LP usage or remove if not needed",
+        "testStrategy": "1. Run `bun build` to verify no import errors\n2. Navigate to /app/dashboard and verify InstancesWidget renders\n3. Verify other widgets still render correctly\n4. Test responsive layout on mobile and desktop\n5. Verify animation transitions work correctly",
+        "priority": "high",
+        "dependencies": [
+          "20"
+        ],
+        "status": "in-progress",
+        "subtasks": [],
+        "complexity": 1,
+        "recommendedSubtasks": 0,
+        "expansionPrompt": "Update dashboard/index.ts exports to add InstancesWidget. Update app/(app)/app/page.tsx to import and use InstancesWidget instead of ConnectionWidget.",
+        "updatedAt": "2025-12-07T17:47:52.929Z"
+      },
+      {
+        "id": "22",
+        "title": "End-to-end testing and final verification",
+        "description": "Perform comprehensive end-to-end testing of the complete feature including LP flow, signup conversion, and dashboard widget functionality",
+        "details": "1. Test Landing Page flow:\n   - Load LP, verify QR code displays\n   - Connect WhatsApp via QR code scan\n   - Send test message\n   - Verify message counter updates\n   - Disconnect and verify QR returns\n\n2. Test Signup conversion:\n   - After LP connection, click signup\n   - Complete Clerk auth flow\n   - Verify instance is claimed to new organization\n   - Verify redirect to dashboard\n\n3. Test Dashboard InstancesWidget:\n   - Login to dashboard\n   - Verify widget shows connected instance(s)\n   - Test carousel navigation (if multiple instances)\n   - Verify phone number displays correctly\n   - Verify device name displays\n   - Verify avatar (if available) or fallback initials\n   - Test disconnect button\n   - Verify polling updates status every 30s\n\n4. Verify rename completion:\n   - Search codebase for remaining \"demo\" references\n   - Ensure no broken imports\n   - Verify all tests pass\n\n5. Run final checks:\n   - `bun test` - all tests pass\n   - `bun build` - production build succeeds\n   - `bun typecheck` - no TypeScript errors",
+        "testStrategy": "1. Create E2E test script or checklist document\n2. Manual testing on local dev environment\n3. Test on staging environment before production\n4. Document any edge cases or known issues\n5. Verify no console errors in browser\n6. Check network tab for correct API calls",
+        "priority": "high",
+        "dependencies": [
+          "12",
+          "13",
+          "14",
+          "15",
+          "16",
+          "17",
+          "18",
+          "19",
+          "20",
+          "21"
+        ],
+        "status": "pending",
+        "subtasks": [],
+        "complexity": 4,
         "recommendedSubtasks": 3,
-        "expansionPrompt": "Break down into: 1) Import logger and replace console calls in status procedure (lines 104-188), 2) Add timing wrappers for WuzAPI calls (getStatus, connect, sendText), 3) Add structured logs to pairing/validate/send/disconnect procedures",
-        "updatedAt": "2025-12-06T14:51:23.932Z"
-      },
-      {
-        "id": "4",
-        "title": "Migrate instance.ts Console Logs to Structured Logger",
-        "description": "Replace all console.log/warn/error calls in src/server/lib/instance.ts with the structured logger, adding context and timing for orphan operations and WuzAPI instance creation.",
-        "details": "In src/server/lib/instance.ts:\n\n1. Import logger: `import { logger } from './logger';`\n\n2. In createInstanceForDevice (line 132-180):\n   - Replace line 152: `logger.error('instance.create', 'Failed to create WuzAPI instance', error);`\n   - Add success log after line 168: `logger.info('instance.create', 'Instance created', { deviceId, instanceId: instance.id, providerId });`\n\n3. In getOrReuseVirginOrphan (line 353-424):\n   - Replace line 389: `logger.warn('orphan.adopt', 'Logout failed during adoption', error, { orphanId: orphan.id });`\n   - Replace line 413-415: `logger.info('orphan.adopt', 'Virgin orphan adopted', { deviceId, instanceId: adopted.id, reuseCount: adopted.reuseCount });`\n\n4. In cleanupAbusedOrphans (line 435-499):\n   - Add start log: `logger.info('orphan.cleanup', 'Starting cleanup batch');`\n   - Replace line 486-488: `logger.info('orphan.delete', 'Deleted abused orphan', { instanceId: orphan.id });`\n   - Replace line 490: `logger.error('orphan.delete', 'Failed to delete orphan', error, { instanceId: orphan.id });`\n   - Replace line 496: `logger.error('orphan.cleanup', 'Cleanup batch error', error);`\n   - Add timing for batch operation\n\n5. Consider adding timing to WuzAPI logout calls in cleanup loop",
-        "testStrategy": "1. Run existing instance.ts tests\n2. Test orphan adoption flow and verify logs show strategy, reuseCount\n3. Test cleanup process and verify proper logging\n4. Check that error logs include error details\n5. Verify no console.log statements remain in instance.ts",
-        "priority": "high",
-        "dependencies": [
-          "1",
-          "2"
-        ],
-        "status": "done",
-        "subtasks": [
-          {
-            "id": 1,
-            "title": "Replace logs in createInstanceForDevice (line 152)",
-            "description": "Migrate the console.error call in createInstanceForDevice function to use structured logger, and add a success log after instance creation.",
-            "dependencies": [],
-            "details": "In src/server/lib/instance.ts:\n\n1. Add logger import at top of file: `import { logger } from './logger';`\n\n2. Replace line 152 (in catch block):\n   - FROM: `console.error(\"Failed to create WuzAPI instance:\", error);`\n   - TO: `logger.error('instance.create', 'Failed to create WuzAPI instance', error);`\n\n3. Add success log after line 168 (after `.returning()`):\n   ```typescript\n   logger.info('instance.create', 'Instance created', { \n     deviceId, \n     instanceId: instance.id, \n     providerId \n   });\n   ```\n\nThis covers the single console statement in createInstanceForDevice plus adds a success log for visibility into instance creation.",
-            "status": "pending",
-            "testStrategy": "1. Verify logger import is added correctly\n2. Test error path by mocking createWuzAPIInstance to throw\n3. Test success path and verify structured log appears with deviceId, instanceId, providerId\n4. Verify original error is still thrown after logging",
-            "parentId": "undefined"
-          },
-          {
-            "id": 2,
-            "title": "Replace logs in getOrReuseVirginOrphan (lines 389, 413-415)",
-            "description": "Migrate console.warn and console.log calls in getOrReuseVirginOrphan function to use structured logger with proper context including orphanId and reuseCount.",
-            "dependencies": [
-              1
-            ],
-            "details": "In src/server/lib/instance.ts, in getOrReuseVirginOrphan function:\n\n1. Replace line 389 (in catch block for logout):\n   - FROM: `console.warn(\\`[orphan-reuse] Logout failed for ${orphan.id}:\\`, error);`\n   - TO: `logger.warn('orphan.adopt', 'Logout failed during adoption', error, { orphanId: orphan.id });`\n\n2. Replace lines 413-415 (after successful adoption):\n   - FROM:\n     ```typescript\n     console.log(\n       `[orphan-reuse] Device ${deviceId.slice(0, 8)}... adopted virgin orphan ${adopted.id} (reuse #${adopted.reuseCount})`\n     );\n     ```\n   - TO:\n     ```typescript\n     logger.info('orphan.adopt', 'Virgin orphan adopted', { \n       deviceId, \n       instanceId: adopted.id, \n       reuseCount: adopted.reuseCount \n     });\n     ```\n\nNote: The reuseCount is available from the returned `adopted` object after the UPDATE...RETURNING query.",
-            "status": "pending",
-            "testStrategy": "1. Test orphan adoption flow and verify log contains strategy='orphan.adopt'\n2. Verify reuseCount is correctly extracted from returned adopted instance\n3. Test logout failure path and verify warning log with orphanId\n4. Verify deviceId context is included in adoption success log",
-            "parentId": "undefined"
-          },
-          {
-            "id": 3,
-            "title": "Replace logs and add timing in cleanupAbusedOrphans (lines 486-496)",
-            "description": "Migrate all console.log/error calls in cleanupAbusedOrphans function to structured logger, add batch start/end logging, and implement timing for the cleanup operation.",
-            "dependencies": [
-              1
-            ],
-            "details": "In src/server/lib/instance.ts, in cleanupAbusedOrphans function:\n\n1. Add batch start log after line 439 (before try block or at start):\n   ```typescript\n   const startTime = Date.now();\n   logger.info('orphan.cleanup', 'Starting cleanup batch');\n   ```\n\n2. Replace line 486-488 (in loop, after successful delete):\n   - FROM: `console.log(\\`[cleanup] Deleted abused orphan ${orphan.id} (token was leaked)\\`);`\n   - TO: `logger.info('orphan.delete', 'Deleted abused orphan', { instanceId: orphan.id });`\n\n3. Replace line 490 (in loop catch block):\n   - FROM: `console.error(\\`[cleanup] Failed to delete ${orphan.id}:\\`, error);`\n   - TO: `logger.error('orphan.delete', 'Failed to delete orphan', error, { instanceId: orphan.id });`\n\n4. Replace line 496 (outer catch block):\n   - FROM: `console.error(\"[cleanup] Error in cleanupAbusedOrphans:\", error);`\n   - TO: `logger.error('orphan.cleanup', 'Cleanup batch error', error);`\n\n5. Add batch completion log before returning deletedCount:\n   ```typescript\n   logger.info('orphan.cleanup', 'Cleanup batch completed', { \n     deletedCount, \n     duration: Date.now() - startTime \n   });\n   ```\n\nThe timing captures total batch duration including all logout calls and database operations.",
-            "status": "pending",
-            "testStrategy": "1. Test cleanup flow with abused orphans and verify batch start/end logs\n2. Verify timing (duration) is captured and logged\n3. Test individual delete success and verify orphan.delete log with instanceId\n4. Test individual delete failure and verify error log with context\n5. Test batch-level error and verify orphan.cleanup error log\n6. Run grep to verify no console.log/warn/error statements remain in instance.ts",
-            "parentId": "undefined"
-          }
-        ],
-        "complexity": 5,
-        "recommendedSubtasks": 3,
-        "expansionPrompt": "Break down into: 1) Replace logs in createInstanceForDevice (lines 152-168), 2) Replace logs in getOrReuseVirginOrphan (lines 389-415), 3) Replace logs and add timing in cleanupAbusedOrphans (lines 486-496)",
-        "updatedAt": "2025-12-06T14:56:27.767Z"
-      },
-      {
-        "id": "5",
-        "title": "Migrate user.ts Console Logs to Structured Logger",
-        "description": "Replace all console.log calls in src/server/lib/user.ts with the structured logger, adding proper context for user sync, creation, and instance claiming operations.",
-        "details": "In src/server/lib/user.ts:\n\n1. Import logger: `import { logger } from './logger';`\n\n2. In syncUserFromClerk (line 20-145):\n   - Create context logger at start (after getting user data): `const log = logger.withContext({ userId: user?.id });`\n   \n   - Replace line 85-87 (new user created):\n   ```typescript\n   log.info('user.create', 'New user created', { \n     userId: user.id, \n     organizationId: organization.id,\n     email: user.email \n   });\n   ```\n   \n   - Replace line 93-96 (instances claimed for new user):\n   ```typescript\n   log.info('user.claim', 'Instances claimed for new user', { \n     count: claimed,\n     organizationId: organization.id \n   });\n   ```\n   \n   - Replace line 119 (user synced):\n   ```typescript\n   log.info('user.sync', 'User synced from Clerk', { userId: user.id });\n   ```\n   \n   - Replace line 127-129 (instances claimed for existing user):\n   ```typescript\n   log.info('user.claim', 'Instances claimed for existing user', { \n     count: claimed,\n     organizationId: organization.id \n   });\n   ```\n\n3. Optionally add isNew flag to distinguish new vs synced users",
-        "testStrategy": "1. Run user sync flow and verify logs appear with correct structure\n2. Test new user creation and verify user.create log\n3. Test instance claiming and verify user.claim log with count\n4. Verify userId context is present in all logs\n5. Verify no console.log statements remain in user.ts",
-        "priority": "medium",
-        "dependencies": [
-          "1",
-          "2"
-        ],
-        "status": "done",
-        "subtasks": [],
-        "complexity": 3,
-        "recommendedSubtasks": 0,
-        "expansionPrompt": "Replace 4 console.log statements in syncUserFromClerk with structured logger calls including userId context",
-        "updatedAt": "2025-12-06T14:57:49.273Z"
-      },
-      {
-        "id": "6",
-        "title": "Migrate trpc.ts Console Logs to Structured Logger",
-        "description": "Replace console.log/error calls in src/server/api/trpc.ts with the structured logger, adding device creation/reuse logging and enhancing request timing logs with structured context.",
-        "details": "In src/server/api/trpc.ts:\n\n1. Import logger: `import { logger } from '~/server/lib/logger';`\n\n2. In createTRPCContext (line 32-67):\n   - After successful getOrCreateDevice (around line 46-56), add device logging:\n   ```typescript\n   if (device.isNew) {\n     logger.info('device.create', 'New device created', { \n       deviceId: device.id,\n       ipAddress,\n       userAgent \n     });\n   } else {\n     logger.info('device.reuse', 'Device reused', { deviceId: device.id });\n   }\n   ```\n   \n   - Replace line 58: `logger.error('device.create', 'Error creating device', error);`\n\n3. In timingMiddleware (line 117-132):\n   - Create request-scoped logger with available context\n   - Replace line 129: \n   ```typescript\n   logger.info('trpc.request', 'Request completed', {\n     path,\n     duration: end - start,\n   });\n   ```\n   \n4. In authMiddleware (line 149-175):\n   - Replace line 161: `logger.error('auth.error', 'Failed to sync user', error, { clerkUserId });`\n   - Optionally add auth.success log on successful sync\n\nNote: Device context may not be available in all middleware - log what's available.",
-        "testStrategy": "1. Test new device creation and verify device.create log with ipAddress, userAgent\n2. Test returning device and verify device.reuse log\n3. Verify request timing logs appear with path and duration\n4. Test auth failure and verify auth.error log\n5. Verify no console.log/error statements remain in trpc.ts",
-        "priority": "medium",
-        "dependencies": [
-          "1",
-          "2"
-        ],
-        "status": "done",
-        "subtasks": [],
-        "complexity": 4,
-        "recommendedSubtasks": 0,
-        "expansionPrompt": "Replace console statements in createTRPCContext (line 58), timingMiddleware (line 129), and authMiddleware (line 161) with structured logger",
-        "updatedAt": "2025-12-06T14:59:00.010Z"
-      },
-      {
-        "id": "7",
-        "title": "Migrate tRPC Route Handler Error Logs",
-        "description": "Update src/app/api/trpc/[trpc]/route.ts to use structured logger for tRPC error handling in development mode.",
-        "details": "In src/app/api/trpc/[trpc]/route.ts:\n\n1. Import logger: `import { logger } from '~/server/lib/logger';`\n\n2. Replace the onError handler (lines 24-31):\n```typescript\nonError:\n  env.NODE_ENV === 'development'\n    ? ({ path, error }) => {\n        logger.error('trpc.error', 'tRPC procedure failed', error, {\n          path: path ?? '<no-path>',\n        });\n      }\n    : ({ path, error }) => {\n        // In production, still log errors for Sentry\n        logger.error('trpc.error', 'tRPC procedure failed', error, {\n          path: path ?? '<no-path>',\n        });\n      },\n```\n\nNote: Consider whether to log in production as well since Sentry will capture it. The development-only check was originally for console output visibility, but with structured logs going to Sentry, production logging may be desired.",
-        "testStrategy": "1. Trigger a tRPC error in development and verify structured log appears\n2. Verify error includes path and error details\n3. Check that error is captured in Sentry with proper structure",
-        "priority": "low",
-        "dependencies": [
-          "1",
-          "2"
-        ],
-        "status": "done",
-        "subtasks": [],
-        "complexity": 2,
-        "recommendedSubtasks": 0,
-        "expansionPrompt": "Replace console.error in onError handler with logger.error call in src/app/api/trpc/[trpc]/route.ts",
-        "updatedAt": "2025-12-06T15:00:17.206Z"
-      },
-      {
-        "id": "8",
-        "title": "Add Request Context to Logger in tRPC Middleware",
-        "description": "Enhance the tRPC context to include a request-scoped logger with deviceId/userId context that can be passed through procedures automatically.",
-        "details": "In src/server/api/trpc.ts:\n\n1. Modify createTRPCContext to create a context-aware logger:\n```typescript\nimport { logger, type Logger } from '~/server/lib/logger';\n\nexport const createTRPCContext = async (opts: { headers: Headers }) => {\n  // ... existing device creation code ...\n\n  // Create request-scoped logger with device context\n  const log = device \n    ? logger.withContext({ deviceId: device.id })\n    : logger;\n\n  return {\n    db,\n    device,\n    log,  // Add logger to context\n    ...opts,\n  };\n};\n```\n\n2. Update authMiddleware to enhance logger with userId:\n```typescript\nconst authMiddleware = t.middleware(async ({ ctx, next }) => {\n  // ... existing auth code ...\n\n  // Enhance logger with user context\n  const log = ctx.log.withContext({ \n    userId: user.id,\n    organizationId: user.organizationId \n  });\n\n  return next({\n    ctx: {\n      ...ctx,\n      user,\n      clerkUserId,\n      log,  // Override with enhanced logger\n    },\n  });\n});\n```\n\n3. Update demo.ts procedures to use ctx.log instead of creating logger:\n```typescript\nstatus: publicProcedure.query(async ({ ctx }) => {\n  const { device, log } = ctx;\n  // Use log directly - already has deviceId context\n  log.info('instance.resolve', 'Resolving instance');\n});\n```\n\n4. Export Logger type from logger.ts for type annotations",
-        "testStrategy": "1. Verify ctx.log is available in procedures\n2. Test that publicProcedure has deviceId in logs\n3. Test that protectedProcedure has deviceId + userId in logs\n4. Verify context properly chains through withContext calls",
-        "priority": "medium",
-        "dependencies": [
-          "1",
-          "6"
-        ],
-        "status": "done",
-        "subtasks": [],
-        "complexity": 5,
-        "recommendedSubtasks": 0,
-        "expansionPrompt": "Modify createTRPCContext to add request-scoped logger to context, update authMiddleware to enhance logger with user context, update demo.ts to use ctx.log",
-        "updatedAt": "2025-12-06T15:01:47.338Z"
-      },
-      {
-        "id": "9",
-        "title": "Add Timing Helpers for WuzAPI Operations",
-        "description": "Wrap all WuzAPI client calls with logger.time() to automatically capture operation duration for performance monitoring.",
-        "details": "Review and ensure all WuzAPI calls are wrapped with timing:\n\n1. In demo.ts status procedure:\n```typescript\n// Wrap getStatus\nconst statusRes = await log.time(\n  'wuzapi.status',\n  'Fetched WuzAPI status',\n  () => client.getStatus(),\n  { instanceId: instance.id }\n);\n\n// Wrap connect\nawait log.time(\n  'wuzapi.connect', \n  'Connected to WuzAPI',\n  () => client.connect(['Message']),\n  { instanceId: instance.id }\n);\n```\n\n2. In demo.ts send procedure:\n```typescript\nconst res = await log.time(\n  'wuzapi.send',\n  'Message sent',\n  () => client.sendText(input.phone, input.message),\n  { instanceId: instance.id, phone: input.phone }\n);\n```\n\n3. In demo.ts disconnect procedure:\n```typescript\nawait log.time(\n  'wuzapi.logout',\n  'Logged out from WuzAPI',\n  () => client.logout(),\n  { instanceId: instance.id }\n);\n```\n\n4. In demo.ts pairing procedure:\n```typescript\nconst res = await log.time(\n  'wuzapi.pairing',\n  'Generated pairing code',\n  () => client.getPairingCode(input.phone),\n  { instanceId: instance.id }\n);\n```\n\n5. In demo.ts validate procedure:\n```typescript\nconst exactRes = await log.time(\n  'wuzapi.check',\n  'Checked number on WhatsApp',\n  () => client.checkNumbers([phone]),\n  { instanceId: instance.id }\n);\n```\n\n6. In instance.ts orphan adoption:\n```typescript\nawait log.time(\n  'wuzapi.logout',\n  'Logout orphan before adoption',\n  () => client.logout(),\n  { orphanId: orphan.id }\n);\n```",
-        "testStrategy": "1. Execute each WuzAPI operation and verify duration field in logs\n2. Check P95 latency values are reasonable (typically 100-2000ms for WuzAPI calls)\n3. Verify failed operations still log duration\n4. Test that Sentry can filter by wuzapi.* actions and show duration metrics",
-        "priority": "medium",
-        "dependencies": [
-          "3",
-          "4"
-        ],
-        "status": "done",
-        "subtasks": [],
-        "complexity": 4,
-        "recommendedSubtasks": 0,
-        "expansionPrompt": "Wrap all WuzAPI client calls (getStatus, connect, sendText, logout, getPairingCode, checkNumbers) with logger.time() in demo.ts and instance.ts",
-        "updatedAt": "2025-12-06T15:05:09.515Z"
-      },
-      {
-        "id": "10",
-        "title": "Validate Sentry Integration and Dashboard Filters",
-        "description": "Verify that structured logs are properly captured by Sentry, test filtering capabilities in the Sentry dashboard, and document the filtering syntax for the team.",
-        "details": "1. Verify Sentry configuration in sentry.server.config.ts:\n   - Confirm consoleLoggingIntegration is capturing all levels\n   - Ensure JSON logs are parsed correctly\n\n2. Test log capture in Sentry dashboard:\n   - Trigger various actions (demo.status, orphan.adopt, user.create, etc.)\n   - Navigate to Sentry Logs/Issues\n   - Verify structured fields are searchable\n\n3. Test these filter queries in Sentry:\n   - `action:demo.status AND deviceId:*` - filter by action and device\n   - `action:orphan.* AND duration:>1000` - slow orphan operations\n   - `level:error AND action:wuzapi.*` - WuzAPI errors\n   - `userId:* AND action:demo.send` - user message sends\n   - `action:instance.create` - new instance creation\n\n4. Verify breadcrumbs show event trail before errors\n\n5. Document findings:\n   - Create a section in project docs about log filtering\n   - List available actions and their fields\n   - Provide example queries for common debugging scenarios\n\n6. Optional: Set up Sentry alerts for critical errors:\n   - Alert on high error rate for wuzapi.* actions\n   - Alert on orphan cleanup failures",
-        "testStrategy": "1. Manually trigger each log action type\n2. Verify each appears in Sentry with correct structure\n3. Test at least 5 filter queries work correctly\n4. Verify breadcrumbs appear before error events\n5. Check that duration metrics can be graphed in Sentry\n6. Confirm deviceId, userId, instanceId are filterable",
-        "priority": "medium",
-        "dependencies": [
-          "3",
-          "4",
-          "5",
-          "6"
-        ],
-        "status": "done",
-        "subtasks": [],
-        "complexity": 3,
-        "recommendedSubtasks": 0,
-        "expansionPrompt": "Trigger all log action types, verify Sentry capture with structured fields, test filter queries, document findings",
-        "updatedAt": "2025-12-06T15:05:58.030Z"
-      },
-      {
-        "id": "11",
-        "title": "Final Cleanup - Remove All Remaining Console Statements",
-        "description": "Perform a final audit to ensure all console.log/warn/error statements are replaced with structured logger calls, and add ESLint rule to prevent future console usage.",
-        "details": "1. Run grep to find remaining console statements:\n   ```bash\n   grep -r 'console\\.' src/server --include='*.ts'\n   ```\n\n2. Expected files that should have NO console statements after migration:\n   - src/server/api/routers/demo.ts\n   - src/server/lib/instance.ts\n   - src/server/lib/user.ts\n   - src/server/api/trpc.ts\n   - src/app/api/trpc/[trpc]/route.ts\n   - src/server/lib/device.ts (add logging if needed)\n\n3. Replace any remaining console statements found\n\n4. Add ESLint rule to prevent future console usage (optional but recommended):\n   In .eslintrc.js or eslint.config.js:\n   ```javascript\n   rules: {\n     'no-console': ['error', { allow: [] }],\n   }\n   ```\n   \n   Or for files that legitimately need console (like logger.ts):\n   ```javascript\n   overrides: [\n     {\n       files: ['src/server/lib/logger.ts'],\n       rules: {\n         'no-console': 'off',\n       },\n     },\n   ],\n   ```\n\n5. Run linter and fix any new violations\n\n6. Update PR checklist or contribution guide to mention structured logging requirement",
-        "testStrategy": "1. Run grep to verify zero console statements outside logger.ts\n2. Run ESLint and verify no-console rule triggers on new console usage\n3. Build project to ensure no TypeScript errors\n4. Run test suite to ensure all tests pass\n5. Manual smoke test of main user flows",
-        "priority": "low",
-        "dependencies": [
-          "3",
-          "4",
-          "5",
-          "6",
-          "7"
-        ],
-        "status": "done",
-        "subtasks": [],
-        "complexity": 3,
-        "recommendedSubtasks": 0,
-        "expansionPrompt": "Run grep to find remaining console statements, replace any found, add ESLint no-console rule with exception for logger.ts",
-        "updatedAt": "2025-12-06T15:06:57.534Z"
+        "expansionPrompt": "Create E2E verification checklist: (1) Test LP flow - QR display, WhatsApp connection, message sending, counter update, disconnect, (2) Test signup conversion - after LP connection, complete Clerk auth, verify instance claim, verify dashboard redirect, (3) Test dashboard InstancesWidget - verify widget shows instances, test carousel if multiple, verify data accuracy (phone, name, status, avatar), test disconnect, verify polling updates, (4) Code verification - grep for remaining 'demo' references excluding comments, run bun test, bun build, bun typecheck. Document any issues found."
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2025-12-06T15:06:57.534Z",
+      "lastModified": "2025-12-07T17:47:52.930Z",
       "taskCount": 11,
-      "completedCount": 11,
+      "completedCount": 8,
       "tags": [
         "master"
       ]

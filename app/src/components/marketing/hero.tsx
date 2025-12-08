@@ -6,7 +6,7 @@ import { Zap, MessageSquare, CreditCard } from "lucide-react";
 
 import { QrCard } from "./qr-card";
 import { TestPanel } from "./test-panel";
-import { useDemo } from "~/hooks/useDemo";
+import { useWhatsApp } from "~/hooks/useWhatsApp";
 
 const features = [
   { icon: Zap, text: "Teste antes de criar conta" },
@@ -15,30 +15,30 @@ const features = [
 ];
 
 export function Hero() {
-  const demo = useDemo();
+  const whatsapp = useWhatsApp();
 
   // Handlers estáveis com useCallback para evitar re-renders infinitos
   const handleRequestPairing = useCallback(async (phone: string) => {
-    const result = await demo.pairing.mutateAsync(phone);
+    const result = await whatsapp.pairing.mutateAsync(phone);
     return { pairingCode: result.pairingCode };
-  }, [demo.pairing]);
+  }, [whatsapp.pairing]);
 
   const handleValidatePhone = useCallback(async (phone: string) => {
-    return await demo.validate.mutateAsync(phone);
-  }, [demo.validate]);
+    return await whatsapp.validate.mutateAsync(phone);
+  }, [whatsapp.validate]);
 
   const handleDisconnect = useCallback(() => {
-    demo.disconnect.mutate();
-  }, [demo.disconnect]);
+    whatsapp.disconnect.mutate();
+  }, [whatsapp.disconnect]);
 
   const handleSendMessage = useCallback(async (phone: string, message: string) => {
-    const result = await demo.send.mutateAsync({ phone, message });
+    const result = await whatsapp.send.mutateAsync({ phone, message });
     return {
       success: result.success,
       messageId: result.messageId,
       timestamp: result.timestamp,
     };
-  }, [demo.send]);
+  }, [whatsapp.send]);
 
   return (
     <section className="relative min-h-screen pt-32 pb-20 px-6 overflow-hidden">
@@ -89,25 +89,25 @@ export function Hero() {
           transition={{ delay: 0.3 }}
           className="flex justify-center mb-16"
         >
-          {demo.isLoggedIn ? (
+          {whatsapp.isLoggedIn ? (
             <TestPanel
               onDisconnect={handleDisconnect}
               onSendMessage={handleSendMessage}
               onValidatePhone={handleValidatePhone}
-              isSending={demo.send.isPending}
-              isDisconnecting={demo.disconnect.isPending}
-              jid={demo.jid}
-              apiKey={demo.apiKey}
+              isSending={whatsapp.send.isPending}
+              isDisconnecting={whatsapp.disconnect.isPending}
+              jid={whatsapp.jid}
+              apiKey={whatsapp.apiKey}
             />
           ) : (
             <QrCard
-              qrCode={demo.qrCode}
-              isLoading={demo.isLoading}
-              isError={demo.isError}
+              qrCode={whatsapp.qrCode}
+              isLoading={whatsapp.isLoading}
+              isError={whatsapp.isError}
               onRequestPairing={handleRequestPairing}
               onValidatePhone={handleValidatePhone}
-              isPairingPending={demo.pairing.isPending}
-              pairingCode={demo.pairing.data?.pairingCode}
+              isPairingPending={whatsapp.pairing.isPending}
+              pairingCode={whatsapp.pairing.data?.pairingCode}
             />
           )}
         </motion.div>

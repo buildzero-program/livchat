@@ -141,6 +141,7 @@ export const instances = pgTable(
     whatsappJid: text("whatsapp_jid"),
     whatsappName: text("whatsapp_name"),
     whatsappPictureUrl: text("whatsapp_picture_url"),
+    avatarSyncedAt: timestamp("avatar_synced_at", { withTimezone: true }),
 
     // Status
     status: text("status").notNull().default("disconnected"),

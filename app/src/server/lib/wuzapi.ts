@@ -40,6 +40,14 @@ export interface WuzAPICheckData {
   Users: WuzAPICheckUser[];
 }
 
+export interface WuzAPIAvatarData {
+  url?: string;
+  id?: string;
+  type?: string;
+  hash?: string;
+  direct_path?: string;
+}
+
 export interface WuzAPIResponse<T> {
   code: number;
   success: boolean;
@@ -154,6 +162,19 @@ export class WuzAPIClient {
     return this.request<{ details: string; events: string; jid: string; webhook: string }>("/session/connect", {
       method: "POST",
       body: JSON.stringify({ Subscribe: events, Immediate: false }),
+    });
+  }
+
+  /**
+   * POST /user/avatar
+   * Fetches the profile picture URL for a WhatsApp number
+   * Note: Despite docs saying GET, WuzAPI actually uses POST
+   */
+  async getAvatar(jid: string): Promise<WuzAPIResponse<WuzAPIAvatarData>> {
+    const phone = jid.replace(/@s\.whatsapp\.net$/, "").replace(/:\d+$/, "");
+    return this.request<WuzAPIAvatarData>("/user/avatar", {
+      method: "POST",
+      body: JSON.stringify({ Phone: phone, Preview: false }),
     });
   }
 }

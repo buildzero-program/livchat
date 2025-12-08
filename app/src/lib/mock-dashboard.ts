@@ -104,6 +104,57 @@ export const mockRecentActivity = [
   },
 ];
 
+// Múltiplas instâncias WhatsApp
+export type InstanceStatus = "online" | "connecting" | "offline";
+
+export interface MockInstance {
+  id: string;
+  name: string;
+  jid: string;
+  phoneNumber: string;
+  deviceName: string;
+  pictureUrl: string | null;
+  status: InstanceStatus;
+  connectedSince: Date | null;
+  messagesUsed: number;
+}
+
+export const mockInstances: MockInstance[] = [
+  {
+    id: "inst_1",
+    name: "Atendimento",
+    jid: "5511948182061@s.whatsapp.net",
+    phoneNumber: "+55 11 94818-2061",
+    deviceName: "iPhone de Pedro",
+    pictureUrl: null,
+    status: "online",
+    connectedSince: new Date(Date.now() - 2 * 60 * 60 * 1000 - 34 * 60 * 1000),
+    messagesUsed: 847,
+  },
+  {
+    id: "inst_2",
+    name: "Vendas",
+    jid: "5585988644401@s.whatsapp.net",
+    phoneNumber: "+55 85 98864-4401",
+    deviceName: "Samsung Galaxy",
+    pictureUrl: null,
+    status: "connecting",
+    connectedSince: null,
+    messagesUsed: 234,
+  },
+  {
+    id: "inst_3",
+    name: "Suporte",
+    jid: "5521999887766@s.whatsapp.net",
+    phoneNumber: "+55 21 99988-7766",
+    deviceName: "Pixel 8 Pro",
+    pictureUrl: null,
+    status: "offline",
+    connectedSince: null,
+    messagesUsed: 0,
+  },
+];
+
 // Último envio do teste rápido
 export const mockLastTest = {
   phone: "+55 85 98864-4401",
