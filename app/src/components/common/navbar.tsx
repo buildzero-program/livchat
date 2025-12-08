@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Menu, X } from "lucide-react";
-import { useAuth, useSignIn } from "@clerk/nextjs";
+import { useAuth, useSignUp } from "@clerk/nextjs";
 
 import { Button } from "~/components/ui/button";
 import { APP_NAME, NAV_LINKS } from "~/lib/constants";
@@ -18,9 +18,10 @@ export function Navbar() {
   const [isMounted, setIsMounted] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [loadingProvider, setLoadingProvider] = useState<"google" | "github" | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   const { isSignedIn, isLoaded } = useAuth();
-  const { signIn, isLoaded: signInLoaded } = useSignIn();
+  const { signUp, isLoaded: signUpLoaded } = useSignUp();
   const router = useRouter();
 
   useEffect(() => {
@@ -44,33 +45,32 @@ export function Navbar() {
   }, [isSignedIn, authModalOpen, router]);
 
   async function handleOAuth(provider: "oauth_github" | "oauth_google") {
-    if (!signInLoaded || !signIn) return;
+    if (!signUpLoaded || !signUp) return;
 
     const providerKey = provider === "oauth_google" ? "google" : "github";
     setLoadingProvider(providerKey);
+    setAuthError(null);
 
     try {
       const redirectUrl = `${window.location.origin}/sso-callback`;
 
-      // 1. Abre popup ANTES de chamar o Clerk
+      // Abre popup ANTES de chamar o Clerk
       const popup = window.open(
         "",
         "livchat_oauth",
         "width=480,height=640,menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=yes"
       );
 
-      // 2. Fallback se popup bloqueado
+      // Se popup bloqueado, mostra erro amigável
       if (!popup) {
-        await signIn.authenticateWithRedirect({
-          strategy: provider,
-          redirectUrl,
-          redirectUrlComplete: "/app",
-        });
+        setAuthError("Popup bloqueado. Habilite popups para este site e tente novamente.");
+        setLoadingProvider(null);
         return;
       }
 
-      // 3. Usa popup mode passando a referência da janela
-      await signIn.authenticateWithPopup({
+      // Usa signUp.authenticateWithPopup - funciona para novos E existentes
+      // Clerk automaticamente faz sign-in se o usuário já existe
+      await signUp.authenticateWithPopup({
         strategy: provider,
         redirectUrl,
         redirectUrlComplete: "/app",
@@ -82,8 +82,7 @@ export function Navbar() {
       router.replace("/app");
     } catch (err) {
       console.error("OAuth error:", err);
-      // Tenta navegar mesmo assim caso a sessão tenha sido criada
-      router.replace("/app");
+      setAuthError("Erro ao autenticar. Tente novamente.");
     } finally {
       setLoadingProvider(null);
     }
@@ -233,11 +232,15 @@ export function Navbar() {
       {/* Auth Modal */}
       <AuthModal
         open={authModalOpen}
-        onOpenChange={setAuthModalOpen}
+        onOpenChange={(open) => {
+          setAuthModalOpen(open);
+          if (!open) setAuthError(null);
+        }}
         onGoogleClick={handleGoogleSignIn}
         onGitHubClick={handleGitHubSignIn}
         loadingGoogle={loadingProvider === "google"}
         loadingGitHub={loadingProvider === "github"}
+        error={authError ?? undefined}
       />
     </>
   );

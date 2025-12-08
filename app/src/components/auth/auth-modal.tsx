@@ -128,6 +128,15 @@ export function AuthModal({
             </div>
           </div>
 
+          {/* Clerk CAPTCHA widget placeholder */}
+          <div
+            id="clerk-captcha"
+            data-cl-theme="auto"
+            data-cl-size="flexible"
+            data-cl-language="pt-BR"
+            className="flex justify-center"
+          />
+
           {/* Terms */}
           <p className="text-center text-xs leading-relaxed text-muted-foreground">
             Ao continuar, você concorda com nossos{" "}
