@@ -45,3 +45,5 @@ coverage/
 
 # Reference code (not part of project)
 refs/
+.vercel
+.env*.local

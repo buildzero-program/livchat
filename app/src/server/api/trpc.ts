@@ -212,3 +212,84 @@ const authMiddleware = t.middleware(async ({ ctx, next }) => {
 export const protectedProcedure = t.procedure
   .use(timingMiddleware)
   .use(authMiddleware);
+
+/**
+ * Optional auth middleware
+ *
+ * Tries to authenticate but doesn't fail if user is not logged in.
+ * Used for hybrid endpoints that work for both anonymous and authenticated users.
+ */
+const optionalAuthMiddleware = t.middleware(async ({ ctx, next }) => {
+  const { userId: clerkUserId } = await auth();
+
+  // DEBUG: Log do estado do Clerk
+  logger.info("hybrid.auth", "Optional auth check", {
+    hasClerkUserId: !!clerkUserId,
+    clerkUserId: clerkUserId?.slice(0, 8),
+  });
+
+  // Não autenticado - continua sem user
+  if (!clerkUserId) {
+    logger.info("hybrid.auth", "No Clerk user, continuing anonymous");
+    return next({
+      ctx: {
+        ...ctx,
+        user: undefined as SyncedUser | undefined,
+        clerkUserId: undefined as string | undefined,
+      },
+    });
+  }
+
+  // Autenticado - sync user on-demand
+  try {
+    logger.info("hybrid.auth", "Clerk user found, syncing", { clerkUserId: clerkUserId.slice(0, 8) });
+
+    const user = await syncUserFromClerk(clerkUserId, ctx.device?.id);
+
+    logger.info("hybrid.auth", "User synced successfully", {
+      userId: user.id,
+      organizationId: user.organizationId,
+    });
+
+    // Enhance logger with user context
+    const log = ctx.log.withContext({
+      userId: user.id,
+      organizationId: user.organizationId,
+    });
+
+    return next({
+      ctx: {
+        ...ctx,
+        user: user as SyncedUser | undefined,
+        clerkUserId: clerkUserId as string | undefined,
+        log,
+      },
+    });
+  } catch (error) {
+    // Erro no sync - loga mas continua sem user (não bloqueia)
+    logger.warn(LogActions.AUTH_ERROR, "Failed to sync user in hybrid procedure", {
+      clerkUserId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return next({
+      ctx: {
+        ...ctx,
+        user: undefined as SyncedUser | undefined,
+        clerkUserId: undefined as string | undefined,
+      },
+    });
+  }
+});
+
+/**
+ * Hybrid procedure (optional auth)
+ *
+ * Works for both anonymous and authenticated users.
+ * If authenticated, ctx.user will be available.
+ * If anonymous, ctx.user will be undefined.
+ *
+ * Use case: Landing page showing connected instance for logged-in users.
+ */
+export const hybridProcedure = t.procedure
+  .use(timingMiddleware)
+  .use(optionalAuthMiddleware);

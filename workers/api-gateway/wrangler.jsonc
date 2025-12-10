@@ -1,0 +1,53 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "livchat-api-gateway",
+	"main": "src/index.ts",
+	"account_id": "8261c0647800836894a376e98a5c4bfc",
+	"compatibility_date": "2025-12-09",
+	"compatibility_flags": ["nodejs_compat"],
+
+	// Observability
+	"observability": {
+		"enabled": true
+	},
+
+	// KV Namespace for API Keys cache
+	"kv_namespaces": [
+		{
+			"binding": "API_KEYS_CACHE",
+			"id": "ae654944e72c40b091a57051aaa3d13e"
+		}
+	],
+
+	// Durable Objects for rate limiting
+	"durable_objects": {
+		"bindings": [
+			{
+				"name": "RATE_LIMITER",
+				"class_name": "RateLimiter"
+			}
+		]
+	},
+
+	// Migrations for Durable Objects (using sqlite for free plan)
+	"migrations": [
+		{
+			"tag": "v1",
+			"new_sqlite_classes": ["RateLimiter"]
+		}
+	],
+
+	// Environment variables (non-sensitive)
+	"vars": {
+		"VERCEL_URL": "https://livchat.ai",
+		"WUZAPI_URL": "https://wuz.livchat.ai"
+	}
+
+	// Secrets (configure via: wrangler secret put INTERNAL_SECRET)
+	// - INTERNAL_SECRET: For secure communication with Vercel
+
+	// Routes (configure after DNS is set up)
+	// "routes": [
+	// 	{ "pattern": "api.livchat.ai/*", "zone_name": "livchat.ai" }
+	// ]
+}

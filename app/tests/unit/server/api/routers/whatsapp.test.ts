@@ -1,19 +1,23 @@
 // @ts-nocheck - Tests need rewrite for new device/instance architecture
-import { describe, it, expect, mock, beforeEach, beforeAll, afterAll, spyOn } from "bun:test";
-import { whatsappRouter } from "~/server/api/routers/whatsapp";
-import { createCallerFactory } from "~/server/api/trpc";
-import type { inferProcedureInput } from "@trpc/server";
-import type { AppRouter } from "~/server/api/root";
-import { Logger } from "~/server/lib/logger";
-import type { DeviceInfo } from "~/server/lib/device";
+// NOTE: These tests are ALL SKIPPED due to architecture changes
+// The tests were originally written for direct WuzAPI testing
+// but are kept here as documentation of expected behavior
 
-// TODO: Tests need to be rewritten to mock device/instance layer
+import { describe, it, expect, mock, beforeEach, beforeAll, afterAll, spyOn } from "bun:test";
+
+// Skip importing the router and trpc to avoid module resolution issues
+// These tests are all .skip'd anyway and need rewriting
+
+// TODO: Tests need to be rewritten to mock device/instance layer properly
 // The router now uses ctx.device and ctx.log which require proper mocking
 // These tests were written for direct WuzAPI testing, but architecture changed to:
 // Device (cookie) → Instance → WuzAPI Client
 
-// Create a caller for testing
-const createCaller = createCallerFactory(whatsappRouter as any);
+interface DeviceInfo {
+  id: string;
+  token: string;
+  isNew: boolean;
+}
 
 // Mock fetch globally
 const originalFetch = globalThis.fetch;
@@ -26,7 +30,13 @@ const mockDevice: DeviceInfo = {
 };
 
 // Mock logger for tests (no-op)
-const mockLogger = new Logger({ deviceId: mockDevice.id });
+const mockLogger = {
+  info: () => {},
+  warn: () => {},
+  error: () => {},
+  time: async <T>(action: string, msg: string, fn: () => Promise<T>) => fn(),
+  timeSmart: async <T>(action: string, msg: string, fn: () => Promise<T>) => fn(),
+};
 
 describe.skip("WhatsApp Router", () => {
   beforeAll(() => {

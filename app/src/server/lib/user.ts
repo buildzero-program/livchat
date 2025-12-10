@@ -2,6 +2,7 @@ import { db } from "~/server/db";
 import { users, organizations } from "~/server/db/schema";
 import { eq } from "drizzle-orm";
 import { claimDeviceInstances } from "./instance";
+import { claimDeviceApiKeys } from "./api-key";
 import { clerkClient } from "@clerk/nextjs/server";
 import { logger, LogActions } from "./logger";
 
@@ -89,13 +90,16 @@ export async function syncUserFromClerk(
       email: user.email,
     });
 
-    // Claim instances do device (se fornecido)
+    // Claim instances e API keys do device (se fornecido)
     if (deviceId && organization) {
-      const claimed = await claimDeviceInstances(deviceId, organization.id);
-      if (claimed > 0) {
-        logger.info(LogActions.USER_CLAIM, "Instances claimed for new user", {
+      const claimedInstances = await claimDeviceInstances(deviceId, organization.id);
+      const claimedKeys = await claimDeviceApiKeys(deviceId, organization.id);
+
+      if (claimedInstances > 0 || claimedKeys > 0) {
+        logger.info(LogActions.USER_CLAIM, "Resources claimed for new user", {
           userId: user.id,
-          count: claimed,
+          instances: claimedInstances,
+          apiKeys: claimedKeys,
           organizationId: organization.id,
         });
       }
@@ -127,13 +131,16 @@ export async function syncUserFromClerk(
       }
     }
 
-    // Tentar claim instances (caso tenha instance órfã do device)
+    // Tentar claim instances e API keys (caso tenha resources órfãos do device)
     if (deviceId && organization) {
-      const claimed = await claimDeviceInstances(deviceId, organization.id);
-      if (claimed > 0) {
-        logger.info(LogActions.USER_CLAIM, "Instances claimed for existing user", {
+      const claimedInstances = await claimDeviceInstances(deviceId, organization.id);
+      const claimedKeys = await claimDeviceApiKeys(deviceId, organization.id);
+
+      if (claimedInstances > 0 || claimedKeys > 0) {
+        logger.info(LogActions.USER_CLAIM, "Resources claimed for existing user", {
           userId: user.id,
-          count: claimed,
+          instances: claimedInstances,
+          apiKeys: claimedKeys,
           organizationId: organization.id,
         });
       }

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { createTRPCRouter, publicProcedure, protectedProcedure } from "~/server/api/trpc";
+import { createTRPCRouter, publicProcedure, protectedProcedure, hybridProcedure } from "~/server/api/trpc";
 import { TRPCError } from "@trpc/server";
 import {
   getDeviceInstance,
@@ -11,7 +11,9 @@ import {
   canSendMessage,
   cleanupAbusedOrphans,
   getOrganizationInstances,
+  getConnectedOrganizationInstance,
 } from "~/server/lib/instance";
+import { getApiKeyForInstance } from "~/server/lib/api-key";
 import { DEMO_MESSAGE_LIMIT } from "~/lib/constants";
 import { LogActions } from "~/server/lib/logger";
 import { WuzAPIClient } from "~/server/lib/wuzapi";
@@ -91,52 +93,97 @@ export const whatsappRouter = createTRPCRouter({
    * whatsapp.status
    * Retorna o status da conexão + QR code se não conectado
    * Cria instance automaticamente se não existir
+   *
+   * HÍBRIDO: Se usuário está logado, mostra instância da organização.
+   *          Se anônimo, usa fluxo de device cookie.
    */
-  status: publicProcedure.query(async ({ ctx }) => {
-    const { device, log } = ctx;
+  status: hybridProcedure.query(async ({ ctx }) => {
+    const { device, user, log } = ctx;
 
-    if (!device) {
-      throw new TRPCError({
-        code: "BAD_REQUEST",
-        message: "Device não identificado. Habilite cookies.",
+    // DEBUG: Log do estado de autenticação
+    log.info("hybrid.status", "Status called", {
+      hasUser: !!user,
+      userId: user?.id,
+      organizationId: user?.organizationId,
+      hasDevice: !!device,
+      deviceId: device?.id?.slice(0, 8),
+    });
+
+    // Variável para controlar se estamos mostrando instância do user logado
+    let isAuthenticatedInstance = false;
+
+    // PRIORIDADE 1: Se usuário está LOGADO, buscar instância da organização
+    let instanceData = null;
+    if (user) {
+      log.info("hybrid.status", "User authenticated, searching org instance", {
+        organizationId: user.organizationId,
       });
-    }
 
-    // FLUXO: conectada → virgem própria → órfã virgem → criar nova
+      instanceData = await getConnectedOrganizationInstance(user.organizationId);
 
-    // 1. Buscar instance CONECTADA do device (já logou antes)
-    let instanceData = await getConnectedDeviceInstance(device.id);
-
-    // 2. Se não tem conectada, buscar VIRGEM do device
-    if (!instanceData) {
-      instanceData = await getDeviceInstance(device.id);
-    }
-
-    // 3. Se não tem virgem própria, tentar adotar órfã virgem
-    if (!instanceData) {
-      instanceData = await getOrReuseVirginOrphan(device.id);
+      log.info("hybrid.status", "Org instance search result", {
+        found: !!instanceData,
+        instanceId: instanceData?.instance.id,
+        whatsappJid: instanceData?.instance.whatsappJid,
+      });
 
       if (instanceData) {
-        log.info(LogActions.INSTANCE_RESOLVE, "Reused virgin orphan", {
-          strategy: "orphan_reuse",
+        isAuthenticatedInstance = true;
+        log.info(LogActions.INSTANCE_RESOLVE, "Using authenticated user instance", {
+          strategy: "organization_instance",
           instanceId: instanceData.instance.id,
+          organizationId: user.organizationId,
         });
       }
+    } else {
+      log.info("hybrid.status", "No user, using anonymous flow");
     }
 
-    // 4. Último recurso: criar nova
+    // PRIORIDADE 2: Fluxo anônimo (ou user logado sem instância conectada)
     if (!instanceData) {
-      try {
-        instanceData = await createInstanceForDevice(device.id);
-        log.info(LogActions.INSTANCE_CREATE, "Created new instance", {
-          instanceId: instanceData.instance.id,
-        });
-      } catch (error) {
-        log.error(LogActions.INSTANCE_CREATE, "Failed to create instance", error);
+      if (!device) {
         throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Falha ao criar instância WhatsApp",
+          code: "BAD_REQUEST",
+          message: "Device não identificado. Habilite cookies.",
         });
+      }
+
+      // FLUXO: conectada → virgem própria → órfã virgem → criar nova
+
+      // 2a. Buscar instance CONECTADA do device (já logou antes)
+      instanceData = await getConnectedDeviceInstance(device.id);
+
+      // 2b. Se não tem conectada, buscar VIRGEM do device
+      if (!instanceData) {
+        instanceData = await getDeviceInstance(device.id);
+      }
+
+      // 2c. Se não tem virgem própria, tentar adotar órfã virgem
+      if (!instanceData) {
+        instanceData = await getOrReuseVirginOrphan(device.id);
+
+        if (instanceData) {
+          log.info(LogActions.INSTANCE_RESOLVE, "Reused virgin orphan", {
+            strategy: "orphan_reuse",
+            instanceId: instanceData.instance.id,
+          });
+        }
+      }
+
+      // 2d. Último recurso: criar nova
+      if (!instanceData) {
+        try {
+          instanceData = await createInstanceForDevice(device.id);
+          log.info(LogActions.INSTANCE_CREATE, "Created new instance", {
+            instanceId: instanceData.instance.id,
+          });
+        } catch (error) {
+          log.error(LogActions.INSTANCE_CREATE, "Failed to create instance", error);
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Falha ao criar instância WhatsApp",
+          });
+        }
       }
     }
 
@@ -176,8 +223,8 @@ export const whatsappRouter = createTRPCRouter({
         }
       }
 
-      // Sync status no banco
-      await syncInstanceStatus(instance.id, {
+      // Sync status no banco (também cria API key se primeira conexão)
+      const syncResult = await syncInstanceStatus(instance.id, {
         connected: statusRes.data.connected,
         loggedIn: statusRes.data.loggedIn,
         jid: statusRes.data.jid,
@@ -191,6 +238,19 @@ export const whatsappRouter = createTRPCRouter({
 
       const usage = await canSendMessage(instance.id);
 
+      // Buscar API key (pode ser a recém-criada ou uma existente)
+      let apiKeyToken: string | undefined;
+      if (statusRes.data.loggedIn) {
+        if (syncResult.apiKeyCreated) {
+          // Key acabou de ser criada neste sync
+          apiKeyToken = syncResult.apiKeyCreated.token;
+        } else {
+          // Buscar key existente
+          const existingKey = await getApiKeyForInstance(instance.id);
+          apiKeyToken = existingKey?.token;
+        }
+      }
+
       // 6. RESPOSTA AO CLIENTE (UX primeiro!)
       const response = {
         connected: statusRes.data.connected,
@@ -198,8 +258,8 @@ export const whatsappRouter = createTRPCRouter({
         qrCode,
         jid: extractPhoneFromJID(statusRes.data.jid),
         instanceId: instance.id,
-        // CRÍTICO: apiKey SÓ após conectar!
-        apiKey: statusRes.data.loggedIn ? instance.providerToken : undefined,
+        // CRÍTICO: apiKey real (não mais providerToken) SÓ após conectar!
+        apiKey: apiKeyToken,
         messagesUsed: usage.used,
         messagesLimit: usage.limit,
         messagesRemaining: usage.remaining,
@@ -207,6 +267,8 @@ export const whatsappRouter = createTRPCRouter({
         connectedSince: instance.lastConnectedAt?.toISOString() ?? null,
         deviceName: instance.whatsappName ?? statusRes.data.name ?? null,
         pictureUrl: instance.whatsappPictureUrl ?? null,
+        // HÍBRIDO: indica se é instância de usuário autenticado
+        isAuthenticatedInstance,
       };
 
       // 7. BACKGROUND: Auto-sync avatar quando conecta pela primeira vez
@@ -276,6 +338,8 @@ export const whatsappRouter = createTRPCRouter({
         connectedSince: null,
         deviceName: null,
         pictureUrl: null,
+        // HÍBRIDO: mantém o flag mesmo em erro
+        isAuthenticatedInstance,
       };
     }
   }),

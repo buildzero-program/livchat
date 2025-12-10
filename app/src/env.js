@@ -15,6 +15,8 @@ export const env = createEnv({
     WUZAPI_URL: z.string().url().default("http://localhost:8080"),
     WUZAPI_INTERNAL_TOKEN: z.string().min(1).optional(),
     WUZAPI_ADMIN_TOKEN: z.string().min(1).optional(),
+    // Internal API (Cloudflare Worker <-> Vercel)
+    INTERNAL_SECRET: z.string().min(32).optional(),
   },
 
   /**
@@ -37,6 +39,8 @@ export const env = createEnv({
     WUZAPI_URL: process.env.WUZAPI_URL,
     WUZAPI_INTERNAL_TOKEN: process.env.WUZAPI_INTERNAL_TOKEN,
     WUZAPI_ADMIN_TOKEN: process.env.WUZAPI_ADMIN_TOKEN,
+    // Internal API
+    INTERNAL_SECRET: process.env.INTERNAL_SECRET,
   },
   /**
    * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially

@@ -9,6 +9,7 @@ const isPublicRoute = createRouteMatcher([
   "/api/trpc(.*)",        // tRPC API (tem própria autenticação)
   "/api/webhooks(.*)",    // Webhooks externos
   "/api/public(.*)",      // APIs públicas
+  "/api/internal(.*)",    // APIs internas (Worker → Vercel)
 ]);
 
 export default clerkMiddleware(async (auth, request) => {

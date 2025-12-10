@@ -6,7 +6,9 @@ import {
   uuid,
   integer,
   uniqueIndex,
+  boolean,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { relations } from "drizzle-orm";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -184,6 +186,87 @@ export const instances = pgTable(
 );
 
 // ═══════════════════════════════════════════════════════════════════════════
+// API KEYS (REST API authentication)
+// Modelo: Device-Based + Claiming (mesmo ciclo de vida das Instances)
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const apiKeys = pgTable(
+  "api_keys",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+
+    // ═══════════════════════════════════════════════════════════════
+    // OWNERSHIP (Sistema de Claiming - espelha instances)
+    // ═══════════════════════════════════════════════════════════════
+
+    // NULL = órfã (anônimo), SET = claimed (pertence a org)
+    organizationId: uuid("organization_id").references(() => organizations.id, {
+      onDelete: "cascade",
+    }),
+
+    // Qual device criou esta key (para claim)
+    createdByDeviceId: uuid("created_by_device_id").references(
+      () => devices.id,
+      { onDelete: "set null" }
+    ),
+
+    // Instance que gerou esta key (CASCADE = deleta junto)
+    instanceId: uuid("instance_id")
+      .notNull()
+      .references(() => instances.id, { onDelete: "cascade" }),
+
+    // ═══════════════════════════════════════════════════════════════
+    // IDENTIFICAÇÃO
+    // ═══════════════════════════════════════════════════════════════
+
+    name: text("name").notNull().default("Default"),
+
+    // Token (plaintext - Chatwoot approach)
+    // Format: lc_live_Xk9m2nP8qR4sT6uV8wX0yZ1a2b3c (40 chars)
+    // UNIQUE index for O(1) lookup
+    token: text("token").notNull().unique(),
+
+    // ═══════════════════════════════════════════════════════════════
+    // PERMISSÕES
+    // ═══════════════════════════════════════════════════════════════
+
+    scopes: text("scopes")
+      .array()
+      .notNull()
+      .default(sql`ARRAY['whatsapp:*']::text[]`),
+    rateLimitRequests: integer("rate_limit_requests").notNull().default(100),
+    rateLimitWindowSeconds: integer("rate_limit_window_seconds")
+      .notNull()
+      .default(60),
+
+    // ═══════════════════════════════════════════════════════════════
+    // STATUS
+    // ═══════════════════════════════════════════════════════════════
+
+    isActive: boolean("is_active").notNull().default(true),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    claimedAt: timestamp("claimed_at", { withTimezone: true }),
+
+    // ═══════════════════════════════════════════════════════════════
+    // TIMESTAMPS
+    // ═══════════════════════════════════════════════════════════════
+
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [
+    index("idx_api_key_org").on(t.organizationId),
+    index("idx_api_key_device").on(t.createdByDeviceId),
+    index("idx_api_key_instance").on(t.instanceId),
+  ]
+);
+
+// ═══════════════════════════════════════════════════════════════════════════
 // RELATIONS (Drizzle)
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -199,6 +282,7 @@ export const organizationsRelations = relations(
       references: [users.id],
     }),
     instances: many(instances),
+    apiKeys: many(apiKeys),
   })
 );
 
@@ -215,4 +299,20 @@ export const instancesRelations = relations(instances, ({ one }) => ({
 
 export const devicesRelations = relations(devices, ({ many }) => ({
   instances: many(instances),
+  apiKeys: many(apiKeys),
+}));
+
+export const apiKeysRelations = relations(apiKeys, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [apiKeys.organizationId],
+    references: [organizations.id],
+  }),
+  createdByDevice: one(devices, {
+    fields: [apiKeys.createdByDeviceId],
+    references: [devices.id],
+  }),
+  instance: one(instances, {
+    fields: [apiKeys.instanceId],
+    references: [instances.id],
+  }),
 }));

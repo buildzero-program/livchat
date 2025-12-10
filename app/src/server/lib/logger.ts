@@ -403,6 +403,7 @@ export const LogActions = {
   // Instance actions
   INSTANCE_CREATE: "instance.create",
   INSTANCE_RESOLVE: "instance.resolve",
+  INSTANCE_SYNC: "instance.sync",
 
   // Orphan management
   ORPHAN_SEARCH: "orphan.search",
@@ -437,6 +438,12 @@ export const LogActions = {
   // tRPC
   TRPC_REQUEST: "trpc.request",
   TRPC_ERROR: "trpc.error",
+
+  // API Keys
+  API_KEY_CREATE: "api_key.create",
+  API_KEY_USE: "api_key.use",
+  API_KEY_REVOKE: "api_key.revoke",
+  API_KEY_DELETE: "api_key.delete",
 } as const;
 
 export type LogAction = (typeof LogActions)[keyof typeof LogActions];

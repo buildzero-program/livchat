@@ -5,6 +5,7 @@ import { WuzAPIClient, createWuzAPIInstance } from "./wuzapi";
 import { env } from "~/env";
 import { DEMO_MESSAGE_LIMIT } from "~/lib/constants";
 import { logger, LogActions } from "./logger";
+import { createApiKeyForInstance } from "./api-key";
 
 const WUZAPI_BASE_URL = env.WUZAPI_URL;
 const WUZAPI_ADMIN_TOKEN = env.WUZAPI_ADMIN_TOKEN;
@@ -182,6 +183,8 @@ export async function createInstanceForDevice(
 
 /**
  * Atualiza status da instance baseado no WuzAPI
+ *
+ * IMPORTANTE: Quando loggedIn passa a true E há jid, cria API key automaticamente
  */
 export async function syncInstanceStatus(
   instanceId: string,
@@ -191,7 +194,17 @@ export async function syncInstanceStatus(
     jid?: string;
     name?: string;
   }
-): Promise<void> {
+): Promise<{ apiKeyCreated?: { id: string; token: string } }> {
+  // Buscar instance para verificar estado anterior e obter deviceId
+  const instance = await db.query.instances.findFirst({
+    where: eq(instances.id, instanceId),
+  });
+
+  if (!instance) {
+    logger.warn(LogActions.INSTANCE_SYNC, "Instance not found for sync", { instanceId });
+    return {};
+  }
+
   const updates: Partial<typeof instances.$inferInsert> = {
     updatedAt: new Date(),
     lastActivityAt: new Date(), // Sempre atualiza atividade no sync
@@ -213,6 +226,33 @@ export async function syncInstanceStatus(
   }
 
   await db.update(instances).set(updates).where(eq(instances.id, instanceId));
+
+  // ═══ AUTO-CREATE API KEY quando conectado ═══
+  // Condições: loggedIn = true, jid presente
+  // NOTA: createApiKeyForInstance é idempotente (retorna existente se já houver)
+  let apiKeyCreated: { id: string; token: string } | undefined;
+
+  const shouldEnsureApiKey = status.loggedIn === true && status.jid;
+
+  if (shouldEnsureApiKey) {
+    try {
+      apiKeyCreated = await createApiKeyForInstance(
+        instanceId,
+        instance.createdByDeviceId // Pode ser null se foi criada de outra forma
+      );
+      logger.debug(LogActions.API_KEY_CREATE, "API key ensured for connected instance", {
+        instanceId,
+        keyId: apiKeyCreated.id,
+      });
+    } catch (error) {
+      logger.error(LogActions.API_KEY_CREATE, "Failed to ensure API key", error, {
+        instanceId,
+      });
+      // Não falha o sync se a criação da key falhar
+    }
+  }
+
+  return { apiKeyCreated };
 }
 
 /**
@@ -329,6 +369,36 @@ export async function getOrganizationInstances(organizationId: string) {
   return db.query.instances.findMany({
     where: eq(instances.organizationId, organizationId),
   });
+}
+
+/**
+ * Busca instance CONECTADA de uma organization (já logou no WhatsApp).
+ * Usada para mostrar instância do usuário logado na LP.
+ *
+ * Prioridade: instância mais recentemente conectada
+ */
+export async function getConnectedOrganizationInstance(
+  organizationId: string
+): Promise<InstanceWithClient | null> {
+  const instance = await db.query.instances.findFirst({
+    where: and(
+      eq(instances.organizationId, organizationId),
+      isNotNull(instances.whatsappJid) // Já conectou no WhatsApp
+    ),
+    orderBy: [
+      // Prioriza a mais recentemente conectada
+      sql`${instances.lastConnectedAt} DESC NULLS LAST`,
+    ],
+  });
+
+  if (!instance) return null;
+
+  const client = new WuzAPIClient({
+    baseUrl: WUZAPI_BASE_URL,
+    token: instance.providerToken,
+  });
+
+  return { instance, client };
 }
 
 /**
