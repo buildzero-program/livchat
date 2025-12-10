@@ -425,24 +425,22 @@ export const whatsappRouter = createTRPCRouter({
   /**
    * whatsapp.validate
    * Valida se um número está no WhatsApp (com lógica BR para 9º dígito)
+   * HÍBRIDO: Funciona para users anônimos (device) E logados (org)
    */
-  validate: publicProcedure
+  validate: hybridProcedure
     .input(z.object({ phone: phoneSchema }))
     .mutation(async ({ ctx, input }): Promise<ValidationResult> => {
-      const { device, log } = ctx;
+      const { device, user, log } = ctx;
 
-      if (!device) {
+      if (!device && !user) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "Device não identificado",
+          message: "Device ou usuário não identificado",
         });
       }
 
-      // Validate requer instance conectada (ou virgin se ainda não conectou)
-      let instanceData = await getConnectedDeviceInstance(device.id);
-      if (!instanceData) {
-        instanceData = await getDeviceInstance(device.id);
-      }
+      // Validate requer instance - busca híbrida (org primeiro, device depois)
+      const instanceData = await getConnectedInstanceForContext({ device, user });
 
       if (!instanceData) {
         throw new TRPCError({
