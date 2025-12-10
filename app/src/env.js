@@ -25,7 +25,8 @@ export const env = createEnv({
    * `NEXT_PUBLIC_`.
    */
   client: {
-    // NEXT_PUBLIC_CLIENTVAR: z.string(),
+    // API URL override (optional, auto-detects if not set)
+    NEXT_PUBLIC_API_URL: z.string().url().optional(),
   },
 
   /**
@@ -41,6 +42,8 @@ export const env = createEnv({
     WUZAPI_ADMIN_TOKEN: process.env.WUZAPI_ADMIN_TOKEN,
     // Internal API
     INTERNAL_SECRET: process.env.INTERNAL_SECRET,
+    // Client-side
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
   },
   /**
    * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially

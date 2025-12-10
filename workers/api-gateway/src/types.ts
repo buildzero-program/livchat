@@ -17,17 +17,36 @@ export interface Env {
 }
 
 /**
+ * Allowed instance for multi-instance organizations
+ */
+export interface AllowedInstance {
+  id: string;
+  whatsappJid: string | null;
+  providerToken: string;
+}
+
+/**
  * API Key data returned from validation
  */
 export interface ApiKeyData {
   id: string;
   organizationId: string;
   instanceId: string | null;
-  providerToken: string; // WuzAPI token
+  providerToken: string; // WuzAPI token (default instance)
   scopes: string[];
   rateLimitRequests: number;
   rateLimitWindowSeconds: number;
   isActive: boolean;
+  // Multi-instance support: list of instances this key can access
+  allowedInstances?: AllowedInstance[];
+}
+
+/**
+ * Request body with optional `from` parameter for instance selection
+ */
+export interface RequestWithFrom {
+  from?: string; // Phone number or Instance ID
+  [key: string]: unknown;
 }
 
 /**

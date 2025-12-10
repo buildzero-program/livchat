@@ -1,5 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { validateAndResolveInstance } from "~/server/lib/api-key";
+import {
+  validateAndResolveInstance,
+  getOrganizationInstances,
+  type AllowedInstance,
+} from "~/server/lib/api-key";
 import { env } from "~/env";
 import { logger, LogActions } from "~/server/lib/logger";
 
@@ -48,10 +52,28 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid API key" }, { status: 404 });
   }
 
+  // Get all allowed instances for multi-instance support
+  let allowedInstances: AllowedInstance[] = [];
+
+  if (result.organizationId) {
+    // Claimed key: can use any instance from the org
+    allowedInstances = await getOrganizationInstances(result.organizationId);
+  } else {
+    // Orphan key: can only use its specific instance
+    allowedInstances = [
+      {
+        id: result.instanceId,
+        whatsappJid: result.whatsappJid,
+        providerToken: result.providerToken,
+      },
+    ];
+  }
+
   logger.debug(LogActions.API_KEY_USE, "API key validated", {
     keyId: result.keyId,
     organizationId: result.organizationId,
     instanceId: result.instanceId,
+    allowedInstancesCount: allowedInstances.length,
   });
 
   return NextResponse.json({
@@ -63,5 +85,7 @@ export async function POST(request: NextRequest) {
     rateLimitRequests: result.rateLimitRequests,
     rateLimitWindowSeconds: result.rateLimitWindowSeconds,
     isActive: true,
+    // Multi-instance support
+    allowedInstances,
   });
 }

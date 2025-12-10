@@ -75,7 +75,7 @@ export type CodeLanguage =
 export const NAV_LINKS = [
   { label: "Recursos", href: "#features" },
   { label: "Preços", href: "#pricing" },
-  { label: "Docs", href: "/docs" },
+  { label: "Docs", href: "https://docs.livchat.ai" },
 ] as const;
 
 // Social Links

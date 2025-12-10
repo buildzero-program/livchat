@@ -7,8 +7,8 @@ import { Send, Copy, Check, LogOut, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "~/components/ui/tabs";
-import { MOCK_CURL_EXAMPLE } from "~/lib/mock-data";
 import { formatPhone, PRICING } from "~/lib/constants";
+import { getApiBaseUrl, extractPhoneFromJid } from "~/lib/api-url";
 import type { ValidationResult } from "~/server/api/routers/whatsapp";
 
 interface SendResponse {
@@ -126,8 +126,21 @@ export function TestPanel({
     }
   };
 
+  // Gera exemplo de cURL com dados reais (token real para copy/paste funcional)
+  const apiBaseUrl = getApiBaseUrl();
+  const fromNumber = extractPhoneFromJid(jid);
+
+  const curlExample = `curl -X POST ${apiBaseUrl}/v1/messages/send \\
+  -H "Authorization: Bearer ${apiKey || "seu_token_aqui"}" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "phone": "${cleanedPhone || "5511999999999"}",
+    "body": "${message.slice(0, 50)}${message.length > 50 ? "..." : ""}"${fromNumber ? `,
+    "from": "${fromNumber}"` : ""}
+  }'`;
+
   const handleCopy = () => {
-    void navigator.clipboard.writeText(MOCK_CURL_EXAMPLE);
+    void navigator.clipboard.writeText(curlExample);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -139,15 +152,6 @@ export function TestPanel({
       setTimeout(() => setApiKeyCopied(false), 2000);
     }
   };
-
-  // Gera exemplo de cURL com dados reais (token real para copy/paste funcional)
-  const curlExample = `curl -X POST https://api.livchat.ai/v1/send \\
-  -H "Authorization: Bearer ${apiKey || "seu_token_aqui"}" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "to": "${cleanedPhone || "5511999999999"}",
-    "message": "${message.slice(0, 50)}${message.length > 50 ? "..." : ""}"
-  }'`;
 
   // Determina se pode enviar
   const canSend =

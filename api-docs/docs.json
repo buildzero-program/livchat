@@ -33,7 +33,7 @@
             "groups": [
               {
                 "group": "Get Started",
-                "pages": ["introduction", "quickstart", "authentication"]
+                "pages": ["introduction", "quickstart", "authentication", "multi-instance"]
               }
             ]
           },

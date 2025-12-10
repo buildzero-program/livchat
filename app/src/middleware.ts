@@ -10,6 +10,7 @@ const isPublicRoute = createRouteMatcher([
   "/api/webhooks(.*)",    // Webhooks externos
   "/api/public(.*)",      // APIs públicas
   "/api/internal(.*)",    // APIs internas (Worker → Vercel)
+  "/api/v1(.*)",          // REST API pública (autenticação própria via API key)
 ]);
 
 export default clerkMiddleware(async (auth, request) => {

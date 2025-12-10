@@ -274,11 +274,12 @@ export async function mockCheckConnection(): Promise<{
   };
 }
 
-// cURL example for TestPanel
-export const MOCK_CURL_EXAMPLE = `curl -X POST https://api.livchat.ai/v1/send \\
-  -H "Authorization: Bearer lc_anon_x9z..." \\
+// cURL example for TestPanel (static example with from parameter)
+export const MOCK_CURL_EXAMPLE = `curl -X POST https://api.livchat.ai/v1/messages/send \\
+  -H "Authorization: Bearer lc_live_xxx" \\
   -H "Content-Type: application/json" \\
   -d '{
-    "to": "5511999999999",
-    "message": "Olá! Teste de integração 🚀"
+    "phone": "5511999999999",
+    "body": "Olá! Teste de integração",
+    "from": "5585912345678"
   }'`;

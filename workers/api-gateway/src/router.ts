@@ -1,5 +1,6 @@
-import type { Env, ApiKeyData, RouteConfig } from "./types";
+import type { Env, ApiKeyData, RouteConfig, RequestWithFrom } from "./types";
 import { toCamelCase, toPascalCase } from "./transformers";
+import { resolveInstanceByFrom } from "./instance-resolver";
 
 /**
  * Route mapping from public API to backends
@@ -177,18 +178,11 @@ export async function routeRequest(
   // Create new request with modified headers
   const headers = new Headers(request.headers);
 
-  // Remove original Authorization, add WuzAPI token
-  headers.delete("Authorization");
-  if (route.backend === "wuzapi") {
-    headers.set("Token", keyData.providerToken);
-  }
-
-  // Add metadata headers
-  headers.set("X-API-Key-ID", keyData.id);
-  headers.set("X-Organization-ID", keyData.organizationId);
-  if (keyData.instanceId) {
-    headers.set("X-Instance-ID", keyData.instanceId);
-  }
+  // ═══════════════════════════════════════════════════════════════
+  // RESOLVE INSTANCE: Handle `from` parameter for multi-instance
+  // ═══════════════════════════════════════════════════════════════
+  let resolvedProviderToken = keyData.providerToken;
+  let resolvedInstanceId = keyData.instanceId;
 
   // ═══════════════════════════════════════════════════════════════
   // TRANSFORM REQUEST: camelCase → PascalCase (for WuzAPI)
@@ -197,14 +191,50 @@ export async function routeRequest(
 
   if (request.method !== "GET" && request.method !== "HEAD") {
     try {
-      const jsonBody = await request.json();
-      const transformedBody = toPascalCase(jsonBody);
+      const jsonBody = (await request.json()) as RequestWithFrom;
+
+      // If `from` is specified and we have allowed instances, resolve
+      if (jsonBody.from && keyData.allowedInstances?.length) {
+        const resolved = resolveInstanceByFrom(
+          jsonBody.from,
+          keyData.allowedInstances
+        );
+
+        if (resolved) {
+          resolvedProviderToken = resolved.providerToken;
+          resolvedInstanceId = resolved.id;
+        } else {
+          // Instance not found or not authorized
+          return errorResponse(
+            403,
+            `Instance not found or not authorized: ${jsonBody.from}`,
+            { hint: "Use a valid phone number or instance ID from your organization" }
+          );
+        }
+      }
+
+      // Remove `from` from body before sending to WuzAPI (it doesn't understand it)
+      const { from: _from, ...bodyWithoutFrom } = jsonBody;
+      const transformedBody = toPascalCase(bodyWithoutFrom);
       body = JSON.stringify(transformedBody);
       headers.set("Content-Type", "application/json");
     } catch {
       // Empty body or non-JSON, pass through unchanged
       body = await request.text();
     }
+  }
+
+  // Remove original Authorization, add WuzAPI token
+  headers.delete("Authorization");
+  if (route.backend === "wuzapi") {
+    headers.set("Token", resolvedProviderToken);
+  }
+
+  // Add metadata headers
+  headers.set("X-API-Key-ID", keyData.id);
+  headers.set("X-Organization-ID", keyData.organizationId);
+  if (resolvedInstanceId) {
+    headers.set("X-Instance-ID", resolvedInstanceId);
   }
 
   // Proxy request to backend

@@ -9,8 +9,8 @@ const footerLinks = {
     links: [
       { label: "Recursos", href: "#features" },
       { label: "Preços", href: "#pricing" },
-      { label: "Documentação", href: "/docs" },
-      { label: "API Reference", href: "/docs/api" },
+      { label: "Documentação", href: "https://docs.livchat.ai" },
+      { label: "API Reference", href: "https://docs.livchat.ai/api-reference/overview" },
     ],
   },
   company: {

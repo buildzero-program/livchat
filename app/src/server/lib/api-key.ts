@@ -39,9 +39,16 @@ export interface ValidatedApiKey {
   organizationId: string | null;
   instanceId: string;
   providerToken: string;
+  whatsappJid: string | null; // For multi-instance resolution
   scopes: string[];
   rateLimitRequests: number;
   rateLimitWindowSeconds: number;
+}
+
+export interface AllowedInstance {
+  id: string;
+  whatsappJid: string | null;
+  providerToken: string;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -282,10 +289,33 @@ export async function validateAndResolveInstance(
     organizationId: key.organizationId,
     instanceId: instance.id,
     providerToken: instance.providerToken,
+    whatsappJid: instance.whatsappJid,
     scopes: key.scopes,
     rateLimitRequests: key.rateLimitRequests,
     rateLimitWindowSeconds: key.rateLimitWindowSeconds,
   };
+}
+
+/**
+ * Get all instances for an organization (for multi-instance support)
+ * Only returns connected instances for API usage
+ */
+export async function getOrganizationInstances(
+  organizationId: string
+): Promise<AllowedInstance[]> {
+  const orgInstances = await db.query.instances.findMany({
+    where: and(
+      eq(instances.organizationId, organizationId),
+      eq(instances.status, "connected")
+    ),
+    columns: {
+      id: true,
+      whatsappJid: true,
+      providerToken: true,
+    },
+  });
+
+  return orgInstances;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

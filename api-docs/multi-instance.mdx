@@ -1,0 +1,99 @@
+---
+title: Multi-Instance Support
+description: "Managing multiple WhatsApp numbers with a single API key"
+---
+
+Organizations with multiple WhatsApp numbers can control which instance sends each message using the `from` parameter.
+
+## How It Works
+
+When your organization has multiple connected WhatsApp instances:
+
+1. **Without `from`**: API selects the most recently connected instance
+2. **With `from`**: API uses the specified instance
+
+## Specifying the Sender
+
+The `from` parameter accepts two formats:
+
+| Format | Example | Description |
+|--------|---------|-------------|
+| Phone number | `5585912345678` | WhatsApp number without `+` or `@` |
+| Instance ID | `uuid-xxx-xxx` | Internal instance identifier |
+
+<Tip>Phone numbers are the recommended format as they're easier to remember and manage.</Tip>
+
+## Example Usage
+
+### Send from a specific number
+
+```bash
+curl -X POST https://api.livchat.ai/v1/messages/send \
+  -H "Authorization: Bearer lc_live_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "phone": "5511999999999",
+    "body": "Message from Sales department",
+    "from": "5585912345678"
+  }'
+```
+
+### Use different numbers for different purposes
+
+```javascript
+// Sales messages from sales number
+await api.send({
+  phone: customerPhone,
+  body: "Your order has been confirmed!",
+  from: SALES_WHATSAPP_NUMBER,
+});
+
+// Support messages from support number
+await api.send({
+  phone: customerPhone,
+  body: "Your ticket #123 has been resolved",
+  from: SUPPORT_WHATSAPP_NUMBER,
+});
+```
+
+## Default Behavior
+
+If you don't specify `from`:
+
+- **Single instance**: The only available instance is used
+- **Multiple instances**: The most recently connected instance is automatically selected
+
+<Warning>
+For organizations with multiple numbers, we recommend always specifying `from` to ensure predictable behavior.
+</Warning>
+
+## Error Handling
+
+If you specify an invalid `from` value:
+
+```json
+{
+  "error": {
+    "code": 403,
+    "message": "Instance not found or not authorized: 5500000000000",
+    "hint": "Use a valid phone number or instance ID from your organization"
+  }
+}
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Use environment variables" icon="gear">
+    Store your WhatsApp numbers in environment variables for easy management across environments.
+  </Card>
+  <Card title="Map numbers to departments" icon="building">
+    Create a mapping of department names to phone numbers for cleaner code.
+  </Card>
+  <Card title="Always specify from" icon="check">
+    For multi-instance orgs, always specify `from` to avoid unexpected behavior.
+  </Card>
+  <Card title="Monitor instance status" icon="chart-line">
+    Ensure your instances are connected before sending messages.
+  </Card>
+</CardGroup>
