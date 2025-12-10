@@ -371,24 +371,22 @@ export const whatsappRouter = createTRPCRouter({
   /**
    * whatsapp.pairing
    * Gera pairing code para um número de telefone
+   * HÍBRIDO: Funciona para users anônimos (device) E logados (org)
    */
-  pairing: publicProcedure
+  pairing: hybridProcedure
     .input(z.object({ phone: phoneSchema }))
     .mutation(async ({ ctx, input }) => {
-      const { device, log } = ctx;
+      const { device, user, log } = ctx;
 
-      if (!device) {
+      if (!device && !user) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "Device não identificado",
+          message: "Device ou usuário não identificado",
         });
       }
 
-      // Pairing funciona com connected (re-pairing) ou virgin (novo)
-      let instanceData = await getConnectedDeviceInstance(device.id);
-      if (!instanceData) {
-        instanceData = await getDeviceInstance(device.id);
-      }
+      // Pairing funciona com connected (re-pairing) ou virgin (novo) - busca híbrida
+      const instanceData = await getConnectedInstanceForContext({ device, user });
 
       if (!instanceData) {
         throw new TRPCError({
