@@ -84,6 +84,30 @@ function getAlternativeVariant(phone: string): string {
   }
 }
 
+// Helper: Get connected instance for hybrid context
+// Priority: org instance (if user logged in) → device instance (anonymous)
+interface HybridInstanceContext {
+  device?: { id: string } | null;
+  user?: { id: string; organizationId: string } | null;
+}
+
+async function getConnectedInstanceForContext(ctx: HybridInstanceContext) {
+  // PRIORITY 1: If user is logged in, get org instance first
+  if (ctx.user) {
+    const orgInstance = await getConnectedOrganizationInstance(ctx.user.organizationId);
+    if (orgInstance) {
+      return orgInstance;
+    }
+  }
+
+  // PRIORITY 2: Fall back to device instance (anonymous or logged user without org instance)
+  if (ctx.device) {
+    return await getConnectedDeviceInstance(ctx.device.id);
+  }
+
+  return null;
+}
+
 // ============================================
 // WHATSAPP ROUTER
 // ============================================
@@ -489,8 +513,9 @@ export const whatsappRouter = createTRPCRouter({
   /**
    * whatsapp.send
    * Envia uma mensagem de texto
+   * HÍBRIDO: Funciona para users anônimos (device) E logados (org)
    */
-  send: publicProcedure
+  send: hybridProcedure
     .input(
       z.object({
         phone: phoneSchema,
@@ -498,17 +523,17 @@ export const whatsappRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const { device, log } = ctx;
+      const { device, user, log } = ctx;
 
-      if (!device) {
+      if (!device && !user) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "Device não identificado",
+          message: "Device ou usuário não identificado",
         });
       }
 
-      // Send requer instance conectada (precisa estar logado)
-      const instanceData = await getConnectedDeviceInstance(device.id);
+      // Send requer instance conectada - busca híbrida (org primeiro, device depois)
+      const instanceData = await getConnectedInstanceForContext({ device, user });
 
       if (!instanceData) {
         throw new TRPCError({
@@ -590,18 +615,19 @@ export const whatsappRouter = createTRPCRouter({
    * whatsapp.disconnect
    * Desconecta (logout) do WhatsApp
    */
-  disconnect: publicProcedure.mutation(async ({ ctx }) => {
-    const { device, log } = ctx;
+  // HÍBRIDO: Funciona para users anônimos (device) E logados (org)
+  disconnect: hybridProcedure.mutation(async ({ ctx }) => {
+    const { device, user, log } = ctx;
 
-    if (!device) {
+    if (!device && !user) {
       throw new TRPCError({
         code: "BAD_REQUEST",
-        message: "Device não identificado",
+        message: "Device ou usuário não identificado",
       });
     }
 
-    // Disconnect requer instance conectada
-    const instanceData = await getConnectedDeviceInstance(device.id);
+    // Disconnect requer instance conectada - busca híbrida
+    const instanceData = await getConnectedInstanceForContext({ device, user });
 
     if (!instanceData) {
       throw new TRPCError({

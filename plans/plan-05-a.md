@@ -1,6 +1,6 @@
 # Plan 05-a: Normalização de API (PascalCase → camelCase)
 
-## Status: 🟡 EM PROGRESSO
+## Status: ✅ CONCLUÍDO
 
 **Dependências:**
 - ✅ Plan 05: API Gateway + API Keys (Worker deployado)
