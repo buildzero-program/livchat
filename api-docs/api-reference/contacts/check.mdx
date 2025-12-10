@@ -1,0 +1,108 @@
+---
+title: Check WhatsApp
+api: POST /v1/contacts/check
+description: "Check if phone numbers are registered on WhatsApp"
+---
+
+Verify if one or more phone numbers have WhatsApp accounts. Use this before sending messages to avoid errors.
+
+## Request Body
+
+<ParamField body="phones" type="string[]" required>
+  Array of phone numbers to check in international format
+</ParamField>
+
+## Response Fields
+
+<ResponseField name="data.users" type="array">
+  <Expandable title="User object">
+    <ResponseField name="query" type="string">
+      The phone number that was queried
+    </ResponseField>
+    <ResponseField name="isInWhatsapp" type="boolean">
+      Whether the number has a WhatsApp account
+    </ResponseField>
+    <ResponseField name="jid" type="string">
+      WhatsApp JID if registered, null otherwise
+    </ResponseField>
+    <ResponseField name="verifiedName" type="string">
+      Business verified name if available
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<RequestExample>
+```bash cURL
+curl -X POST https://api.livchat.ai/v1/contacts/check \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "phones": ["5511999999999", "5511888888888"]
+  }'
+```
+
+```javascript JavaScript
+const response = await fetch("https://api.livchat.ai/v1/contacts/check", {
+  method: "POST",
+  headers: {
+    Authorization: "Bearer YOUR_API_KEY",
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    phones: ["5511999999999", "5511888888888"],
+  }),
+});
+
+const { data } = await response.json();
+
+// Filter valid numbers
+const validNumbers = data.users.filter(u => u.isInWhatsapp);
+```
+
+```python Python
+import requests
+
+response = requests.post(
+    "https://api.livchat.ai/v1/contacts/check",
+    headers={
+        "Authorization": "Bearer YOUR_API_KEY",
+        "Content-Type": "application/json",
+    },
+    json={
+        "phones": ["5511999999999", "5511888888888"],
+    },
+)
+
+data = response.json()
+valid_numbers = [u for u in data["data"]["users"] if u["isInWhatsapp"]]
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200
+{
+  "success": true,
+  "code": 200,
+  "data": {
+    "users": [
+      {
+        "query": "5511999999999",
+        "isInWhatsapp": true,
+        "jid": "5511999999999@s.whatsapp.net",
+        "verifiedName": "Company Name"
+      },
+      {
+        "query": "5511888888888",
+        "isInWhatsapp": false,
+        "jid": null,
+        "verifiedName": ""
+      }
+    ]
+  }
+}
+```
+</ResponseExample>
+
+<Note>
+Checking numbers before sending helps you avoid errors and saves API calls.
+</Note>

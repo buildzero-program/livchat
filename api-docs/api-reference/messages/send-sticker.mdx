@@ -1,0 +1,85 @@
+---
+title: Send Sticker
+api: POST /v1/messages/send/sticker
+description: "Send a sticker to a WhatsApp number"
+---
+
+Send a static or animated sticker.
+
+## Request Body
+
+<ParamField body="phone" type="string" required>
+  Recipient phone number in international format
+</ParamField>
+
+<ParamField body="sticker" type="string" required>
+  Sticker data in data URI format. Supports:
+  - Static: `data:image/webp;base64,...`
+  - Animated: `data:video/mp4;base64,...`
+</ParamField>
+
+<ParamField body="packId" type="string">
+  Sticker pack identifier
+</ParamField>
+
+<ParamField body="packName" type="string">
+  Sticker pack name
+</ParamField>
+
+<ParamField body="packPublisher" type="string">
+  Sticker pack publisher
+</ParamField>
+
+<ParamField body="emojis" type="string[]">
+  Associated emojis for the sticker
+</ParamField>
+
+## Supported Formats
+
+- **Static**: WebP (image/webp)
+- **Animated**: MP4 (video/mp4)
+
+<Note>
+Stickers should be 512x512 pixels. Animated stickers should be under 500KB.
+</Note>
+
+<RequestExample>
+```bash cURL
+curl -X POST https://api.livchat.ai/v1/messages/send/sticker \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "phone": "5511999999999",
+    "sticker": "data:image/webp;base64,UklGR..."
+  }'
+```
+
+```javascript JavaScript
+const response = await fetch("https://api.livchat.ai/v1/messages/send/sticker", {
+  method: "POST",
+  headers: {
+    Authorization: "Bearer YOUR_API_KEY",
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    phone: "5511999999999",
+    sticker: "data:image/webp;base64,UklGR...",
+    packName: "My Pack",
+    emojis: ["😂", "👍"],
+  }),
+});
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200
+{
+  "success": true,
+  "code": 200,
+  "data": {
+    "details": "Sent",
+    "id": "3EB04A45DCA355D01DB68C"
+  }
+}
+```
+</ResponseExample>

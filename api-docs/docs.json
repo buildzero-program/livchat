@@ -1,0 +1,114 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "LivChat.ai",
+  "logo": {
+    "light": "/logo/light.svg",
+    "dark": "/logo/dark.svg",
+    "href": "https://livchat.ai"
+  },
+  "favicon": "/favicon.svg",
+  "colors": {
+    "primary": "#25D366",
+    "light": "#25D366",
+    "dark": "#128C7E"
+  },
+  "topbarLinks": [
+    {
+      "name": "Dashboard",
+      "url": "https://livchat.ai/dashboard"
+    }
+  ],
+  "topbarCtaButton": {
+    "name": "Get Started",
+    "url": "https://livchat.ai"
+  },
+  "navigation": {
+    "languages": [
+      {
+        "language": "en",
+        "tabs": [
+          {
+            "tab": "Documentation",
+            "groups": [
+              {
+                "group": "Get Started",
+                "pages": ["introduction", "quickstart", "authentication"]
+              }
+            ]
+          },
+          {
+            "tab": "API Reference",
+            "groups": [
+              {
+                "group": "Overview",
+                "pages": ["api-reference/overview"]
+              },
+              {
+                "group": "Messages",
+                "pages": [
+                  "api-reference/messages/send-text",
+                  "api-reference/messages/send-image",
+                  "api-reference/messages/send-document",
+                  "api-reference/messages/send-audio",
+                  "api-reference/messages/send-video",
+                  "api-reference/messages/send-location",
+                  "api-reference/messages/send-contact",
+                  "api-reference/messages/send-sticker",
+                  "api-reference/messages/react",
+                  "api-reference/messages/read"
+                ]
+              },
+              {
+                "group": "Contacts",
+                "pages": [
+                  "api-reference/contacts/check",
+                  "api-reference/contacts/info",
+                  "api-reference/contacts/avatar",
+                  "api-reference/contacts/list"
+                ]
+              },
+              {
+                "group": "Session",
+                "pages": [
+                  "api-reference/session/status",
+                  "api-reference/session/qr",
+                  "api-reference/session/connect",
+                  "api-reference/session/disconnect",
+                  "api-reference/session/logout"
+                ]
+              },
+              {
+                "group": "Groups",
+                "pages": [
+                  "api-reference/groups/list",
+                  "api-reference/groups/info",
+                  "api-reference/groups/create",
+                  "api-reference/groups/invite-link"
+                ]
+              },
+              {
+                "group": "Webhooks",
+                "pages": ["api-reference/webhook"]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "footerSocials": {
+    "github": "https://github.com/livchat",
+    "twitter": "https://twitter.com/livchat_ai"
+  },
+  "api": {
+    "baseUrl": "https://api.livchat.ai",
+    "auth": {
+      "method": "bearer",
+      "name": "Authorization"
+    },
+    "playground": {
+      "mode": "simple"
+    }
+  }
+}

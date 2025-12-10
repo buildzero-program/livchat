@@ -1,0 +1,86 @@
+---
+title: Session Status
+api: GET /v1/session/status
+description: "Get the current WhatsApp session status"
+---
+
+Check if your WhatsApp session is connected and logged in.
+
+## Response Fields
+
+<ResponseField name="data.connected" type="boolean">
+  Whether the WebSocket connection to WhatsApp servers is active
+</ResponseField>
+
+<ResponseField name="data.loggedIn" type="boolean">
+  Whether the session is authenticated (QR code was scanned)
+</ResponseField>
+
+## Understanding Status
+
+| connected | loggedIn | Meaning |
+|-----------|----------|---------|
+| `false` | `false` | Session not started. Call `/session/connect` |
+| `true` | `false` | Connected but needs QR scan. Get QR from `/session/qr` |
+| `true` | `true` | Ready to send/receive messages |
+
+<RequestExample>
+```bash cURL
+curl -X GET https://api.livchat.ai/v1/session/status \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+```javascript JavaScript
+const response = await fetch("https://api.livchat.ai/v1/session/status", {
+  headers: {
+    Authorization: "Bearer YOUR_API_KEY",
+  },
+});
+
+const { data } = await response.json();
+
+if (data.connected && data.loggedIn) {
+  console.log("Ready to send messages!");
+} else if (data.connected && !data.loggedIn) {
+  console.log("Please scan the QR code");
+} else {
+  console.log("Session not connected");
+}
+```
+
+```python Python
+import requests
+
+response = requests.get(
+    "https://api.livchat.ai/v1/session/status",
+    headers={"Authorization": "Bearer YOUR_API_KEY"},
+)
+
+status = response.json()["data"]
+print(f"Connected: {status['connected']}, Logged In: {status['loggedIn']}")
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200 - Ready
+{
+  "success": true,
+  "code": 200,
+  "data": {
+    "connected": true,
+    "loggedIn": true
+  }
+}
+```
+
+```json 200 - Needs QR
+{
+  "success": true,
+  "code": 200,
+  "data": {
+    "connected": true,
+    "loggedIn": false
+  }
+}
+```
+</ResponseExample>

@@ -1,0 +1,75 @@
+---
+title: Get Contact Info
+api: POST /v1/contacts/info
+description: "Get detailed information about WhatsApp contacts"
+---
+
+Get detailed information about one or more WhatsApp contacts, including devices, status, and business verification.
+
+## Request Body
+
+<ParamField body="phones" type="string[]" required>
+  Array of phone numbers to get info for
+</ParamField>
+
+## Response Fields
+
+<ResponseField name="data.users" type="object">
+  Object with JIDs as keys containing contact information
+</ResponseField>
+
+<RequestExample>
+```bash cURL
+curl -X POST https://api.livchat.ai/v1/contacts/info \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "phones": ["5511999999999"]
+  }'
+```
+
+```javascript JavaScript
+const response = await fetch("https://api.livchat.ai/v1/contacts/info", {
+  method: "POST",
+  headers: {
+    Authorization: "Bearer YOUR_API_KEY",
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    phones: ["5511999999999"],
+  }),
+});
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200
+{
+  "success": true,
+  "code": 200,
+  "data": {
+    "users": {
+      "5511999999999@s.whatsapp.net": {
+        "devices": [
+          "5511999999999.0:0@s.whatsapp.net",
+          "5511999999999.0:11@s.whatsapp.net"
+        ],
+        "pictureId": "122233212312",
+        "status": "Available",
+        "verifiedName": {
+          "certificate": {
+            "details": "base64...",
+            "signature": "base64..."
+          },
+          "details": {
+            "issuer": "smb:wa",
+            "serial": 23810327841439764000,
+            "verifiedName": "Company Name"
+          }
+        }
+      }
+    }
+  }
+}
+```
+</ResponseExample>

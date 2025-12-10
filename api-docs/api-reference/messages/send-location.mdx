@@ -1,0 +1,68 @@
+---
+title: Send Location
+api: POST /v1/messages/send/location
+description: "Send a location to a WhatsApp number"
+---
+
+Send a geographic location with optional name.
+
+## Request Body
+
+<ParamField body="phone" type="string" required>
+  Recipient phone number in international format
+</ParamField>
+
+<ParamField body="latitude" type="number" required>
+  Latitude coordinate (e.g., `48.858370`)
+</ParamField>
+
+<ParamField body="longitude" type="number" required>
+  Longitude coordinate (e.g., `2.294481`)
+</ParamField>
+
+<ParamField body="name" type="string">
+  Location name to display (e.g., `Eiffel Tower`)
+</ParamField>
+
+<RequestExample>
+```bash cURL
+curl -X POST https://api.livchat.ai/v1/messages/send/location \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "phone": "5511999999999",
+    "latitude": 48.858370,
+    "longitude": 2.294481,
+    "name": "Eiffel Tower"
+  }'
+```
+
+```javascript JavaScript
+const response = await fetch("https://api.livchat.ai/v1/messages/send/location", {
+  method: "POST",
+  headers: {
+    Authorization: "Bearer YOUR_API_KEY",
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    phone: "5511999999999",
+    latitude: 48.858370,
+    longitude: 2.294481,
+    name: "Eiffel Tower",
+  }),
+});
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200
+{
+  "success": true,
+  "code": 200,
+  "data": {
+    "details": "Sent",
+    "id": "3EB04A45DCA355D01DB68C"
+  }
+}
+```
+</ResponseExample>

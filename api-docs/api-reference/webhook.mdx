@@ -1,0 +1,129 @@
+---
+title: Webhooks
+api: GET /v1/webhook
+description: "Configure webhook for receiving events"
+---
+
+Configure a webhook URL to receive real-time events like incoming messages and read receipts.
+
+## Get Webhook Configuration
+
+<ParamField method="GET" path="/v1/webhook">
+  Retrieve current webhook configuration
+</ParamField>
+
+## Set Webhook Configuration
+
+<ParamField method="POST" path="/v1/webhook">
+  Configure or update webhook URL
+</ParamField>
+
+### Request Body (POST)
+
+<ParamField body="webhookUrl" type="string" required>
+  URL to receive webhook events (must be HTTPS)
+</ParamField>
+
+## Event Types
+
+Subscribe to events when connecting the session:
+
+| Event | Description |
+|-------|-------------|
+| `Message` | Incoming and outgoing messages |
+| `ReadReceipt` | Message read confirmations |
+| `HistorySync` | Chat history synchronization |
+| `ChatPresence` | Online status and typing indicators |
+
+## Webhook Payload
+
+Events are sent as POST requests to your webhook URL:
+
+```json
+{
+  "event": {
+    "info": {
+      "id": "3EB04A45DCA355D01DB68C",
+      "messageSource": {
+        "chat": "5511999999999@s.whatsapp.net",
+        "sender": "5511888888888@s.whatsapp.net",
+        "isFromMe": false,
+        "isGroup": false
+      },
+      "pushName": "John",
+      "timestamp": "2024-12-10T10:00:00Z"
+    },
+    "message": {
+      "conversation": "Hello!"
+    }
+  },
+  "type": "Message"
+}
+```
+
+## Securing Webhooks (HMAC)
+
+Configure HMAC signing for webhook verification:
+
+```bash
+# Configure HMAC key (min 32 characters)
+curl -X POST https://api.livchat.ai/v1/session/hmac/config \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"hmacKey": "your_secret_key_minimum_32_characters"}'
+```
+
+Webhooks will include `x-hmac-signature` header for verification.
+
+<RequestExample>
+```bash cURL - Get
+curl -X GET https://api.livchat.ai/v1/webhook \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+```bash cURL - Set
+curl -X POST https://api.livchat.ai/v1/webhook \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "webhookUrl": "https://your-site.com/webhook"
+  }'
+```
+
+```javascript JavaScript
+// Set webhook
+const response = await fetch("https://api.livchat.ai/v1/webhook", {
+  method: "POST",
+  headers: {
+    Authorization: "Bearer YOUR_API_KEY",
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    webhookUrl: "https://your-site.com/webhook",
+  }),
+});
+```
+</RequestExample>
+
+<ResponseExample>
+```json GET 200
+{
+  "success": true,
+  "code": 200,
+  "data": {
+    "webhook": "https://your-site.com/webhook",
+    "subscribe": ["Message", "ReadReceipt"]
+  }
+}
+```
+
+```json POST 200
+{
+  "success": true,
+  "code": 200,
+  "data": {
+    "webhook": "https://your-site.com/webhook"
+  }
+}
+```
+</ResponseExample>

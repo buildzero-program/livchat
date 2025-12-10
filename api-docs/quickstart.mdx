@@ -1,0 +1,142 @@
+---
+title: Quickstart
+description: "Send your first WhatsApp message in 5 minutes"
+---
+
+# Quickstart
+
+Get started with LivChat.ai in just a few steps.
+
+## Step 1: Get Your API Key
+
+1. Go to [livchat.ai](https://livchat.ai)
+2. Scan the QR code with your WhatsApp
+3. Sign up or log in to your account
+4. Navigate to **Settings > API Keys**
+5. Click **Create API Key**
+
+<Note>
+  Your API key starts with `lc_live_` for production or `lc_test_` for testing.
+</Note>
+
+## Step 2: Connect Your WhatsApp
+
+Before sending messages, you need to connect a WhatsApp session:
+
+```bash
+# Check session status
+curl https://api.livchat.ai/v1/session/status \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+If not connected, get a QR code to scan:
+
+```bash
+# Get QR code
+curl https://api.livchat.ai/v1/session/qr \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+## Step 3: Send Your First Message
+
+Once connected, send a message:
+
+<CodeGroup>
+
+```bash cURL
+curl -X POST https://api.livchat.ai/v1/messages/send \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "phone": "5511999999999",
+    "body": "Hello from LivChat!"
+  }'
+```
+
+```javascript Node.js
+const response = await fetch("https://api.livchat.ai/v1/messages/send", {
+  method: "POST",
+  headers: {
+    Authorization: "Bearer YOUR_API_KEY",
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    phone: "5511999999999",
+    body: "Hello from LivChat!",
+  }),
+});
+
+const data = await response.json();
+console.log(data);
+```
+
+```python Python
+import requests
+
+response = requests.post(
+    "https://api.livchat.ai/v1/messages/send",
+    headers={
+        "Authorization": "Bearer YOUR_API_KEY",
+        "Content-Type": "application/json",
+    },
+    json={
+        "phone": "5511999999999",
+        "body": "Hello from LivChat!",
+    },
+)
+
+print(response.json())
+```
+
+</CodeGroup>
+
+## Step 4: Verify Number Has WhatsApp
+
+Before sending, you can check if a number has WhatsApp:
+
+```bash
+curl -X POST https://api.livchat.ai/v1/contacts/check \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "phones": ["5511999999999", "5511888888888"]
+  }'
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "code": 200,
+  "data": [
+    {
+      "phone": "5511999999999",
+      "isInWhatsapp": true,
+      "jid": "5511999999999@s.whatsapp.net"
+    },
+    {
+      "phone": "5511888888888",
+      "isInWhatsapp": false,
+      "jid": null
+    }
+  ]
+}
+```
+
+## What's Next?
+
+<CardGroup cols={2}>
+  <Card title="Authentication" icon="key" href="/authentication">
+    Learn about API key scopes and security
+  </Card>
+  <Card title="Send Media" icon="image" href="/api-reference/messages/send-image">
+    Send images, documents, audio, and more
+  </Card>
+  <Card title="Webhooks" icon="webhook" href="/api-reference/webhook">
+    Receive incoming messages and events
+  </Card>
+  <Card title="Groups" icon="users" href="/api-reference/groups/list">
+    Manage WhatsApp groups
+  </Card>
+</CardGroup>

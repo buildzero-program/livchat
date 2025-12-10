@@ -1,0 +1,67 @@
+---
+title: List Contacts
+api: GET /v1/contacts/list
+description: "Get all contacts from your WhatsApp account"
+---
+
+Retrieve all contacts saved in your WhatsApp account.
+
+## Response Fields
+
+<ResponseField name="data" type="object">
+  Object with JIDs as keys, each containing contact details
+</ResponseField>
+
+<RequestExample>
+```bash cURL
+curl -X GET https://api.livchat.ai/v1/contacts/list \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+```javascript JavaScript
+const response = await fetch("https://api.livchat.ai/v1/contacts/list", {
+  headers: {
+    Authorization: "Bearer YOUR_API_KEY",
+  },
+});
+
+const { data } = await response.json();
+const contacts = Object.entries(data);
+```
+
+```python Python
+import requests
+
+response = requests.get(
+    "https://api.livchat.ai/v1/contacts/list",
+    headers={"Authorization": "Bearer YOUR_API_KEY"},
+)
+
+contacts = response.json()["data"]
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200
+{
+  "success": true,
+  "code": 200,
+  "data": {
+    "5511999999999@s.whatsapp.net": {
+      "businessName": "",
+      "firstName": "John",
+      "found": true,
+      "fullName": "John Doe",
+      "pushName": "Johnny"
+    },
+    "5511888888888@s.whatsapp.net": {
+      "businessName": "ACME Corp",
+      "firstName": "",
+      "found": true,
+      "fullName": "",
+      "pushName": "ACME Support"
+    }
+  }
+}
+```
+</ResponseExample>

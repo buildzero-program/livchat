@@ -1,0 +1,72 @@
+---
+title: Send Document
+api: POST /v1/messages/send/document
+description: "Send a document file to a WhatsApp number"
+---
+
+Send a document file (PDF, DOCX, etc.).
+
+## Request Body
+
+<ParamField body="phone" type="string" required>
+  Recipient phone number in international format
+</ParamField>
+
+<ParamField body="document" type="string" required>
+  Document URL or base64-encoded data in data URI format (`data:application/octet-stream;base64,...`)
+</ParamField>
+
+<ParamField body="fileName" type="string">
+  Display filename for the document (e.g., `invoice.pdf`)
+</ParamField>
+
+<ParamField body="caption" type="string">
+  Optional caption for the document
+</ParamField>
+
+## Supported Formats
+
+PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, TXT, ZIP, RAR, and more.
+
+<Note>Maximum file size: 100MB</Note>
+
+<RequestExample>
+```bash cURL
+curl -X POST https://api.livchat.ai/v1/messages/send/document \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "phone": "5511999999999",
+    "document": "https://example.com/file.pdf",
+    "fileName": "invoice.pdf"
+  }'
+```
+
+```javascript JavaScript
+const response = await fetch("https://api.livchat.ai/v1/messages/send/document", {
+  method: "POST",
+  headers: {
+    Authorization: "Bearer YOUR_API_KEY",
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    phone: "5511999999999",
+    document: "https://example.com/file.pdf",
+    fileName: "invoice.pdf",
+  }),
+});
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200
+{
+  "success": true,
+  "code": 200,
+  "data": {
+    "details": "Sent",
+    "id": "3EB04A45DCA355D01DB68C"
+  }
+}
+```
+</ResponseExample>

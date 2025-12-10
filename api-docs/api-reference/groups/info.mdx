@@ -1,0 +1,71 @@
+---
+title: Get Group Info
+api: GET /v1/groups/info
+description: "Get detailed information about a specific group"
+---
+
+Get detailed information about a WhatsApp group including participants and settings.
+
+## Query Parameters
+
+<ParamField query="groupJid" type="string" required>
+  Group JID (e.g., `120362023605733675@g.us`)
+</ParamField>
+
+<RequestExample>
+```bash cURL
+curl -X GET "https://api.livchat.ai/v1/groups/info?groupJid=120362023605733675@g.us" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+```javascript JavaScript
+const groupJid = "120362023605733675@g.us";
+const response = await fetch(
+  `https://api.livchat.ai/v1/groups/info?groupJid=${groupJid}`,
+  {
+    headers: {
+      Authorization: "Bearer YOUR_API_KEY",
+    },
+  }
+);
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200
+{
+  "success": true,
+  "code": 200,
+  "data": {
+    "jid": "120362023605733675@g.us",
+    "name": "Team Chat",
+    "topic": "Project discussions",
+    "ownerJid": "5511999999999@s.whatsapp.net",
+    "groupCreated": "2024-01-15T10:30:00-03:00",
+    "nameSetAt": "2024-01-15T10:30:00-03:00",
+    "nameSetBy": "5511999999999@s.whatsapp.net",
+    "isAnnounce": false,
+    "isLocked": false,
+    "isEphemeral": false,
+    "disappearingTimer": 0,
+    "participants": [
+      {
+        "jid": "5511999999999@s.whatsapp.net",
+        "isAdmin": true,
+        "isSuperAdmin": true
+      },
+      {
+        "jid": "5511888888888@s.whatsapp.net",
+        "isAdmin": true,
+        "isSuperAdmin": false
+      },
+      {
+        "jid": "5511777777777@s.whatsapp.net",
+        "isAdmin": false,
+        "isSuperAdmin": false
+      }
+    ]
+  }
+}
+```
+</ResponseExample>

@@ -1,0 +1,77 @@
+---
+title: Create Group
+api: POST /v1/groups/create
+description: "Create a new WhatsApp group"
+---
+
+Create a new WhatsApp group with specified name and participants.
+
+## Request Body
+
+<ParamField body="name" type="string" required>
+  Group name (max 25 characters)
+</ParamField>
+
+<ParamField body="participants" type="string[]" required>
+  Array of phone numbers to add as participants
+</ParamField>
+
+<RequestExample>
+```bash cURL
+curl -X POST https://api.livchat.ai/v1/groups/create \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Project Team",
+    "participants": ["5511999999999", "5511888888888"]
+  }'
+```
+
+```javascript JavaScript
+const response = await fetch("https://api.livchat.ai/v1/groups/create", {
+  method: "POST",
+  headers: {
+    Authorization: "Bearer YOUR_API_KEY",
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    name: "Project Team",
+    participants: ["5511999999999", "5511888888888"],
+  }),
+});
+
+const { data } = await response.json();
+console.log(`Group created: ${data.jid}`);
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200
+{
+  "success": true,
+  "code": 200,
+  "data": {
+    "jid": "120363123456789@g.us",
+    "name": "Project Team",
+    "ownerJid": "5511777777777@s.whatsapp.net",
+    "groupCreated": "2024-12-10T10:00:00Z",
+    "participants": [
+      {
+        "jid": "5511777777777@s.whatsapp.net",
+        "isAdmin": true,
+        "isSuperAdmin": true
+      },
+      {
+        "jid": "5511999999999@s.whatsapp.net",
+        "isAdmin": false,
+        "isSuperAdmin": false
+      }
+    ]
+  }
+}
+```
+</ResponseExample>
+
+<Note>
+You will automatically be the group admin/owner.
+</Note>

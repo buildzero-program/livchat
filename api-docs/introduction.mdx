@@ -1,0 +1,78 @@
+---
+title: Introduction
+description: "WhatsApp API for developers and martech"
+---
+
+# Welcome to LivChat.ai
+
+LivChat.ai is a WhatsApp API designed for developers, martech professionals, and AI agents. Send messages easily and scale quickly.
+
+## Why LivChat?
+
+<CardGroup cols={2}>
+  <Card title="Zero Friction" icon="bolt">
+    Connect your WhatsApp before creating an account. Test the API in seconds.
+  </Card>
+  <Card title="Simple Pricing" icon="tag">
+    Pay per instance, not per message. Unlimited messages on every plan.
+  </Card>
+  <Card title="Quick Integration" icon="clock">
+    Get started in minutes, not weeks. Simple REST API with clear documentation.
+  </Card>
+  <Card title="Developer First" icon="code">
+    Built for devs, martech, and AI agents. Modern API design with camelCase fields.
+  </Card>
+</CardGroup>
+
+## Quick Example
+
+Send a WhatsApp message with a single API call:
+
+```bash
+curl -X POST https://api.livchat.ai/v1/messages/send \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "phone": "5511999999999",
+    "body": "Hello from LivChat!"
+  }'
+```
+
+## Base URL
+
+All API requests are made to:
+
+```
+https://api.livchat.ai/v1
+```
+
+## Response Format
+
+All responses are JSON with consistent structure:
+
+```json
+{
+  "success": true,
+  "code": 200,
+  "data": {
+    // Response data here
+  }
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="play" href="/quickstart">
+    Get your API key and send your first message
+  </Card>
+  <Card title="Authentication" icon="key" href="/authentication">
+    Learn about API key authentication
+  </Card>
+  <Card title="Send Messages" icon="message" href="/api-reference/messages/send-text">
+    Explore the Messages API
+  </Card>
+  <Card title="Webhooks" icon="webhook" href="/api-reference/webhook">
+    Receive real-time events
+  </Card>
+</CardGroup>

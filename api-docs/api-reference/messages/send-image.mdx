@@ -1,0 +1,92 @@
+---
+title: Send Image
+api: POST /v1/messages/send/image
+description: "Send an image to a WhatsApp number"
+---
+
+Send an image with optional caption.
+
+## Request Body
+
+<ParamField body="phone" type="string" required>
+  Recipient phone number in international format
+</ParamField>
+
+<ParamField body="image" type="string" required>
+  Image URL or base64-encoded data in data URI format (`data:image/jpeg;base64,...`)
+</ParamField>
+
+<ParamField body="caption" type="string">
+  Optional caption for the image
+</ParamField>
+
+<ParamField body="id" type="string">
+  Optional message ID to reply to
+</ParamField>
+
+## Supported Formats
+
+- JPEG / JPG
+- PNG
+- GIF
+- WEBP
+
+<Note>Maximum file size: 16MB</Note>
+
+<RequestExample>
+```bash cURL
+curl -X POST https://api.livchat.ai/v1/messages/send/image \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "phone": "5511999999999",
+    "image": "https://example.com/image.jpg",
+    "caption": "Check this out!"
+  }'
+```
+
+```javascript JavaScript
+const response = await fetch("https://api.livchat.ai/v1/messages/send/image", {
+  method: "POST",
+  headers: {
+    Authorization: "Bearer YOUR_API_KEY",
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    phone: "5511999999999",
+    image: "https://example.com/image.jpg",
+    caption: "Check this out!",
+  }),
+});
+```
+
+```python Python
+import requests
+
+response = requests.post(
+    "https://api.livchat.ai/v1/messages/send/image",
+    headers={
+        "Authorization": "Bearer YOUR_API_KEY",
+        "Content-Type": "application/json",
+    },
+    json={
+        "phone": "5511999999999",
+        "image": "https://example.com/image.jpg",
+        "caption": "Check this out!",
+    },
+)
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200
+{
+  "success": true,
+  "code": 200,
+  "data": {
+    "details": "Sent",
+    "id": "3EB04A45DCA355D01DB68C"
+  }
+}
+```
+</ResponseExample>

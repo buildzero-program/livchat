@@ -1,0 +1,139 @@
+---
+title: API Overview
+description: "Complete reference for the LivChat.ai API"
+---
+
+# API Overview
+
+The LivChat.ai API is organized around REST. It uses predictable resource-oriented URLs, accepts JSON-encoded request bodies, returns JSON-encoded responses, and uses standard HTTP response codes.
+
+## Base URL
+
+```
+https://api.livchat.ai/v1
+```
+
+## Authentication
+
+All requests require a Bearer token:
+
+```bash
+Authorization: Bearer lc_live_YOUR_API_KEY
+```
+
+## Endpoints Overview
+
+### Messages
+
+Send WhatsApp messages in various formats.
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/v1/messages/send` | POST | Send text message |
+| `/v1/messages/send/image` | POST | Send image |
+| `/v1/messages/send/document` | POST | Send document |
+| `/v1/messages/send/audio` | POST | Send audio |
+| `/v1/messages/send/video` | POST | Send video |
+| `/v1/messages/send/location` | POST | Send location |
+| `/v1/messages/send/contact` | POST | Send contact card |
+| `/v1/messages/send/sticker` | POST | Send sticker |
+| `/v1/messages/react` | POST | React to message |
+| `/v1/messages/read` | POST | Mark as read |
+
+### Contacts
+
+Manage and verify contacts.
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/v1/contacts/check` | POST | Check if numbers have WhatsApp |
+| `/v1/contacts/info` | POST | Get contact information |
+| `/v1/contacts/avatar` | GET | Get contact avatar |
+| `/v1/contacts/list` | GET | List all contacts |
+
+### Session
+
+Manage WhatsApp connection.
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/v1/session/status` | GET | Get session status |
+| `/v1/session/qr` | GET | Get QR code for pairing |
+| `/v1/session/connect` | POST | Connect session |
+| `/v1/session/disconnect` | POST | Disconnect session |
+| `/v1/session/logout` | POST | Logout from WhatsApp |
+
+### Groups
+
+Manage WhatsApp groups.
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/v1/groups/list` | GET | List all groups |
+| `/v1/groups/info` | GET | Get group information |
+| `/v1/groups/create` | POST | Create new group |
+| `/v1/groups/invite-link` | GET | Get group invite link |
+
+### Webhooks
+
+Receive real-time events.
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/v1/webhook` | GET | Get webhook configuration |
+| `/v1/webhook` | POST | Configure webhook URL |
+
+## Response Format
+
+### Success Response
+
+```json
+{
+  "success": true,
+  "code": 200,
+  "data": {
+    // Response payload
+  }
+}
+```
+
+### Error Response
+
+```json
+{
+  "error": {
+    "code": 400,
+    "message": "Description of the error"
+  }
+}
+```
+
+## HTTP Status Codes
+
+| Code | Description |
+|------|-------------|
+| 200 | Success |
+| 400 | Bad Request - Invalid parameters |
+| 401 | Unauthorized - Invalid or missing API key |
+| 403 | Forbidden - Insufficient permissions |
+| 404 | Not Found - Endpoint doesn't exist |
+| 429 | Rate Limited - Too many requests |
+| 500 | Server Error - Something went wrong |
+
+## Phone Number Format
+
+Phone numbers should be in international format without `+` or spaces:
+
+```
+5511999999999  # Brazil: +55 11 99999-9999
+14155551234    # USA: +1 415 555 1234
+```
+
+## JID Format
+
+WhatsApp JIDs (Jabber IDs) are used internally:
+
+```
+5511999999999@s.whatsapp.net  # Individual
+120363123456789@g.us          # Group
+```

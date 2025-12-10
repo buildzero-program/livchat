@@ -1,0 +1,79 @@
+---
+title: Get QR Code
+api: GET /v1/session/qr
+description: "Get the QR code for WhatsApp pairing"
+---
+
+Get the QR code to scan with WhatsApp for session pairing. The session must be connected but not logged in.
+
+## Prerequisites
+
+1. Call `/session/connect` first
+2. Check `/session/status` returns `connected: true` and `loggedIn: false`
+
+## Response Fields
+
+<ResponseField name="data.qrCode" type="string">
+  Base64-encoded PNG image in data URI format (`data:image/png;base64,...`)
+</ResponseField>
+
+<RequestExample>
+```bash cURL
+curl -X GET https://api.livchat.ai/v1/session/qr \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+```javascript JavaScript
+const response = await fetch("https://api.livchat.ai/v1/session/qr", {
+  headers: {
+    Authorization: "Bearer YOUR_API_KEY",
+  },
+});
+
+const { data } = await response.json();
+
+// Display in HTML
+document.getElementById("qr").src = data.qrCode;
+```
+
+```python Python
+import requests
+import base64
+
+response = requests.get(
+    "https://api.livchat.ai/v1/session/qr",
+    headers={"Authorization": "Bearer YOUR_API_KEY"},
+)
+
+qr_code = response.json()["data"]["qrCode"]
+# Remove data URI prefix and decode
+image_data = base64.b64decode(qr_code.split(",")[1])
+with open("qr.png", "wb") as f:
+    f.write(image_data)
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200
+{
+  "success": true,
+  "code": 200,
+  "data": {
+    "qrCode": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAQAAAAEA..."
+  }
+}
+```
+
+```json 400
+{
+  "error": {
+    "code": 400,
+    "message": "Session already logged in"
+  }
+}
+```
+</ResponseExample>
+
+<Note>
+QR codes expire after approximately 60 seconds. Request a new one if it expires.
+</Note>
