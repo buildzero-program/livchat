@@ -265,28 +265,15 @@ export async function syncInstanceStatus(
 }
 
 /**
- * Verifica e reseta contador de mensagens se necessário (lazy reset)
- */
-function checkAndResetMessageCount(instance: typeof instances.$inferSelect): {
-  currentCount: number;
-  needsReset: boolean;
-} {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  const lastReset = instance.lastMessageResetAt;
-  const needsReset = !lastReset || lastReset < today;
-  const currentCount = needsReset ? 0 : instance.messagesUsedToday;
-
-  return { currentCount, needsReset };
-}
-
-/**
- * Verifica se instance pode enviar mensagens
+ * Verifica se instance pode enviar mensagens (READ-ONLY - usa Redis)
+ *
+ * Usado para exibir status no dashboard. NÃO incrementa o contador.
+ * Para enviar mensagens, use useQuota() diretamente no whatsapp router.
  */
 export async function canSendMessage(
   instanceId: string
 ): Promise<{ canSend: boolean; used: number; limit: number; remaining: number }> {
+  // Buscar instance com org para determinar limite
   const instance = await db.query.instances.findFirst({
     where: eq(instances.id, instanceId),
     with: { organization: true },
@@ -296,54 +283,30 @@ export async function canSendMessage(
     return { canSend: false, used: 0, limit: 0, remaining: 0 };
   }
 
-  const { currentCount } = checkAndResetMessageCount(instance);
   const limit = instance.organization?.maxMessagesPerDay ?? DEMO_MESSAGE_LIMIT;
 
+  // Buscar uso atual do Redis (sem incrementar)
+  const { getQuotaUsage } = await import("~/server/lib/quota");
+  const used = await getQuotaUsage(instanceId);
+
   return {
-    canSend: currentCount < limit,
-    used: currentCount,
+    canSend: used < limit,
+    used,
     limit,
-    remaining: Math.max(0, limit - currentCount),
+    remaining: Math.max(0, limit - used),
   };
 }
 
 /**
- * Incrementa contador de mensagens (com lazy reset)
+ * Busca limite de mensagens para uma instance
  */
-export async function incrementMessageCount(instanceId: string): Promise<{
-  used: number;
-  limit: number;
-  remaining: number;
-}> {
+export async function getInstanceLimit(instanceId: string): Promise<number> {
   const instance = await db.query.instances.findFirst({
     where: eq(instances.id, instanceId),
     with: { organization: true },
   });
 
-  if (!instance) throw new Error("Instance not found");
-
-  const { currentCount, needsReset } = checkAndResetMessageCount(instance);
-  const newCount = currentCount + 1;
-
-  // Limite: org (se claimed) ou default (50)
-  const limit = instance.organization?.maxMessagesPerDay ?? DEMO_MESSAGE_LIMIT;
-
-  await db
-    .update(instances)
-    .set({
-      messagesUsedToday: newCount,
-      lastMessageAt: new Date(),
-      lastMessageResetAt: needsReset ? new Date() : instance.lastMessageResetAt,
-      lastActivityAt: new Date(), // Atualiza atividade ao enviar mensagem
-      updatedAt: new Date(),
-    })
-    .where(eq(instances.id, instanceId));
-
-  return {
-    used: newCount,
-    limit,
-    remaining: Math.max(0, limit - newCount),
-  };
+  return instance?.organization?.maxMessagesPerDay ?? DEMO_MESSAGE_LIMIT;
 }
 
 /**
@@ -473,15 +436,14 @@ export async function getOrReuseVirginOrphan(
     }
 
     // Adotar a órfã
+    // Note: messagesUsedToday/lastMessageResetAt removed - quota now tracked in Redis
     const [adopted] = await tx
       .update(instances)
       .set({
         createdByDeviceId: deviceId,
         status: "disconnected",
         lastConnectedAt: null,
-        messagesUsedToday: 0,
         lastMessageAt: null,
-        lastMessageResetAt: new Date(),
         reuseCount: sql`${instances.reuseCount} + 1`,
         lastActivityAt: new Date(),
         updatedAt: new Date(),

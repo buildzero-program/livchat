@@ -19,6 +19,9 @@ export const env = createEnv({
     WUZAPI_WEBHOOK_SECRET: z.string().min(32).optional(),
     // Internal API (Cloudflare Worker <-> Vercel)
     INTERNAL_SECRET: z.string().min(32).optional(),
+    // Redis (Upstash) - Message quota
+    UPSTASH_REDIS_REST_URL: z.string().url().optional(),
+    UPSTASH_REDIS_REST_TOKEN: z.string().min(1).optional(),
   },
 
   /**
@@ -45,6 +48,9 @@ export const env = createEnv({
     WUZAPI_WEBHOOK_SECRET: process.env.WUZAPI_WEBHOOK_SECRET,
     // Internal API
     INTERNAL_SECRET: process.env.INTERNAL_SECRET,
+    // Redis (Upstash)
+    UPSTASH_REDIS_REST_URL: process.env.UPSTASH_REDIS_REST_URL,
+    UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN,
     // Client-side
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
   },

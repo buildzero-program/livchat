@@ -7,9 +7,10 @@ import { Send, Copy, Check, LogOut, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "~/components/ui/tabs";
-import { formatPhone, PRICING } from "~/lib/constants";
+import { formatPhone } from "~/lib/constants";
 import { getApiBaseUrl, extractPhoneFromJid } from "~/lib/api-url";
 import type { ValidationResult } from "~/server/api/routers/whatsapp";
+import { QuotaIndicator } from "./quota-indicator";
 
 interface SendResponse {
   success: boolean;
@@ -25,6 +26,9 @@ interface TestPanelProps {
   isDisconnecting?: boolean;
   jid?: string;
   apiKey?: string;
+  // Quota info
+  messagesUsed?: number;
+  messagesLimit?: number;
 }
 
 const TABS = ["MENSAGEM", "MÍDIA", "GRUPOS", "WEBHOOK"] as const;
@@ -55,6 +59,8 @@ export function TestPanel({
   isDisconnecting = false,
   jid,
   apiKey,
+  messagesUsed = 0,
+  messagesLimit = 50,
 }: TestPanelProps) {
   const [activeTab, setActiveTab] = useState<string>("MENSAGEM");
   const [phone, setPhone] = useState("");
@@ -374,9 +380,7 @@ export function TestPanel({
                 )}
               </button>
             )}
-            <span className="text-muted-foreground">
-              {PRICING.FREE_MESSAGES_PER_DAY} msgs/dia
-            </span>
+            <QuotaIndicator used={messagesUsed} limit={messagesLimit} />
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm">

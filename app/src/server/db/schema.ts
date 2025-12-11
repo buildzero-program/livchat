@@ -150,12 +150,9 @@ export const instances = pgTable(
     status: text("status").notNull().default("disconnected"),
     lastConnectedAt: timestamp("last_connected_at", { withTimezone: true }),
 
-    // Usage (lazy reset diário)
-    messagesUsedToday: integer("messages_used_today").notNull().default(0),
+    // Usage tracking (quota managed in Redis)
+    // messagesUsedToday and lastMessageResetAt REMOVED - now tracked in Redis
     lastMessageAt: timestamp("last_message_at", { withTimezone: true }),
-    lastMessageResetAt: timestamp("last_message_reset_at", {
-      withTimezone: true,
-    }).defaultNow(),
 
     // Claim tracking
     claimedAt: timestamp("claimed_at", { withTimezone: true }),

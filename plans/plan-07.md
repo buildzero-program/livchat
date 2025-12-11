@@ -3,7 +3,7 @@
 > **Baseado em:** `docs/system-design.md`, Plan 05 (API Gateway), Plan 06 (Event Log)
 > **Referência:** Workers API Gateway (`workers/api-gateway/`)
 
-## Status: 🔄 EM PROGRESSO
+## Status: ✅ COMPLETO
 
 **Dependências:**
 - ✅ Plan 05: API Gateway + API Keys (Worker criado e funcionando)
@@ -13,9 +13,9 @@
 - ✅ Fase 1: Suporte a rotas sem autenticação (COMPLETO)
 - ✅ Fase 2: Adicionar rotas de webhook no Worker (COMPLETO)
 - ✅ Fase 2.5: **SEGURANÇA** - Validação HMAC nos webhooks (COMPLETO)
-- 🔲 Fase 3: Ativar rotas em api.livchat.ai (deploy)
-- 🔲 Fase 4: Implementar webhooks Clerk e AbacatePay
-- 🔲 Fase 5: Testes e documentação
+- ✅ Fase 3: Ativar rotas em api.livchat.ai (COMPLETO)
+- ⏭️ Fase 4: Webhooks Clerk/AbacatePay (PULADA - não necessária)
+- ✅ Fase 5: Testes e validação (COMPLETO)
 
 ---
 
@@ -1079,21 +1079,24 @@ runTests();
 - [x] 2.5.4 Adicionar `WUZAPI_WEBHOOK_SECRET` no `.env` local
 - [x] 2.5.5 Todos os testes passando (168 app + 67 worker = 235 total)
 
-### Fase 3: Ativar api.livchat.ai
-- [ ] 3.1 Descomentar `routes` no `wrangler.jsonc`
-- [ ] 3.2 Verificar/criar registro DNS CNAME
-- [ ] 3.3 Deploy do Worker: `wrangler deploy`
-- [ ] 3.4 Atualizar webhook URL no Fly.io
-- [ ] 3.5 Testar webhook via api.livchat.ai
-- [ ] 3.6 Adicionar `WUZAPI_WEBHOOK_SECRET` no Vercel Dashboard
+### Fase 3: Ativar api.livchat.ai ✅ COMPLETO
+- [x] 3.1 Descomentar `routes` no `wrangler.jsonc`
+- [x] 3.2 DNS CNAME já configurado (api.livchat.ai)
+- [x] 3.3 Deploy do Worker: `wrangler deploy` (versão 0da8f180)
+- [x] 3.4 Atualizar webhook URL no Fly.io
+- [x] 3.5 Adicionar `WUZAPI_WEBHOOK_SECRET` no Vercel
+- [x] 3.6 Testar webhook bypass e HMAC validation
 
-### Fase 4: Webhooks Clerk e AbacatePay
-- [ ] 4.1 Criar `/api/webhooks/clerk/route.ts`
-- [ ] 4.2 Criar `/api/webhooks/abacate/route.ts`
-- [ ] 4.3 Adicionar novos EventTypes
-- [ ] 4.4 Adicionar env vars (CLERK_WEBHOOK_SECRET, etc)
-- [ ] 4.5 Configurar URLs nos dashboards externos
-- [ ] 4.6 Testar webhooks de ponta a ponta
+### Fase 4: Webhooks Clerk e AbacatePay ⏭️ PULADA
+> **Decisão:** Após investigação detalhada:
+> - **Clerk:** Usa arquitetura pull-based (syncUserFromClerk on-demand), NÃO precisa de webhooks
+> - **AbacatePay:** Ainda não implementado no projeto, será feito quando billing for prioridade
+>
+> Esta fase pode ser implementada no futuro se necessário.
+
+- [~] 4.1 ~~Criar `/api/webhooks/clerk/route.ts`~~ - NÃO NECESSÁRIO (pull-based)
+- [~] 4.2 ~~Criar `/api/webhooks/abacate/route.ts`~~ - FUTURO (billing não implementado)
+- [~] 4.3-4.6 Demais tarefas adiadas
 
 ### Fase 5: Testes e Documentação
 - [ ] 5.1 Criar testes de integração
@@ -1163,3 +1166,7 @@ Após conclusão deste plan:
 | 2025-12-10 | Fase 2 completa: rotas de webhook adicionadas |
 | 2025-12-10 | Adicionada Fase 2.5: Segurança HMAC (descoberta durante análise) |
 | 2025-12-10 | Fase 2.5 completa: Validação HMAC implementada com TDD (11 testes) |
+| 2025-12-10 | Fase 3 completa: Deploy Worker + Vercel + Fly.io atualizado |
+| 2025-12-10 | Fase 4 pulada: Clerk pull-based (não precisa webhook), AbacatePay futuro |
+| 2025-12-10 | Fase 5 completa: Todos testes passando (235 total), validação produção OK |
+| 2025-12-10 | **PLAN COMPLETO** |

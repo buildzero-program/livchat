@@ -98,6 +98,8 @@ export function Hero() {
               isDisconnecting={whatsapp.disconnect.isPending}
               jid={whatsapp.jid}
               apiKey={whatsapp.apiKey}
+              messagesUsed={whatsapp.messagesUsed}
+              messagesLimit={whatsapp.messagesLimit}
             />
           ) : (
             <QrCard

@@ -4,7 +4,6 @@ import { instances } from "~/server/db/schema";
 import { eq } from "drizzle-orm";
 import { logEvent } from "~/server/lib/events";
 import { mapWuzAPIEvent, shouldLogWuzAPIEvent, EventTypes } from "~/lib/events";
-import { incrementMessageCount } from "~/server/lib/instance";
 import { validateHmacSignature } from "~/server/lib/hmac";
 import { env } from "~/env";
 
@@ -222,10 +221,8 @@ export async function POST(request: NextRequest) {
       metadata,
     });
 
-    // If it's a received message, also increment the message counter
-    if (internalEventType === EventTypes.MESSAGE_RECEIVED) {
-      await incrementMessageCount(instance.id);
-    }
+    // Note: MESSAGE_RECEIVED does NOT count toward send quota.
+    // Only MESSAGE_SENT (tracked in whatsapp.send) counts toward limit.
 
     console.info(`[webhook/wuzapi] Logged event: ${internalEventType} for instance ${instance.id}`);
 

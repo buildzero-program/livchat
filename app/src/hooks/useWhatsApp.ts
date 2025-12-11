@@ -13,6 +13,9 @@ interface CachedState {
   loggedIn: boolean;
   jid?: string;
   apiKey?: string;
+  // Quota info (cached to avoid flash on reload)
+  messagesUsed?: number;
+  messagesLimit?: number;
   expiresAt: number; // timestamp de expiração
 }
 
@@ -151,6 +154,8 @@ export function useWhatsApp(): UseWhatsAppReturn {
         loggedIn: statusQuery.data.loggedIn,
         jid: statusQuery.data.jid,
         apiKey: statusQuery.data.apiKey,
+        messagesUsed: statusQuery.data.messagesUsed,
+        messagesLimit: statusQuery.data.messagesLimit,
       };
       setStoredState(newState);
       // setOptimisticState precisa do expiresAt para o tipo CachedState
@@ -164,7 +169,23 @@ export function useWhatsApp(): UseWhatsAppReturn {
   // Mutations
   const pairingMutation = api.whatsapp.pairing.useMutation();
   const validateMutation = api.whatsapp.validate.useMutation();
-  const sendMutation = api.whatsapp.send.useMutation();
+  const sendMutation = api.whatsapp.send.useMutation({
+    onSuccess: (data) => {
+      // Atualiza quota imediatamente após envio (optimistic update)
+      if (data.usage && optimisticState) {
+        const newState = {
+          ...optimisticState,
+          messagesUsed: data.usage.used,
+          messagesLimit: data.usage.limit,
+        };
+        setStoredState(newState);
+        setOptimisticState({
+          ...newState,
+          expiresAt: Date.now() + STORAGE_TTL_MS,
+        });
+      }
+    },
+  });
   const disconnectMutation = api.whatsapp.disconnect.useMutation({
     onSuccess: async () => {
       // Limpa cache local no logout
@@ -199,10 +220,13 @@ export function useWhatsApp(): UseWhatsAppReturn {
     isLoading: statusQuery.isLoading && !optimisticState, // Só mostra loading se não tem cache
     isError: statusQuery.isError,
 
-    // Message usage
-    messagesUsed: statusQuery.data?.messagesUsed ?? 0,
-    messagesLimit: statusQuery.data?.messagesLimit ?? 50,
-    messagesRemaining: statusQuery.data?.messagesRemaining ?? 50,
+    // Message usage - prioritize optimistic state for immediate updates after send
+    // Falls back to server data, then cache, then defaults
+    messagesUsed: optimisticState?.messagesUsed ?? statusQuery.data?.messagesUsed ?? 0,
+    messagesLimit: optimisticState?.messagesLimit ?? statusQuery.data?.messagesLimit ?? 50,
+    messagesRemaining: optimisticState?.messagesUsed !== undefined
+      ? Math.max(0, (optimisticState.messagesLimit ?? 50) - optimisticState.messagesUsed)
+      : statusQuery.data?.messagesRemaining ?? 50,
 
     // Task #16: Campos extras para dashboard
     connectedSince: statusQuery.data?.connectedSince ?? null,

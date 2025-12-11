@@ -102,8 +102,7 @@ mock.module("~/server/db/schema", () => ({
     createdByDeviceId: "createdByDeviceId",
     status: "status",
     providerToken: "providerToken",
-    messagesUsedToday: "messagesUsedToday",
-    lastMessageResetAt: "lastMessageResetAt",
+    // messagesUsedToday and lastMessageResetAt REMOVED - now tracked in Redis
     reuseCount: "reuseCount",
     createdAt: "createdAt",
     lastActivityAt: "lastActivityAt",

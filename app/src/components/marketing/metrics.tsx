@@ -2,9 +2,10 @@
 
 import { motion } from "framer-motion";
 import { MOCK_METRICS } from "~/lib/mock-data";
+import { LiveCounter } from "./live-counter";
 
+// Static metrics (excluding messages - now live)
 const metrics = [
-  { value: MOCK_METRICS.messagesPerMonth, label: "Mensagens/mês" },
   { value: MOCK_METRICS.activeDevs, label: "Devs Ativos" },
   { value: MOCK_METRICS.uptime, label: "Uptime" },
   { value: MOCK_METRICS.avgResponseTime, label: "Latência Média" },
@@ -23,7 +24,19 @@ export function Metrics() {
           </p>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+        {/* Live counter - prominent display */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          whileInView={{ opacity: 1, scale: 1 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5 }}
+          className="mb-12"
+        >
+          <LiveCounter />
+        </motion.div>
+
+        {/* Static metrics grid */}
+        <div className="grid grid-cols-3 gap-8 max-w-2xl mx-auto">
           {metrics.map((metric, index) => (
             <motion.div
               key={index}
@@ -33,7 +46,7 @@ export function Metrics() {
               transition={{ delay: index * 0.1 }}
               className="text-center"
             >
-              <p className="text-4xl md:text-5xl font-bold text-primary">
+              <p className="text-3xl md:text-4xl font-bold text-primary">
                 {metric.value}
               </p>
               <p className="mt-2 text-sm text-muted-foreground">

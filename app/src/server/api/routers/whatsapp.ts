@@ -7,8 +7,8 @@ import {
   getOrReuseVirginOrphan,
   createInstanceForDevice,
   syncInstanceStatus,
-  incrementMessageCount,
   canSendMessage,
+  getInstanceLimit,
   cleanupAbusedOrphans,
   getOrganizationInstances,
   getConnectedOrganizationInstance,
@@ -24,6 +24,9 @@ import { organizations, instances } from "~/server/db/schema";
 import { eq, and } from "drizzle-orm";
 import { uploadProfilePicture } from "~/server/lib/blob-storage";
 import { env } from "~/env";
+import { useQuota, getQuotaUsage } from "~/server/lib/quota";
+import { logEvent } from "~/server/lib/events";
+import { EventTypes } from "~/lib/events";
 
 // ============================================
 // CONSTANTS
@@ -345,6 +348,7 @@ export const whatsappRouter = createTRPCRouter({
       log.error(LogActions.WHATSAPP_STATUS, "Error fetching status", error);
 
       // Retorna estado desconectado em caso de erro
+      // Use safe defaults - don't make more async calls that could fail
       return {
         connected: false,
         loggedIn: false,
@@ -352,12 +356,9 @@ export const whatsappRouter = createTRPCRouter({
         jid: undefined,
         instanceId: instance.id,
         apiKey: undefined, // NUNCA expor em erro
-        messagesUsed: instance.messagesUsedToday,
-        messagesLimit: DEMO_MESSAGE_LIMIT,
-        messagesRemaining: Math.max(
-          0,
-          DEMO_MESSAGE_LIMIT - instance.messagesUsedToday
-        ),
+        messagesUsed: 0, // Safe default (Redis unavailable)
+        messagesLimit: DEMO_MESSAGE_LIMIT, // Fallback to demo limit
+        messagesRemaining: DEMO_MESSAGE_LIMIT,
         // Task #16: Campos extras (fallback)
         connectedSince: null,
         deviceName: null,
@@ -540,15 +541,6 @@ export const whatsappRouter = createTRPCRouter({
 
       const { instance, client } = instanceData;
 
-      // Verificar limite de mensagens ANTES de enviar
-      const usage = await canSendMessage(instance.id);
-      if (!usage.canSend) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: `Limite de ${usage.limit} mensagens/dia atingido. Crie uma conta para continuar!`,
-        });
-      }
-
       // Verificar se está logado
       const status = await log.time(
         LogActions.WUZAPI_STATUS,
@@ -560,6 +552,17 @@ export const whatsappRouter = createTRPCRouter({
         throw new TRPCError({
           code: "PRECONDITION_FAILED",
           message: "WhatsApp não conectado. Escaneie o QR code primeiro.",
+        });
+      }
+
+      // INCR-first: Incrementa E verifica quota em 1 operação atômica
+      const limit = await getInstanceLimit(instance.id);
+      const quota = await useQuota(instance.id, limit);
+
+      if (!quota.allowed) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: `Limite de ${quota.limit} mensagens/dia atingido. Crie uma conta para continuar!`,
         });
       }
 
@@ -589,14 +592,26 @@ export const whatsappRouter = createTRPCRouter({
           }
         );
 
-        // Incrementar contador
-        const newUsage = await incrementMessageCount(instance.id);
+        // Log event for audit/billing (async - don't await)
+        void logEvent({
+          name: EventTypes.MESSAGE_SENT,
+          organizationId: instance.organizationId,
+          instanceId: instance.id,
+          metadata: {
+            messageId: res.data.Id,
+            to: input.phone,
+          },
+        });
 
         return {
           success: true,
           messageId: res.data.Id,
           timestamp: res.data.Timestamp,
-          usage: newUsage,
+          usage: {
+            used: quota.used,
+            limit: quota.limit,
+            remaining: quota.remaining,
+          },
         };
       } catch (error) {
         throw new TRPCError({
@@ -755,6 +770,9 @@ export const whatsappRouter = createTRPCRouter({
               syncAvatarInBackground(instance, client, status.data.jid);
             }
 
+            // Get usage from Redis
+            const messagesUsed = await getQuotaUsage(instance.id);
+
             return {
               id: instance.id,
               name: instance.name,
@@ -763,10 +781,13 @@ export const whatsappRouter = createTRPCRouter({
               pictureUrl: instance.whatsappPictureUrl,
               status: deriveInstanceStatus(status.data.connected, status.data.loggedIn),
               connectedSince: instance.lastConnectedAt?.toISOString() ?? null,
-              messagesUsed: instance.messagesUsedToday,
+              messagesUsed,
             };
           } catch {
             // Offline/erro - retorna estado desconectado
+            // Still try to get usage from Redis
+            const messagesUsed = await getQuotaUsage(instance.id).catch(() => 0);
+
             return {
               id: instance.id,
               name: instance.name,
@@ -775,7 +796,7 @@ export const whatsappRouter = createTRPCRouter({
               pictureUrl: instance.whatsappPictureUrl,
               status: "offline" as const,
               connectedSince: null,
-              messagesUsed: instance.messagesUsedToday,
+              messagesUsed,
             };
           }
         })
