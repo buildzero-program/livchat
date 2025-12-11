@@ -15,6 +15,8 @@ export const env = createEnv({
     WUZAPI_URL: z.string().url().default("http://localhost:8080"),
     WUZAPI_INTERNAL_TOKEN: z.string().min(1).optional(),
     WUZAPI_ADMIN_TOKEN: z.string().min(1).optional(),
+    // WuzAPI Webhook HMAC validation (same as WUZAPI_GLOBAL_HMAC_KEY on Fly.io)
+    WUZAPI_WEBHOOK_SECRET: z.string().min(32).optional(),
     // Internal API (Cloudflare Worker <-> Vercel)
     INTERNAL_SECRET: z.string().min(32).optional(),
   },
@@ -40,6 +42,7 @@ export const env = createEnv({
     WUZAPI_URL: process.env.WUZAPI_URL,
     WUZAPI_INTERNAL_TOKEN: process.env.WUZAPI_INTERNAL_TOKEN,
     WUZAPI_ADMIN_TOKEN: process.env.WUZAPI_ADMIN_TOKEN,
+    WUZAPI_WEBHOOK_SECRET: process.env.WUZAPI_WEBHOOK_SECRET,
     // Internal API
     INTERNAL_SECRET: process.env.INTERNAL_SECRET,
     // Client-side

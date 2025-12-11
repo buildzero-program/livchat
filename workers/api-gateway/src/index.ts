@@ -1,7 +1,7 @@
 import type { Env, ApiKeyData } from "./types";
 import { validateApiKey } from "./auth";
 import { checkRateLimit, RateLimiter } from "./rate-limit";
-import { routeRequest } from "./router";
+import { routeRequest, routeUnauthenticated, requiresAuth } from "./router";
 
 // Export Durable Object class
 export { RateLimiter };
@@ -35,6 +35,11 @@ export default {
           },
         }
       );
+    }
+
+    // ============ Unauthenticated Routes (Webhooks) ============
+    if (!requiresAuth(url.pathname)) {
+      return await routeUnauthenticated(request, env);
     }
 
     // ============ Extract API Key ============

@@ -2,6 +2,9 @@ import type { Env, ApiKeyData, RouteConfig, RequestWithFrom } from "./types";
 import { toCamelCase, toPascalCase } from "./transformers";
 import { resolveInstanceByFrom } from "./instance-resolver";
 
+// Re-export RouteConfig for tests
+export type { RouteConfig } from "./types";
+
 /**
  * Route mapping from public API to backends
  */
@@ -135,7 +138,145 @@ const ROUTES: Record<string, RouteConfig> = {
     path: "/group/invitelink",
     methods: ["GET"],
   },
+
+  // ============ Webhooks (bypass auth) ============
+  "/webhooks/wuzapi": {
+    backend: "vercel",
+    path: "/api/webhooks/wuzapi",
+    methods: ["POST", "GET"],
+    auth: "bypass",
+    skipTransform: true,
+  },
+  "/webhooks/clerk": {
+    backend: "vercel",
+    path: "/api/webhooks/clerk",
+    methods: ["POST", "GET"],
+    auth: "bypass",
+    skipTransform: true,
+  },
+  "/webhooks/abacate": {
+    backend: "vercel",
+    path: "/api/webhooks/abacate",
+    methods: ["POST", "GET"],
+    auth: "bypass",
+    skipTransform: true,
+  },
+
+  // ============ Internal APIs (X-Internal-Secret) ============
+  "/internal/validate-key": {
+    backend: "vercel",
+    path: "/api/internal/validate-key",
+    methods: ["POST"],
+    auth: "internal-secret",
+    skipTransform: true,
+  },
 };
+
+/**
+ * Paths that don't require Bearer token authentication
+ */
+const UNAUTHENTICATED_PREFIXES = ["/webhooks/", "/health"];
+
+/**
+ * Check if a path requires Bearer token authentication
+ */
+export function requiresAuth(pathname: string): boolean {
+  // Root and health check don't require auth
+  if (pathname === "/" || pathname === "/health") {
+    return false;
+  }
+
+  // Check if path starts with any unauthenticated prefix
+  if (UNAUTHENTICATED_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
+    return false;
+  }
+
+  // All other routes require authentication
+  return true;
+}
+
+/**
+ * Get route configuration for a given pathname
+ */
+export function getRoute(pathname: string): RouteConfig | null {
+  return ROUTES[pathname] ?? null;
+}
+
+/**
+ * CORS headers for all responses
+ */
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+  "Access-Control-Allow-Headers": "Authorization, Content-Type, X-Internal-Secret",
+};
+
+/**
+ * Route unauthenticated request (webhooks, internal with X-Internal-Secret)
+ * Pass-through without transformation
+ */
+export async function routeUnauthenticated(
+  request: Request,
+  env: Env
+): Promise<Response> {
+  const url = new URL(request.url);
+  const route = getRoute(url.pathname);
+
+  if (!route) {
+    return errorResponse(404, `Endpoint not found: ${url.pathname}`, {
+      docs: "https://docs.livchat.ai",
+    });
+  }
+
+  if (!route.methods.includes(request.method)) {
+    return errorResponse(
+      405,
+      `Method ${request.method} not allowed for ${url.pathname}`
+    );
+  }
+
+  // Check internal-secret authentication
+  if (route.auth === "internal-secret") {
+    const internalSecret = request.headers.get("X-Internal-Secret");
+    if (!internalSecret || internalSecret !== env.INTERNAL_SECRET) {
+      return errorResponse(401, "Invalid or missing internal secret");
+    }
+  }
+
+  // Construct backend URL
+  const backendUrl = route.backend === "wuzapi" ? env.WUZAPI_URL : env.VERCEL_URL;
+  const targetUrl = `${backendUrl}${route.path}${url.search}`;
+
+  // Clone headers, remove Host
+  const headers = new Headers(request.headers);
+  headers.delete("Host");
+
+  try {
+    // Proxy pass-through (no transformation for webhooks)
+    const backendResponse = await fetch(targetUrl, {
+      method: request.method,
+      headers,
+      body: request.method !== "GET" && request.method !== "HEAD"
+        ? await request.clone().text()
+        : undefined,
+    });
+
+    // Return response with CORS headers
+    const responseHeaders = new Headers(backendResponse.headers);
+    Object.entries(corsHeaders).forEach(([key, value]) => {
+      responseHeaders.set(key, value);
+    });
+
+    return new Response(backendResponse.body, {
+      status: backendResponse.status,
+      statusText: backendResponse.statusText,
+      headers: responseHeaders,
+    });
+  } catch (error) {
+    console.error(`[proxy] Error proxying to ${targetUrl}:`, error);
+    return errorResponse(502, "Bad Gateway");
+  }
+}
 
 /**
  * Route request to appropriate backend

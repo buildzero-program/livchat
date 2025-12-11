@@ -138,31 +138,40 @@ export async function createInstanceForDevice(
     throw new Error("WUZAPI_ADMIN_TOKEN not configured");
   }
 
-  const providerId = generateProviderId();
+  const instanceName = generateProviderId(); // Nome amigável para o WuzAPI
   const providerToken = generateProviderToken();
 
-  // Criar user no WuzAPI
+  // Criar user no WuzAPI e capturar o ID retornado
+  let wuzapiUserId: string;
   try {
-    await createWuzAPIInstance(
+    const result = await createWuzAPIInstance(
       WUZAPI_BASE_URL,
       WUZAPI_ADMIN_TOKEN,
-      providerId, // name no WuzAPI
+      instanceName, // name no WuzAPI
       providerToken, // token no WuzAPI
       "Message" // events
     );
+    // IMPORTANTE: Usar o ID interno retornado pelo WuzAPI (não o name)
+    // Este é o ID que será enviado no webhook como userID
+    wuzapiUserId = result.data.id;
+    logger.debug(LogActions.INSTANCE_CREATE, "WuzAPI instance created", {
+      name: instanceName,
+      wuzapiId: wuzapiUserId,
+    });
   } catch (error) {
     logger.error(LogActions.INSTANCE_CREATE, "Failed to create WuzAPI instance", error);
     throw new Error("Failed to create WhatsApp instance");
   }
 
   // Criar instance no nosso banco
+  // NOTA: providerId é o ID interno do WuzAPI (usado nos webhooks)
   const [instance] = await db
     .insert(instances)
     .values({
       createdByDeviceId: deviceId,
       organizationId: null, // Anônima
       name: "WhatsApp Demo",
-      providerId,
+      providerId: wuzapiUserId, // ID interno do WuzAPI (vem no webhook como userID)
       providerToken,
       providerType: "wuzapi",
       status: "disconnected",

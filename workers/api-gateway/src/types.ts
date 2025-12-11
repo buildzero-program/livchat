@@ -65,4 +65,8 @@ export interface RouteConfig {
   backend: "wuzapi" | "vercel";
   path: string;
   methods: string[];
+  /** Authentication type: bearer (default), bypass (no auth), internal-secret */
+  auth?: "bearer" | "bypass" | "internal-secret";
+  /** Skip camelCase/PascalCase transformation (for webhooks) */
+  skipTransform?: boolean;
 }

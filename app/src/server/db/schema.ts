@@ -7,6 +7,7 @@ import {
   integer,
   uniqueIndex,
   boolean,
+  jsonb,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { relations } from "drizzle-orm";
@@ -267,6 +268,57 @@ export const apiKeys = pgTable(
 );
 
 // ═══════════════════════════════════════════════════════════════════════════
+// EVENTS (Event Log para tracking de uso - Chatwoot-inspired)
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const events = pgTable(
+  "events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+
+    // Tipo do evento (dot notation: 'message.sent', 'api.call', etc)
+    name: text("name").notNull(),
+
+    // Contexto (foreign keys - todas opcionais para flexibilidade)
+    organizationId: uuid("organization_id").references(() => organizations.id, {
+      onDelete: "cascade",
+    }),
+    instanceId: uuid("instance_id").references(() => instances.id, {
+      onDelete: "cascade",
+    }),
+    apiKeyId: uuid("api_key_id").references(() => apiKeys.id, {
+      onDelete: "set null",
+    }),
+    deviceId: uuid("device_id").references(() => devices.id, {
+      onDelete: "set null",
+    }),
+
+    // Valor numérico (para métricas: 1 = default, pode ser usado para batch)
+    value: integer("value").notNull().default(1),
+
+    // Metadata opcional (JSON para dados extras do evento)
+    metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+
+    // Timestamp (apenas createdAt - eventos são imutáveis)
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [
+    // Índice composto CRÍTICO para queries de agregação por org
+    index("idx_events_org_name_created").on(
+      t.organizationId,
+      t.name,
+      t.createdAt
+    ),
+    // Índice para queries por instance + período
+    index("idx_events_instance_created").on(t.instanceId, t.createdAt),
+    // Índice para filtrar por tipo de evento
+    index("idx_events_name").on(t.name),
+  ]
+);
+
+// ═══════════════════════════════════════════════════════════════════════════
 // RELATIONS (Drizzle)
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -314,5 +366,24 @@ export const apiKeysRelations = relations(apiKeys, ({ one }) => ({
   instance: one(instances, {
     fields: [apiKeys.instanceId],
     references: [instances.id],
+  }),
+}));
+
+export const eventsRelations = relations(events, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [events.organizationId],
+    references: [organizations.id],
+  }),
+  instance: one(instances, {
+    fields: [events.instanceId],
+    references: [instances.id],
+  }),
+  apiKey: one(apiKeys, {
+    fields: [events.apiKeyId],
+    references: [apiKeys.id],
+  }),
+  device: one(devices, {
+    fields: [events.deviceId],
+    references: [devices.id],
   }),
 }));

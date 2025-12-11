@@ -41,13 +41,13 @@
 	"vars": {
 		"VERCEL_URL": "https://livchat.ai",
 		"WUZAPI_URL": "https://wuz.livchat.ai"
-	}
+	},
 
 	// Secrets (configure via: wrangler secret put INTERNAL_SECRET)
 	// - INTERNAL_SECRET: For secure communication with Vercel
 
-	// Routes (configure after DNS is set up)
-	// "routes": [
-	// 	{ "pattern": "api.livchat.ai/*", "zone_name": "livchat.ai" }
-	// ]
+	// Routes - api.livchat.ai → this Worker
+	"routes": [
+		{ "pattern": "api.livchat.ai/*", "zone_name": "livchat.ai" }
+	]
 }
