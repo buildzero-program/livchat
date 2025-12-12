@@ -51,8 +51,9 @@ const platformItems = [
 const resourceItems = [
   {
     title: "Documentação",
-    href: "/docs",
+    href: "https://docs.livchat.ai",
     icon: BookOpen,
+    external: true,
   },
   {
     title: "Configurações",
@@ -135,10 +136,17 @@ export function AppSidebar() {
                     isActive={pathname === item.href}
                     tooltip={item.title}
                   >
-                    <Link href={item.href}>
-                      <item.icon className="size-4" />
-                      <span>{item.title}</span>
-                    </Link>
+                    {"external" in item && item.external ? (
+                      <a href={item.href} target="_blank" rel="noopener noreferrer">
+                        <item.icon className="size-4" />
+                        <span>{item.title}</span>
+                      </a>
+                    ) : (
+                      <Link href={item.href}>
+                        <item.icon className="size-4" />
+                        <span>{item.title}</span>
+                      </Link>
+                    )}
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
