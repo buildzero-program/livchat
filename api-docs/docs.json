@@ -16,7 +16,11 @@
   "topbarLinks": [
     {
       "name": "Dashboard",
-      "url": "https://livchat.ai/dashboard"
+      "url": "https://livchat.ai/app"
+    },
+    {
+      "name": "Changelog",
+      "url": "/changelog"
     }
   ],
   "topbarCtaButton": {
@@ -90,6 +94,19 @@
               {
                 "group": "Webhooks",
                 "pages": ["api-reference/webhook"]
+              }
+            ]
+          },
+          {
+            "tab": "Changelog",
+            "groups": [
+              {
+                "group": "Updates",
+                "pages": [
+                  "changelog/2024-12-12-user-webhooks",
+                  "changelog/2024-12-10-public-api",
+                  "changelog/2024-12-08-launch"
+                ]
               }
             ]
           }
