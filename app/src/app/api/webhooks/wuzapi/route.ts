@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import { logEvent } from "~/server/lib/events";
 import { mapWuzAPIEvent, shouldLogWuzAPIEvent, EventTypes } from "~/lib/events";
 import { validateHmacSignature } from "~/server/lib/hmac";
+import { forwardToUserWebhooks } from "~/server/lib/webhook-forwarder";
 import { env } from "~/env";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -21,8 +22,8 @@ interface WuzAPIFormPayload {
 // JSON format payload (WEBHOOK_FORMAT=json) - event data is at root level
 interface WuzAPIJsonPayload {
   type: string;
-  userID?: string;
-  instanceName?: string;
+  userID?: string;        // Internal WuzAPI hash (not used for lookup)
+  instanceName?: string;  // This is our provider_id
   event?: WuzAPIEventInfo;
 }
 
@@ -214,15 +215,36 @@ export async function POST(request: NextRequest) {
     }
 
     // Log the event
+    const loggedEventId = crypto.randomUUID();
     await logEvent({
       name: internalEventType,
       organizationId: instance.organizationId,
       instanceId: instance.id,
-      metadata,
+      metadata: {
+        ...metadata,
+        eventId: loggedEventId,
+      },
     });
 
     // Note: MESSAGE_RECEIVED does NOT count toward send quota.
     // Only MESSAGE_SENT (tracked in whatsapp.send) counts toward limit.
+
+    // Forward to user-configured webhooks (fire-and-forget)
+    // Extract phone from JID (e.g., "5511999999999@s.whatsapp.net" -> "5511999999999")
+    const instancePhone = instance.whatsappJid?.split("@")[0] ?? "";
+
+    void forwardToUserWebhooks({
+      organizationId: instance.organizationId!,
+      instanceId: instance.id,
+      instancePhone,
+      instanceName: instance.name,
+      eventType: internalEventType,
+      eventData: {
+        ...metadata,
+        rawEvent: eventData.event,
+      },
+      sourceEventId: loggedEventId,
+    });
 
     console.info(`[webhook/wuzapi] Logged event: ${internalEventType} for instance ${instance.id}`);
 

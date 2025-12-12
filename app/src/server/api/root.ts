@@ -1,5 +1,6 @@
 import { whatsappRouter } from "~/server/api/routers/whatsapp";
 import { apiKeysRouter } from "~/server/api/routers/apiKeys";
+import { webhooksRouter } from "~/server/api/routers/webhooks";
 import { createCallerFactory, createTRPCRouter } from "~/server/api/trpc";
 
 /**
@@ -10,6 +11,7 @@ import { createCallerFactory, createTRPCRouter } from "~/server/api/trpc";
 export const appRouter = createTRPCRouter({
   whatsapp: whatsappRouter,
   apiKeys: apiKeysRouter,
+  webhooks: webhooksRouter,
 });
 
 // export type definition of API

@@ -19,6 +19,11 @@ export const EventTypes = {
   CONNECTION_CONNECTED: "connection.connected",
   CONNECTION_DISCONNECTED: "connection.disconnected",
   CONNECTION_QR_SCANNED: "connection.qr_scanned",
+
+  // Webhook delivery (auditoria de entregas para user webhooks)
+  WEBHOOK_DELIVERED: "webhook.delivered",
+  WEBHOOK_FAILED: "webhook.failed",
+  WEBHOOK_RETRIED: "webhook.retried",
 } as const;
 
 export type EventType = (typeof EventTypes)[keyof typeof EventTypes];

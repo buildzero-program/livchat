@@ -265,6 +265,49 @@ export const apiKeys = pgTable(
 );
 
 // ═══════════════════════════════════════════════════════════════════════════
+// WEBHOOKS (User-configured webhook endpoints)
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const webhooks = pgTable(
+  "webhooks",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+
+    // Ownership
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+
+    // Identificação
+    name: text("name").notNull().default("Webhook"),
+    url: text("url").notNull(), // Deve ser HTTPS em produção
+
+    // Segurança (opcionais)
+    signingSecret: text("signing_secret"), // min 32 chars se fornecido
+    headers: jsonb("headers").$type<Record<string, string>>(), // {"X-Custom": "value"}
+
+    // Filtros (NULL = todos, '*')
+    instanceIds: uuid("instance_ids").array(), // NULL = todas instâncias
+    subscriptions: text("subscriptions").array(), // NULL = todos eventos
+
+    // Status
+    isActive: boolean("is_active").notNull().default(true),
+
+    // Timestamps
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [
+    index("idx_webhooks_org_active").on(t.organizationId, t.isActive),
+    index("idx_webhooks_org").on(t.organizationId),
+  ]
+);
+
+// ═══════════════════════════════════════════════════════════════════════════
 // EVENTS (Event Log para tracking de uso - Chatwoot-inspired)
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -332,6 +375,7 @@ export const organizationsRelations = relations(
     }),
     instances: many(instances),
     apiKeys: many(apiKeys),
+    webhooks: many(webhooks),
   })
 );
 
@@ -363,6 +407,13 @@ export const apiKeysRelations = relations(apiKeys, ({ one }) => ({
   instance: one(instances, {
     fields: [apiKeys.instanceId],
     references: [instances.id],
+  }),
+}));
+
+export const webhooksRelations = relations(webhooks, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [webhooks.organizationId],
+    references: [organizations.id],
   }),
 }));
 
