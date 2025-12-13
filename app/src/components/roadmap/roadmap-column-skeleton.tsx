@@ -1,35 +1,26 @@
-"use client";
-
-import { RoadmapCard } from "./roadmap-card";
+import { RoadmapCardSkeleton } from "./roadmap-card-skeleton";
 import {
   type RoadmapStatus,
   ROADMAP_STATUS_CONFIG,
 } from "~/lib/roadmap-data";
+import { Skeleton } from "~/components/ui/skeleton";
 import { cn } from "~/lib/utils";
 
-// Item com dados do tRPC (votes e hasVoted vêm do backend)
-interface RoadmapItemWithVotes {
-  id: string;
-  title: string;
-  description: string;
+interface RoadmapColumnSkeletonProps {
   status: RoadmapStatus;
-  votes: number;
-  hasVoted: boolean;
-  version?: string;
+  cardCount?: number;
 }
 
-interface RoadmapColumnProps {
-  status: RoadmapStatus;
-  items: RoadmapItemWithVotes[];
-}
-
-export function RoadmapColumn({ status, items }: RoadmapColumnProps) {
+export function RoadmapColumnSkeleton({
+  status,
+  cardCount = 3,
+}: RoadmapColumnSkeletonProps) {
   const config = ROADMAP_STATUS_CONFIG[status];
   const Icon = config.icon;
 
   return (
     <div className="flex flex-col min-w-0 h-full overflow-hidden">
-      {/* Header - fixo no topo da coluna */}
+      {/* Header - igual ao real */}
       <div className="flex-shrink-0 pb-4">
         <div className="flex items-center gap-2 mb-1">
           <Icon className={cn("h-4 w-4", config.color)} />
@@ -37,9 +28,7 @@ export function RoadmapColumn({ status, items }: RoadmapColumnProps) {
             {config.label}
           </h2>
         </div>
-        <span className="text-xs text-muted-foreground">
-          {items.length} {items.length === 1 ? "item" : "itens"}
-        </span>
+        <Skeleton className="h-3 w-12" />
       </div>
 
       {/* Cards Container com fade nas bordas */}
@@ -49,15 +38,9 @@ export function RoadmapColumn({ status, items }: RoadmapColumnProps) {
 
         {/* Scrollable content */}
         <div className="h-full overflow-y-auto scrollbar-hide space-y-3 pr-1 py-6">
-          {items.map((item) => (
-            <RoadmapCard key={item.id} item={item} />
+          {Array.from({ length: cardCount }).map((_, i) => (
+            <RoadmapCardSkeleton key={i} />
           ))}
-
-          {items.length === 0 && (
-            <div className="p-4 rounded-lg border border-dashed border-border text-center">
-              <p className="text-xs text-muted-foreground">Nenhum item</p>
-            </div>
-          )}
         </div>
 
         {/* Fade gradient bottom */}

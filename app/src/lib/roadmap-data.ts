@@ -14,7 +14,7 @@ export interface RoadmapItem {
   description: string;
   status: RoadmapStatus;
   votes: number;
-  version?: string; // Para items lançados
+  version?: string;
 }
 
 export const ROADMAP_STATUS_CONFIG: Record<
@@ -44,199 +44,195 @@ export const ROADMAP_STATUS_CONFIG: Record<
 };
 
 export const ROADMAP_ITEMS: RoadmapItem[] = [
-  // Em Revisão
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Em Revisão - Ideias da comunidade, ainda não priorizadas
+  // ═══════════════════════════════════════════════════════════════════════════
   {
-    id: "graphql-api",
-    title: "GraphQL API",
-    description: "Alternativa ao REST para queries mais flexíveis e eficientes.",
+    id: "chatwoot-integration",
+    title: "Integração Chatwoot",
+    description: "Conecte LivChat como canal de API no Chatwoot para gerenciar conversas.",
     status: "review",
-    votes: 34,
+    votes: 0,
   },
   {
-    id: "cli-tool",
-    title: "CLI Tool",
-    description: "Gerenciar instâncias e enviar mensagens direto do terminal.",
+    id: "n8n-integration",
+    title: "Integração n8n",
+    description: "Node nativo no marketplace do n8n para automações.",
     status: "review",
-    votes: 28,
+    votes: 0,
+  },
+  {
+    id: "make-integration",
+    title: "Integração Make",
+    description: "Connector oficial com Make (Integromat).",
+    status: "review",
+    votes: 0,
+  },
+  {
+    id: "zapier-integration",
+    title: "Integração Zapier",
+    description: "Ações nativas no Zapier para automações.",
+    status: "review",
+    votes: 0,
+  },
+  {
+    id: "sdk-python",
+    title: "SDK Python",
+    description: "SDK oficial para Django, FastAPI e Python vanilla.",
+    status: "review",
+    votes: 0,
+  },
+  {
+    id: "sdk-typescript",
+    title: "SDK TypeScript",
+    description: "SDK type-safe para Node.js, Deno e Bun.",
+    status: "review",
+    votes: 0,
   },
   {
     id: "bulk-send",
     title: "Bulk Send API",
     description: "Envio em massa com rate limiting inteligente e relatórios.",
     status: "review",
-    votes: 156,
+    votes: 0,
   },
   {
-    id: "php-sdk",
-    title: "SDK PHP",
-    description: "SDK oficial para Laravel, Symfony e PHP vanilla.",
-    status: "review",
-    votes: 42,
-  },
-  {
-    id: "rust-sdk",
-    title: "SDK Rust",
-    description: "SDK de alta performance para aplicações Rust.",
-    status: "review",
-    votes: 18,
-  },
-  {
-    id: "templates",
+    id: "message-templates",
     title: "Message Templates",
     description: "Templates pré-aprovados para mensagens de marketing.",
     status: "review",
-    votes: 67,
+    votes: 0,
   },
   {
     id: "scheduling",
     title: "Agendamento",
     description: "Agendar envio de mensagens para horários específicos.",
     status: "review",
-    votes: 89,
+    votes: 0,
   },
   {
     id: "contacts-api",
     title: "Contacts API",
     description: "Gerenciar contatos e listas de broadcast via API.",
     status: "review",
-    votes: 45,
+    votes: 0,
+  },
+  {
+    id: "cli-tool",
+    title: "CLI Tool",
+    description: "Gerenciar instâncias e enviar mensagens direto do terminal.",
+    status: "review",
+    votes: 0,
   },
 
-  // Planejado
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Planejado - Próximas features confirmadas
+  // ═══════════════════════════════════════════════════════════════════════════
   {
-    id: "go-sdk",
-    title: "SDK Go",
-    description: "SDK type-safe com todos os métodos da API.",
+    id: "ai-agents",
+    title: "Agentes AI",
+    description: "Crie e conecte agentes AI (LangChain, LangGraph) aos seus números WhatsApp.",
     status: "planned",
-    votes: 64,
+    votes: 0,
   },
   {
-    id: "n8n-plugin",
-    title: "Plugin n8n",
-    description: "Connector nativo no marketplace do n8n.",
+    id: "ai-assistant",
+    title: "Assistente AI Interno",
+    description: "Assistente AI nativo do LivChat para ajudar na plataforma.",
     status: "planned",
-    votes: 89,
+    votes: 0,
   },
   {
-    id: "make-connector",
-    title: "Connector Make",
-    description: "Integração oficial com Make (Integromat).",
+    id: "chat-widget",
+    title: "Chat Widget",
+    description: "Widget de chat para embedar em sites e landing pages.",
     status: "planned",
-    votes: 47,
+    votes: 0,
   },
   {
-    id: "zapier-action",
-    title: "Zapier Action",
-    description: "Ações nativas no Zapier para automações.",
+    id: "inbox",
+    title: "Inbox / Caixa de Entrada",
+    description: "Acompanhe todas as conversas dos seus números em um só lugar.",
     status: "planned",
-    votes: 112,
-  },
-  {
-    id: "webhook-filters",
-    title: "Webhook Filters",
-    description: "Filtrar eventos antes de enviar ao seu endpoint.",
-    status: "planned",
-    votes: 56,
-  },
-  {
-    id: "ip-whitelist",
-    title: "IP Whitelist",
-    description: "Restringir acesso à API por IP.",
-    status: "planned",
-    votes: 34,
+    votes: 0,
   },
 
-  // Em Progresso
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Em Progresso - Sendo desenvolvido agora
+  // ═══════════════════════════════════════════════════════════════════════════
   {
-    id: "retry-exponential",
-    title: "Retry Automático",
-    description: "Retry exponencial até 48h com backoff inteligente.",
+    id: "dashboard-widgets",
+    title: "Dashboard com Dados Reais",
+    description: "Widgets de instâncias, métricas, quota e atividade com dados em tempo real.",
     status: "in_progress",
-    votes: 127,
-  },
-  {
-    id: "rate-limiting",
-    title: "Rate Limiting",
-    description: "Controle granular de rate limits por instância.",
-    status: "in_progress",
-    votes: 95,
-  },
-  {
-    id: "dashboard-analytics",
-    title: "Dashboard Analytics",
-    description: "Métricas de uso, entregas e performance em tempo real.",
-    status: "in_progress",
-    votes: 203,
-  },
-  {
-    id: "message-status",
-    title: "Status de Mensagem",
-    description: "Tracking detalhado: enviado, entregue, lido.",
-    status: "in_progress",
-    votes: 178,
-  },
-  {
-    id: "media-upload",
-    title: "Media Upload",
-    description: "Upload de mídia via API com CDN otimizado.",
-    status: "in_progress",
-    votes: 89,
+    votes: 0,
   },
 
-  // Lançado
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Lançado - Features já disponíveis
+  // ═══════════════════════════════════════════════════════════════════════════
   {
-    id: "webhooks-hmac",
-    title: "Webhooks HMAC",
-    description: "Assinatura HMAC-SHA256 para validar webhooks.",
+    id: "roadmap-votes",
+    title: "Sistema de Votos",
+    description: "Vote nas features que você mais quer ver implementadas.",
     status: "launched",
-    votes: 89,
+    votes: 0,
     version: "v1.2.0",
+  },
+  {
+    id: "user-webhooks",
+    title: "User Webhooks",
+    description: "Configure endpoints para receber eventos WhatsApp em tempo real com HMAC.",
+    status: "launched",
+    votes: 0,
+    version: "v1.2.0",
+  },
+  {
+    id: "api-docs",
+    title: "Documentação API",
+    description: "Documentação interativa completa em docs.livchat.ai.",
+    status: "launched",
+    votes: 0,
+    version: "v1.1.0",
   },
   {
     id: "public-api",
     title: "Public API",
-    description: "REST API completa com documentação OpenAPI.",
+    description: "REST API completa em api.livchat.ai com autenticação HMAC.",
     status: "launched",
-    votes: 234,
+    votes: 0,
     version: "v1.1.0",
+  },
+  {
+    id: "zero-friction",
+    title: "Zero Friction Auth",
+    description: "Conecte WhatsApp e teste a API antes de criar conta.",
+    status: "launched",
+    votes: 0,
+    version: "v1.0.0",
   },
   {
     id: "multi-device",
     title: "Multi-Device Support",
     description: "Suporte ao protocolo WhatsApp Web multi-dispositivo.",
     status: "launched",
-    votes: 312,
+    votes: 0,
     version: "v1.0.0",
   },
   {
-    id: "qr-code",
-    title: "QR Code Auth",
-    description: "Autenticação via QR Code com reconexão automática.",
+    id: "text-media",
+    title: "Text & Media Messages",
+    description: "Envio de texto, imagens, vídeos, áudios e documentos.",
     status: "launched",
-    votes: 256,
+    votes: 0,
     version: "v1.0.0",
   },
   {
-    id: "text-messages",
-    title: "Text Messages",
-    description: "Envio de mensagens de texto simples.",
+    id: "quota-system",
+    title: "Sistema de Quotas",
+    description: "Limites por instância com Redis e reset diário automático.",
     status: "launched",
-    votes: 445,
-    version: "v1.0.0",
-  },
-  {
-    id: "media-messages",
-    title: "Media Messages",
-    description: "Envio de imagens, vídeos, áudios e documentos.",
-    status: "launched",
-    votes: 389,
+    votes: 0,
     version: "v1.0.0",
   },
 ];
-
-// Helper para filtrar por status
-export function getItemsByStatus(status: RoadmapStatus): RoadmapItem[] {
-  return ROADMAP_ITEMS.filter((item) => item.status === status).sort(
-    (a, b) => b.votes - a.votes
-  );
-}

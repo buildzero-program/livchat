@@ -24,6 +24,9 @@ export const EventTypes = {
   WEBHOOK_DELIVERED: "webhook.delivered",
   WEBHOOK_FAILED: "webhook.failed",
   WEBHOOK_RETRIED: "webhook.retried",
+
+  // Roadmap voting (público)
+  ROADMAP_VOTE: "roadmap.vote",
 } as const;
 
 export type EventType = (typeof EventTypes)[keyof typeof EventTypes];

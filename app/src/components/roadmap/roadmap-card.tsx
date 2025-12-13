@@ -1,21 +1,62 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
 import { ChevronUp } from "lucide-react";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
-import { type RoadmapItem } from "~/lib/roadmap-data";
 import { cn } from "~/lib/utils";
+import { api } from "~/trpc/react";
 
-interface RoadmapCardProps {
-  item: RoadmapItem;
+// ═══════════════════════════════════════════════════════════════════════════
+// Types
+// ═══════════════════════════════════════════════════════════════════════════
+
+interface RoadmapCardItem {
+  id: string;
+  title: string;
+  description: string;
+  status: "review" | "planned" | "in_progress" | "launched";
+  votes: number;
+  hasVoted: boolean;
+  version?: string;
 }
 
+interface RoadmapCardProps {
+  item: RoadmapCardItem;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Component
+// ═══════════════════════════════════════════════════════════════════════════
+
 export function RoadmapCard({ item }: RoadmapCardProps) {
-  const [votes, setVotes] = useState(item.votes);
-  const [hasVoted, setHasVoted] = useState(false);
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Local state para UI instantânea (desacoplado do servidor)
+  // ═══════════════════════════════════════════════════════════════════════════
+  const [localVoted, setLocalVoted] = useState(item.hasVoted);
+  const [localVotes, setLocalVotes] = useState(item.votes);
+
+  // Refs para debounce e tracking
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const desiredStateRef = useRef(item.hasVoted);
+  const syncedStateRef = useRef(item.hasVoted);
+  const baseVotesRef = useRef(item.votes);
+
+  // Sync com props quando mudam (ex: refetch do servidor)
+  useEffect(() => {
+    // Só sincroniza se não houver operação pendente
+    if (!debounceTimerRef.current) {
+      setLocalVoted(item.hasVoted);
+      setLocalVotes(item.votes);
+      desiredStateRef.current = item.hasVoted;
+      syncedStateRef.current = item.hasVoted;
+      baseVotesRef.current = item.votes;
+    }
+  }, [item.hasVoted, item.votes]);
+
+  // Drag state
   const [isDragging, setIsDragging] = useState(false);
   const [isAnimatingBack, setIsAnimatingBack] = useState(false);
   const [dragPosition, setDragPosition] = useState({ x: 0, y: 0 });
@@ -23,28 +64,103 @@ export function RoadmapCard({ item }: RoadmapCardProps) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [cardRect, setCardRect] = useState<DOMRect | null>(null);
 
-  // Hydration-safe: read localStorage after mount
+  // ═══════════════════════════════════════════════════════════════════════════
+  // tRPC mutations (fire-and-forget com debounce)
+  // ═══════════════════════════════════════════════════════════════════════════
+  const utils = api.useUtils();
+
+  const voteMutation = api.roadmap.vote.useMutation({
+    onSuccess: () => {
+      syncedStateRef.current = true;
+      void utils.roadmap.list.invalidate();
+    },
+    onError: () => {
+      // Rollback em caso de erro
+      setLocalVoted(syncedStateRef.current);
+      const voteDiff = syncedStateRef.current ? 1 : 0;
+      setLocalVotes(baseVotesRef.current + voteDiff);
+    },
+  });
+
+  const unvoteMutation = api.roadmap.unvote.useMutation({
+    onSuccess: () => {
+      syncedStateRef.current = false;
+      void utils.roadmap.list.invalidate();
+    },
+    onError: () => {
+      // Rollback em caso de erro
+      setLocalVoted(syncedStateRef.current);
+      const voteDiff = syncedStateRef.current ? 1 : 0;
+      setLocalVotes(baseVotesRef.current + voteDiff);
+    },
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Handle vote com debounce (permite spam clicking)
+  // ═══════════════════════════════════════════════════════════════════════════
+  const handleVote = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+
+      // Toggle estado desejado
+      const newVoted = !desiredStateRef.current;
+      desiredStateRef.current = newVoted;
+
+      // Atualiza UI IMEDIATAMENTE
+      setLocalVoted(newVoted);
+
+      // Calcula nova contagem baseado no estado atual
+      if (newVoted && !syncedStateRef.current) {
+        // Estava não votado, agora votou -> +1
+        setLocalVotes(baseVotesRef.current + 1);
+      } else if (!newVoted && syncedStateRef.current) {
+        // Estava votado, agora desvotou -> volta ao base
+        setLocalVotes(baseVotesRef.current);
+      } else if (newVoted && syncedStateRef.current) {
+        // Já estava votado no server, mantém
+        setLocalVotes(baseVotesRef.current + 1);
+      } else {
+        // Não estava votado, continua não votado
+        setLocalVotes(baseVotesRef.current);
+      }
+
+      // Cancela timer anterior
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+
+      // Agenda sync com servidor após debounce (500ms)
+      debounceTimerRef.current = setTimeout(() => {
+        const finalState = desiredStateRef.current;
+
+        // Só envia se estado final diferir do sincronizado
+        if (finalState !== syncedStateRef.current) {
+          if (finalState) {
+            voteMutation.mutate({ itemId: item.id });
+          } else {
+            unvoteMutation.mutate({ itemId: item.id });
+          }
+        }
+
+        debounceTimerRef.current = null;
+      }, 500);
+    },
+    [item.id, voteMutation, unvoteMutation]
+  );
+
+  // Cleanup
   useEffect(() => {
-    const voted = localStorage.getItem(`roadmap-vote-${item.id}`);
-    if (voted === "true") {
-      setHasVoted(true);
-    }
-  }, [item.id]);
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, []);
 
-  const handleVote = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (hasVoted) {
-      setVotes((v) => v - 1);
-      setHasVoted(false);
-      localStorage.removeItem(`roadmap-vote-${item.id}`);
-    } else {
-      setVotes((v) => v + 1);
-      setHasVoted(true);
-      localStorage.setItem(`roadmap-vote-${item.id}`, "true");
-    }
-  };
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Drag handlers
+  // ═══════════════════════════════════════════════════════════════════════════
 
-  // Pointer events para drag manual
   const handlePointerDown = (e: React.PointerEvent) => {
     if ((e.target as HTMLElement).closest("button")) return;
 
@@ -69,10 +185,13 @@ export function RoadmapCard({ item }: RoadmapCardProps) {
 
   const handlePointerUp = () => {
     if (!isDragging) return;
-    // Inicia animação de snap-back
     setIsDragging(false);
     setIsAnimatingBack(true);
   };
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Render
+  // ═══════════════════════════════════════════════════════════════════════════
 
   const isLaunched = item.status === "launched";
   const showPortal = isDragging || isAnimatingBack;
@@ -93,25 +212,31 @@ export function RoadmapCard({ item }: RoadmapCardProps) {
               {item.version}
             </Badge>
             <span className="text-xs text-muted-foreground">
-              {votes} votos
+              {localVotes} votos
             </span>
           </>
         ) : (
           <>
             <span className="text-xs text-muted-foreground">
-              {votes} votos
+              {localVotes} votos
             </span>
             <Button
-              variant={hasVoted ? "default" : "outline"}
+              variant={localVoted ? "default" : "outline"}
               size="sm"
               onClick={handleVote}
               className={cn(
-                "h-7 px-2 text-xs gap-1",
-                hasVoted && "bg-primary text-primary-foreground"
+                "h-7 px-2 text-xs gap-1 transition-all duration-150",
+                localVoted && "bg-primary text-primary-foreground",
+                "active:scale-95"
               )}
             >
-              <ChevronUp className="h-3 w-3" />
-              {hasVoted ? "Votado" : "Votar"}
+              <ChevronUp
+                className={cn(
+                  "h-3 w-3 transition-transform duration-150",
+                  localVoted && "scale-110"
+                )}
+              />
+              {localVoted ? "Votado" : "Votar"}
             </Button>
           </>
         )}
@@ -119,7 +244,7 @@ export function RoadmapCard({ item }: RoadmapCardProps) {
     </>
   );
 
-  // Portal do card - fica visível durante drag E durante animação de volta
+  // Portal do card sendo arrastado
   const draggedCard =
     showPortal && cardRect && typeof document !== "undefined"
       ? createPortal(
@@ -139,7 +264,6 @@ export function RoadmapCard({ item }: RoadmapCardProps) {
               bounce: 0.4,
             }}
             onAnimationComplete={() => {
-              // Remove portal após animação de snap-back completar
               if (isAnimatingBack) {
                 setIsAnimatingBack(false);
                 setDragPosition({ x: 0, y: 0 });
@@ -180,7 +304,7 @@ export function RoadmapCard({ item }: RoadmapCardProps) {
         {cardContent}
       </div>
 
-      {/* Card arrastado via portal - livre na tela toda */}
+      {/* Card arrastado via portal */}
       {draggedCard}
     </>
   );

@@ -53,6 +53,21 @@ export const redis = {
     if (!client) throw new Error("Redis not available");
     return client.get<T>(key);
   },
+  set: async (key: string, value: string): Promise<string | null> => {
+    const client = getRedis();
+    if (!client) throw new Error("Redis not available");
+    return client.set(key, value);
+  },
+  del: async (key: string): Promise<number> => {
+    const client = getRedis();
+    if (!client) throw new Error("Redis not available");
+    return client.del(key);
+  },
+  exists: async (key: string): Promise<number> => {
+    const client = getRedis();
+    if (!client) throw new Error("Redis not available");
+    return client.exists(key);
+  },
   expireat: async (key: string, timestamp: number): Promise<number> => {
     const client = getRedis();
     if (!client) throw new Error("Redis not available");
