@@ -76,6 +76,7 @@ export const NAV_LINKS = [
   { label: "Recursos", href: "#features" },
   { label: "Preços", href: "#pricing" },
   { label: "Changelog", href: "/changelog" },
+  { label: "Roadmap", href: "/roadmap" },
   { label: "Docs", href: "https://docs.livchat.ai" },
 ] as const;
 
