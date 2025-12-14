@@ -28,6 +28,7 @@ from schema.models import (
     OpenRouterModelName,
     Provider,
     VertexAIModelName,
+    XAIModelName,
 )
 
 
@@ -86,6 +87,7 @@ class Settings(BaseSettings):
     GOOGLE_API_KEY: SecretStr | None = None
     GOOGLE_APPLICATION_CREDENTIALS: SecretStr | None = None
     GROQ_API_KEY: SecretStr | None = None
+    XAI_API_KEY: SecretStr | None = None
     USE_AWS_BEDROCK: bool = False
     OLLAMA_MODEL: str | None = None
     OLLAMA_BASE_URL: str | None = None
@@ -160,6 +162,7 @@ class Settings(BaseSettings):
             Provider.GOOGLE: self.GOOGLE_API_KEY,
             Provider.VERTEXAI: self.GOOGLE_APPLICATION_CREDENTIALS,
             Provider.GROQ: self.GROQ_API_KEY,
+            Provider.XAI: self.XAI_API_KEY,
             Provider.AWS: self.USE_AWS_BEDROCK,
             Provider.OLLAMA: self.OLLAMA_MODEL,
             Provider.FAKE: self.USE_FAKE_MODEL,
@@ -200,6 +203,10 @@ class Settings(BaseSettings):
                     if self.DEFAULT_MODEL is None:
                         self.DEFAULT_MODEL = GroqModelName.LLAMA_31_8B
                     self.AVAILABLE_MODELS.update(set(GroqModelName))
+                case Provider.XAI:
+                    if self.DEFAULT_MODEL is None:
+                        self.DEFAULT_MODEL = XAIModelName.GROK_41_FAST
+                    self.AVAILABLE_MODELS.update(set(XAIModelName))
                 case Provider.AWS:
                     if self.DEFAULT_MODEL is None:
                         self.DEFAULT_MODEL = AWSModelName.BEDROCK_HAIKU

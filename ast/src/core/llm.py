@@ -9,6 +9,7 @@ from langchain_google_vertexai import ChatVertexAI
 from langchain_groq import ChatGroq
 from langchain_ollama import ChatOllama
 from langchain_openai import AzureChatOpenAI, ChatOpenAI
+from langchain_xai import ChatXAI
 
 from core.settings import settings
 from schema.models import (
@@ -25,6 +26,7 @@ from schema.models import (
     OpenAIModelName,
     OpenRouterModelName,
     VertexAIModelName,
+    XAIModelName,
 )
 
 _MODEL_TABLE = (
@@ -36,6 +38,7 @@ _MODEL_TABLE = (
     | {m: m.value for m in GoogleModelName}
     | {m: m.value for m in VertexAIModelName}
     | {m: m.value for m in GroqModelName}
+    | {m: m.value for m in XAIModelName}
     | {m: m.value for m in AWSModelName}
     | {m: m.value for m in OllamaModelName}
     | {m: m.value for m in OpenRouterModelName}
@@ -58,6 +61,7 @@ ModelT: TypeAlias = (
     | ChatGoogleGenerativeAI
     | ChatVertexAI
     | ChatGroq
+    | ChatXAI
     | ChatBedrock
     | ChatOllama
     | FakeToolModel
@@ -116,6 +120,24 @@ def get_model(model_name: AllModelEnum, /) -> ModelT:
         if model_name == GroqModelName.LLAMA_GUARD_4_12B:
             return ChatGroq(model=api_model_name, temperature=0.0)  # type: ignore[call-arg]
         return ChatGroq(model=api_model_name, temperature=0.5)  # type: ignore[call-arg]
+    if model_name in XAIModelName:
+        # ChatXAI with Live Search enabled for web and X/Twitter search
+        return ChatXAI(
+            model=api_model_name,
+            temperature=0.5,
+            streaming=True,
+            xai_api_key=settings.XAI_API_KEY,
+            search_parameters={
+                "mode": "auto",  # Grok decides when to search
+                "sources": [
+                    {"type": "web"},
+                    {"type": "x"},
+                    {"type": "news"},
+                ],
+                "max_search_results": 20,
+                "return_citations": True,
+            },
+        )
     if model_name in AWSModelName:
         return ChatBedrock(model_id=api_model_name, temperature=0.5)
     if model_name in OllamaModelName:

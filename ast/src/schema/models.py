@@ -11,6 +11,7 @@ class Provider(StrEnum):
     GOOGLE = auto()
     VERTEXAI = auto()
     GROQ = auto()
+    XAI = auto()
     AWS = auto()
     OLLAMA = auto()
     OPENROUTER = auto()
@@ -76,6 +77,24 @@ class GroqModelName(StrEnum):
     LLAMA_GUARD_4_12B = "meta-llama/llama-guard-4-12b"
 
 
+class XAIModelName(StrEnum):
+    """https://docs.x.ai/docs/models - Grok models with unique X/Twitter search"""
+
+    # Grok 3 Family
+    GROK_3_BETA = "grok-3-beta"
+    GROK_3_MINI_BETA = "grok-3-mini-beta"
+    GROK_3_LATEST = "grok-3-latest"
+
+    # Grok 4 Family
+    GROK_4 = "grok-4"
+    GROK_4_FAST = "grok-4-fast-non-reasoning"
+    GROK_4_FAST_REASONING = "grok-4-fast-reasoning"
+
+    # Grok 4.1 Family
+    GROK_41_FAST = "grok-4-1-fast-non-reasoning"
+    GROK_41_FAST_REASONING = "grok-4-1-fast-reasoning"
+
+
 class AWSModelName(StrEnum):
     """https://docs.aws.amazon.com/bedrock/latest/userguide/models-supported.html"""
 
@@ -116,6 +135,7 @@ AllModelEnum: TypeAlias = (
     | GoogleModelName
     | VertexAIModelName
     | GroqModelName
+    | XAIModelName
     | AWSModelName
     | OllamaModelName
     | OpenRouterModelName
