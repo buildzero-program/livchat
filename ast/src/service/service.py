@@ -39,6 +39,7 @@ from service.utils import (
     langchain_to_chat_message,
     remove_tool_calls,
 )
+from service.workflow_router import router as workflow_router
 
 warnings.filterwarnings("ignore", category=LangChainBetaWarning)
 logger = logging.getLogger(__name__)
@@ -428,3 +429,4 @@ async def health_check():
 
 
 app.include_router(router)
+app.include_router(workflow_router)

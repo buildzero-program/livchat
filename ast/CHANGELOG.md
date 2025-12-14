@@ -5,6 +5,23 @@ All notable changes to this fork of agent-service-toolkit for LivChat.
 ## 2025-12-14
 
 ### Added
+- **Workflow System (Plan-11)** - Infrastructure for dynamic AI workflows
+  - `src/schema/workflow_schema.py` - Pydantic models for workflow validation (25 tests)
+  - `src/workflows/storage.py` - PostgresStore CRUD operations (16 tests)
+  - `src/workflows/template_processor.py` - Template variable substitution (52 tests)
+    - `@current_datetime` with PT-BR formatting and variations (.iso, .date, .weekday, etc.)
+    - `@model_name` and `@thread_id` runtime variables
+    - Regex-based processing (no Jinja2 dependency)
+  - `src/agents/workflow_agent.py` - Dynamic agent with workflow config loading (24 tests)
+    - Loads workflow from PostgresStore by workflow_id
+    - Processes template variables in system prompts
+    - Token-based memory trimming (keeps recent messages)
+    - Model name to enum mapping for all providers
+  - `src/service/workflow_router.py` - FastAPI endpoints for workflows (17 tests)
+    - CRUD: POST/GET/PATCH/DELETE /workflows
+    - Execution: /workflows/{id}/invoke, /workflows/{id}/stream
+    - SSE streaming support
+    - Bearer token authentication
 - XAI/Grok provider support with Live Search (web, X/Twitter, news)
   - Grok 3: grok-3-beta, grok-3-mini-beta, grok-3-latest
   - Grok 4: grok-4, grok-4-fast-non-reasoning, grok-4-fast-reasoning

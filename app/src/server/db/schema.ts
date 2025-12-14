@@ -359,11 +359,101 @@ export const events = pgTable(
 );
 
 // ═══════════════════════════════════════════════════════════════════════════
+// WORKFLOWS (AST Integration - Ivy and future AI agents)
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const workflows = pgTable(
+  "workflows",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+
+    // Ownership (NULL = sistema, como Ivy)
+    organizationId: uuid("organization_id").references(() => organizations.id, {
+      onDelete: "cascade",
+    }),
+
+    // AST Provider Reference
+    providerId: text("provider_id").notNull(), // wf_xxx (AST workflow ID)
+
+    // Cache/Metadata
+    name: text("name").notNull(),
+    description: text("description"),
+
+    // Status
+    isActive: boolean("is_active").notNull().default(true),
+
+    // Timestamps
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [
+    index("idx_workflows_org").on(t.organizationId),
+    index("idx_workflows_provider").on(t.providerId),
+  ]
+);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// THREADS (Conversation sessions with workflows)
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const threads = pgTable(
+  "threads",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+
+    // Relationships
+    workflowId: uuid("workflow_id")
+      .notNull()
+      .references(() => workflows.id, { onDelete: "cascade" }),
+
+    // Ownership (quem criou o thread)
+    organizationId: uuid("organization_id").references(() => organizations.id, {
+      onDelete: "cascade",
+    }),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    deviceId: uuid("device_id").references(() => devices.id, {
+      onDelete: "set null",
+    }),
+
+    // AST Provider
+    providerThreadId: text("provider_thread_id").notNull(), // UUID enviado pro AST
+
+    // Metadata
+    title: text("title"),
+    messageCount: integer("message_count").notNull().default(0),
+
+    // Status
+    status: text("status").notNull().default("active"), // active, archived
+
+    // Timestamps
+    lastMessageAt: timestamp("last_message_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [
+    index("idx_threads_workflow").on(t.workflowId),
+    index("idx_threads_user").on(t.userId),
+    index("idx_threads_device").on(t.deviceId),
+    index("idx_threads_status").on(t.status),
+    index("idx_threads_provider").on(t.providerThreadId),
+  ]
+);
+
+// ═══════════════════════════════════════════════════════════════════════════
 // RELATIONS (Drizzle)
 // ═══════════════════════════════════════════════════════════════════════════
 
 export const usersRelations = relations(users, ({ many }) => ({
   organizations: many(organizations),
+  threads: many(threads),
 }));
 
 export const organizationsRelations = relations(
@@ -376,6 +466,8 @@ export const organizationsRelations = relations(
     instances: many(instances),
     apiKeys: many(apiKeys),
     webhooks: many(webhooks),
+    workflows: many(workflows),
+    threads: many(threads),
   })
 );
 
@@ -393,6 +485,7 @@ export const instancesRelations = relations(instances, ({ one }) => ({
 export const devicesRelations = relations(devices, ({ many }) => ({
   instances: many(instances),
   apiKeys: many(apiKeys),
+  threads: many(threads),
 }));
 
 export const apiKeysRelations = relations(apiKeys, ({ one }) => ({
@@ -432,6 +525,33 @@ export const eventsRelations = relations(events, ({ one }) => ({
   }),
   device: one(devices, {
     fields: [events.deviceId],
+    references: [devices.id],
+  }),
+}));
+
+export const workflowsRelations = relations(workflows, ({ one, many }) => ({
+  organization: one(organizations, {
+    fields: [workflows.organizationId],
+    references: [organizations.id],
+  }),
+  threads: many(threads),
+}));
+
+export const threadsRelations = relations(threads, ({ one }) => ({
+  workflow: one(workflows, {
+    fields: [threads.workflowId],
+    references: [workflows.id],
+  }),
+  organization: one(organizations, {
+    fields: [threads.organizationId],
+    references: [organizations.id],
+  }),
+  user: one(users, {
+    fields: [threads.userId],
+    references: [users.id],
+  }),
+  device: one(devices, {
+    fields: [threads.deviceId],
     references: [devices.id],
   }),
 }));

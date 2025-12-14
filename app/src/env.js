@@ -22,6 +22,9 @@ export const env = createEnv({
     // Redis (Upstash) - Message quota
     UPSTASH_REDIS_REST_URL: z.string().url().optional(),
     UPSTASH_REDIS_REST_TOKEN: z.string().min(1).optional(),
+    // AST (Agent Service Toolkit)
+    AST_URL: z.string().url().default("http://localhost:9000"),
+    AST_API_KEY: z.string().min(1).optional(),
   },
 
   /**
@@ -51,6 +54,9 @@ export const env = createEnv({
     // Redis (Upstash)
     UPSTASH_REDIS_REST_URL: process.env.UPSTASH_REDIS_REST_URL,
     UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN,
+    // AST
+    AST_URL: process.env.AST_URL,
+    AST_API_KEY: process.env.AST_API_KEY,
     // Client-side
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
   },
