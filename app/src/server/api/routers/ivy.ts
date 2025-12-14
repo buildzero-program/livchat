@@ -210,7 +210,7 @@ export const ivyRouter = createTRPCRouter({
       try {
         response = await ast.invoke(workflow.providerId, {
           message: input.message,
-          thread_id: threadWithWorkflow.providerThreadId,
+          threadId: threadWithWorkflow.providerThreadId,
         });
       } catch (error) {
         log.error("ivy.send", "AST invoke failed", error);
@@ -228,11 +228,11 @@ export const ivyRouter = createTRPCRouter({
       log.info("ivy.send", "Message sent", {
         threadId: input.threadId,
         messageLength: input.message.length,
-        responseLength: response.response.length,
+        responseLength: response.message.content.length,
       });
 
       return {
-        response: response.response,
+        response: response.message.content,
         threadId: input.threadId,
         messageCount: threadWithWorkflow.messageCount + 2,
       };

@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
     // Inicia streaming
     const stream = await ast.stream(workflow.providerId, {
       message,
-      thread_id: threadWithWorkflow.providerThreadId,
+      threadId: threadWithWorkflow.providerThreadId,
     });
 
     // Cria encoder para SSE

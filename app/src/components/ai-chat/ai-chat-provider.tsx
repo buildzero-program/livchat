@@ -6,8 +6,11 @@ import {
   useState,
   useCallback,
   useEffect,
+  useRef,
+  useMemo,
   type ReactNode,
 } from "react";
+import { api } from "~/trpc/react";
 
 export interface Message {
   id: string;
@@ -21,8 +24,8 @@ interface AiChatContextType {
   isOpen: boolean;
   messages: Message[];
   isLoading: boolean;
-  /** Content being streamed (partial response) - null when not streaming */
   streamingContent: string | null;
+  isReady: boolean;
 
   // Actions
   toggle: () => void;
@@ -35,15 +38,7 @@ interface AiChatContextType {
 const AiChatContext = createContext<AiChatContextType | null>(null);
 
 const STORAGE_KEY = "livchat-ai-messages";
-
-// Mock responses for the AI
-const mockResponses = [
-  "Olá! Sou o assistente AI do LivChat. Posso ajudar você a configurar sua instância WhatsApp, entender a API, ou resolver problemas técnicos. Como posso ajudar?",
-  "Boa pergunta! Para enviar uma mensagem via API, você precisa fazer um POST para `/api/send` com o número de destino e o conteúdo da mensagem. Quer ver um exemplo de código?",
-  "Claro! Para conectar uma nova instância, vá em 'Instâncias' no menu lateral e clique em 'Nova Instância'. Depois é só escanear o QR Code com seu WhatsApp.",
-  "O webhook é chamado sempre que você recebe uma mensagem. Configure a URL do seu servidor em 'Webhooks' e nós enviaremos um POST com os dados da mensagem recebida.",
-  "Sua quota atual é de 1.500 mensagens/mês no plano Starter. Você já usou 83% do limite. Quer fazer upgrade para o plano Scale?",
-];
+const THREAD_KEY = "livchat-ai-thread";
 
 function generateId() {
   return `msg_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
@@ -54,29 +49,90 @@ export function AiChatProvider({ children }: { children: ReactNode }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [streamingContent, setStreamingContent] = useState<string | null>(null);
+  const [isReady, setIsReady] = useState(false);
 
-  // Load messages from localStorage on mount
+  // Refs para evitar re-renders e loops
+  const threadIdRef = useRef<string | null>(null);
+  const isInitializingRef = useRef(false);
+  const hasInitializedRef = useRef(false);
+
+  // tRPC hooks
+  const utils = api.useUtils();
+
+  // Query para buscar thread ativo (não cria automaticamente)
+  const { data: threadData, isLoading: isLoadingThread } =
+    api.ivy.getActiveThread.useQuery(undefined, {
+      retry: 1,
+      refetchOnWindowFocus: false,
+      refetchOnMount: false,
+      staleTime: Infinity,
+    });
+
+  // Mutation para criar nova conversa
+  const newConversationMutation = api.ivy.newConversation.useMutation({
+    onSuccess: (data) => {
+      threadIdRef.current = data.thread.id;
+      localStorage.setItem(THREAD_KEY, data.thread.id);
+      localStorage.removeItem(STORAGE_KEY);
+      setMessages([]);
+      setIsReady(true);
+      isInitializingRef.current = false;
+    },
+    onError: (error) => {
+      console.error("Failed to create thread:", error);
+      setIsReady(true); // Permite fallback
+      isInitializingRef.current = false;
+    },
+  });
+
+  // Mutation para enviar mensagem
+  const sendMutation = api.ivy.send.useMutation();
+
+  // Inicializa thread quando dados chegam (executa uma vez)
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored) as Message[];
-        // Convert timestamp strings back to Date objects
-        setMessages(
-          parsed.map((msg) => ({
-            ...msg,
-            timestamp: new Date(msg.timestamp),
-          }))
-        );
+    // Previne múltiplas inicializações
+    if (hasInitializedRef.current || isInitializingRef.current) return;
+    if (isLoadingThread) return;
+
+    hasInitializedRef.current = true;
+
+    if (threadData?.thread) {
+      // Thread existente encontrado
+      threadIdRef.current = threadData.thread.id;
+
+      // Carrega mensagens do localStorage se for o mesmo thread
+      const storedThreadId = localStorage.getItem(THREAD_KEY);
+      if (storedThreadId === threadData.thread.id) {
+        try {
+          const stored = localStorage.getItem(STORAGE_KEY);
+          if (stored) {
+            const parsed = JSON.parse(stored) as Message[];
+            setMessages(
+              parsed.map((msg) => ({
+                ...msg,
+                timestamp: new Date(msg.timestamp),
+              }))
+            );
+          }
+        } catch (e) {
+          console.error("Failed to load AI chat messages:", e);
+        }
+      } else {
+        // Thread diferente, limpa mensagens locais
+        localStorage.setItem(THREAD_KEY, threadData.thread.id);
+        localStorage.removeItem(STORAGE_KEY);
       }
-    } catch (e) {
-      console.error("Failed to load AI chat messages:", e);
+      setIsReady(true);
+    } else {
+      // Nenhum thread encontrado, cria um novo
+      isInitializingRef.current = true;
+      newConversationMutation.mutate({ title: "Nova conversa" });
     }
-  }, []);
+  }, [threadData, isLoadingThread]); // Removido newConversationMutation das deps
 
-  // Save messages to localStorage when they change
+  // Salva mensagens no localStorage quando mudam
   useEffect(() => {
-    if (messages.length > 0) {
+    if (messages.length > 0 && threadIdRef.current) {
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
       } catch (e) {
@@ -85,62 +141,101 @@ export function AiChatProvider({ children }: { children: ReactNode }) {
     }
   }, [messages]);
 
+  // Actions com useCallback estável
   const toggle = useCallback(() => setIsOpen((prev) => !prev), []);
   const open = useCallback(() => setIsOpen(true), []);
   const close = useCallback(() => setIsOpen(false), []);
 
-  const sendMessage = useCallback(async (content: string) => {
-    if (!content.trim()) return;
+  const sendMessage = useCallback(
+    async (content: string) => {
+      if (!content.trim()) return;
 
-    // Add user message
-    const userMessage: Message = {
-      id: generateId(),
-      role: "user",
-      content: content.trim(),
-      timestamp: new Date(),
-    };
+      const threadId = threadIdRef.current;
+      if (!threadId) {
+        console.error("No thread available - waiting for initialization");
+        return;
+      }
 
-    setMessages((prev) => [...prev, userMessage]);
-    setIsLoading(true);
+      // Adiciona mensagem do usuário imediatamente
+      const userMessage: Message = {
+        id: generateId(),
+        role: "user",
+        content: content.trim(),
+        timestamp: new Date(),
+      };
 
-    // Simulate AI response with delay (1-2s)
-    await new Promise((resolve) =>
-      setTimeout(resolve, 1000 + Math.random() * 1000)
-    );
+      setMessages((prev) => [...prev, userMessage]);
+      setIsLoading(true);
 
-    // Pick a random mock response
-    const aiResponse: Message = {
-      id: generateId(),
-      role: "assistant",
-      content: mockResponses[Math.floor(Math.random() * mockResponses.length)]!,
-      timestamp: new Date(),
-    };
+      try {
+        const result = await sendMutation.mutateAsync({
+          threadId,
+          message: content.trim(),
+        });
 
-    setMessages((prev) => [...prev, aiResponse]);
-    setIsLoading(false);
-  }, []);
+        // Adiciona resposta da IA
+        const aiMessage: Message = {
+          id: generateId(),
+          role: "assistant",
+          content: result.response,
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, aiMessage]);
+      } catch (error) {
+        console.error("Send error:", error);
+        const errorMessage: Message = {
+          id: generateId(),
+          role: "assistant",
+          content:
+            "Desculpe, ocorreu um erro ao processar sua mensagem. Por favor, tente novamente.",
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, errorMessage]);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [sendMutation]
+  );
 
   const clearMessages = useCallback(() => {
-    setMessages([]);
-    localStorage.removeItem(STORAGE_KEY);
-  }, []);
+    // Previne chamadas múltiplas
+    if (isInitializingRef.current) return;
+
+    isInitializingRef.current = true;
+    newConversationMutation.mutate({ title: "Nova conversa" });
+  }, [newConversationMutation]);
+
+  // Valor do contexto memoizado
+  const value = useMemo(
+    () => ({
+      isOpen,
+      messages,
+      isLoading,
+      streamingContent,
+      isReady,
+      toggle,
+      open,
+      close,
+      sendMessage,
+      clearMessages,
+    }),
+    [
+      isOpen,
+      messages,
+      isLoading,
+      streamingContent,
+      isReady,
+      toggle,
+      open,
+      close,
+      sendMessage,
+      clearMessages,
+    ]
+  );
 
   return (
-    <AiChatContext.Provider
-      value={{
-        isOpen,
-        messages,
-        isLoading,
-        streamingContent,
-        toggle,
-        open,
-        close,
-        sendMessage,
-        clearMessages,
-      }}
-    >
-      {children}
-    </AiChatContext.Provider>
+    <AiChatContext.Provider value={value}>{children}</AiChatContext.Provider>
   );
 }
 

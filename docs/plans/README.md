@@ -53,7 +53,7 @@ Sistema de workflows dinâmicos para a Ivy e futuros agentes AI.
 | 4.1 | LivChat Database Schema | ✅ Completa |
 | 5.1 | LivChat Service Layer | ✅ Completa |
 | 6.1 | LivChat tRPC Router (Ivy) | ✅ Completa |
-| 7+ | LivChat UI Integration | Pendente |
+| 7.1 | LivChat UI Integration | ✅ Completa |
 
 ## Comandos
 

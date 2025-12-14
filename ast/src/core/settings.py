@@ -134,8 +134,8 @@ class Settings(BaseSettings):
     POSTGRES_PORT: int | None = None
     POSTGRES_DB: str | None = None
     POSTGRES_APPLICATION_NAME: str = "agent-service-toolkit"
-    POSTGRES_MIN_CONNECTIONS_PER_POOL: int = 1
-    POSTGRES_MAX_CONNECTIONS_PER_POOL: int = 1
+    POSTGRES_MIN_CONNECTIONS_PER_POOL: int = 5
+    POSTGRES_MAX_CONNECTIONS_PER_POOL: int = 20
 
     # MongoDB Configuration
     MONGO_HOST: str | None = None

@@ -26,13 +26,16 @@ export interface ASTMessage {
 
 export interface ASTInvokeRequest {
   message: string;
-  thread_id?: string;
+  threadId?: string;
 }
 
 export interface ASTInvokeResponse {
-  response: string;
-  thread_id: string;
-  messages: ASTMessage[];
+  message: {
+    content: string;
+    type: string;
+    run_id: string;
+  };
+  threadId: string;
 }
 
 export interface ASTStreamChunk {
