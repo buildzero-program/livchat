@@ -5,6 +5,10 @@ All notable changes to this fork of agent-service-toolkit for LivChat.
 ## 2025-12-14
 
 ### Added
+- **Token Streaming (Phase 8.1)** - Real-time token streaming via PartyKit
+  - Updated `workflow_stream_generator` to use `astream_events` for proper token streaming
+  - Events: `on_chat_model_stream` for tokens, `on_chain_end` for completion
+  - SSE format: `data: {"type": "token", "content": "..."}`
 - **Workflow System (Plan-11)** - Infrastructure for dynamic AI workflows
   - `src/schema/workflow_schema.py` - Pydantic models for workflow validation (25 tests)
   - `src/workflows/storage.py` - PostgresStore CRUD operations (16 tests)

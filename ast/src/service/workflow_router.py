@@ -330,7 +330,7 @@ async def workflow_stream_generator(
     store,
 ) -> AsyncGenerator[str, None]:
     """
-    Generate streaming workflow events.
+    Generate streaming workflow events using astream_events for token streaming.
 
     Args:
         workflow_id: The workflow ID
@@ -341,10 +341,10 @@ async def workflow_stream_generator(
         SSE-formatted events
     """
     agent = get_agent(WORKFLOW_AGENT_ID)
+    thread_id = input_data.threadId or str(uuid4())
 
     try:
         run_id = uuid4()
-        thread_id = input_data.threadId or str(uuid4())
 
         config = RunnableConfig(
             configurable={
@@ -354,28 +354,33 @@ async def workflow_stream_generator(
             run_id=run_id,
         )
 
-        async for stream_event in agent.astream(
+        # Use astream_events for proper token streaming
+        async for event in agent.astream_events(
             input={"messages": [HumanMessage(content=input_data.message)]},
             config=config,
-            stream_mode=["updates", "messages"],
+            version="v2",
         ):
-            if not isinstance(stream_event, tuple):
-                continue
+            event_kind = event.get("event")
 
-            event_type, event_data = stream_event
+            # Stream tokens from chat model
+            if event_kind == "on_chat_model_stream":
+                chunk = event.get("data", {}).get("chunk")
+                if chunk and hasattr(chunk, "content") and chunk.content:
+                    yield f"data: {json.dumps({'type': 'token', 'content': chunk.content})}\n\n"
 
-            if event_type == "messages":
-                # Token streaming
-                if hasattr(event_data, "content") and event_data.content:
-                    yield f"data: {json.dumps({'type': 'token', 'content': event_data.content})}\n\n"
-
-            elif event_type == "updates":
-                # Node updates
-                yield f"data: {json.dumps({'type': 'update', 'data': str(event_data)})}\n\n"
+            # Chain/Graph completion
+            elif event_kind == "on_chain_end":
+                if event.get("name") == "LangGraph":
+                    output = event.get("data", {}).get("output", {})
+                    messages = output.get("messages", [])
+                    if messages:
+                        last_msg = messages[-1]
+                        if hasattr(last_msg, "content"):
+                            yield f"data: {json.dumps({'type': 'complete', 'content': last_msg.content})}\n\n"
 
     except Exception as e:
         logger.error(f"Error in workflow stream: {e}")
-        yield f"data: {json.dumps({'type': 'error', 'content': 'Internal server error'})}\n\n"
+        yield f"data: {json.dumps({'type': 'error', 'content': str(e)})}\n\n"
 
     finally:
         yield f"data: {json.dumps({'type': 'done', 'threadId': thread_id})}\n\n"

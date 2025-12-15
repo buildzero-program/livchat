@@ -1,0 +1,10 @@
+{
+  "$schema": "https://www.partykit.io/schema.json",
+  "name": "livchat-ivy",
+  "main": "src/ivy-chat.ts",
+  "compatibilityDate": "2024-01-01",
+  "vars": {
+    "AST_URL": { "env": "AST_URL" },
+    "AST_API_KEY": { "env": "AST_API_KEY" }
+  }
+}

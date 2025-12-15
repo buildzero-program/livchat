@@ -11,6 +11,7 @@ import {
   type ReactNode,
 } from "react";
 import { api } from "~/trpc/react";
+import { useIvyChat, type ChatMessage } from "~/hooks/use-ivy-chat";
 
 export interface Message {
   id: string;
@@ -19,45 +20,45 @@ export interface Message {
   timestamp: Date;
 }
 
+// Converte ChatMessage do PartyKit para Message do provider
+function toMessage(msg: ChatMessage): Message {
+  return {
+    id: msg.id,
+    role: msg.role,
+    content: msg.content,
+    timestamp: new Date(msg.timestamp),
+  };
+}
+
 interface AiChatContextType {
   // Estado
   isOpen: boolean;
   messages: Message[];
   isLoading: boolean;
   streamingContent: string | null;
+  streamingMessageId: string | null;
   isReady: boolean;
+  isConnected: boolean;
 
   // Actions
   toggle: () => void;
   open: () => void;
   close: () => void;
-  sendMessage: (content: string) => Promise<void>;
+  sendMessage: (content: string) => void;
   clearMessages: () => void;
 }
 
 const AiChatContext = createContext<AiChatContextType | null>(null);
 
-const STORAGE_KEY = "livchat-ai-messages";
 const THREAD_KEY = "livchat-ai-thread";
-
-function generateId() {
-  return `msg_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-}
 
 export function AiChatProvider({ children }: { children: ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [streamingContent, setStreamingContent] = useState<string | null>(null);
-  const [isReady, setIsReady] = useState(false);
+  const [threadId, setThreadId] = useState<string | null>(null);
 
-  // Refs para evitar re-renders e loops
-  const threadIdRef = useRef<string | null>(null);
+  // Refs para evitar loops
   const isInitializingRef = useRef(false);
   const hasInitializedRef = useRef(false);
-
-  // tRPC hooks
-  const utils = api.useUtils();
 
   // Query para buscar thread ativo (não cria automaticamente)
   const { data: threadData, isLoading: isLoadingThread } =
@@ -71,22 +72,21 @@ export function AiChatProvider({ children }: { children: ReactNode }) {
   // Mutation para criar nova conversa
   const newConversationMutation = api.ivy.newConversation.useMutation({
     onSuccess: (data) => {
-      threadIdRef.current = data.thread.id;
+      setThreadId(data.thread.id);
       localStorage.setItem(THREAD_KEY, data.thread.id);
-      localStorage.removeItem(STORAGE_KEY);
-      setMessages([]);
-      setIsReady(true);
       isInitializingRef.current = false;
     },
     onError: (error) => {
       console.error("Failed to create thread:", error);
-      setIsReady(true); // Permite fallback
       isInitializingRef.current = false;
     },
   });
 
-  // Mutation para enviar mensagem
-  const sendMutation = api.ivy.send.useMutation();
+  // Hook do PartyKit para streaming
+  const ivyChat = useIvyChat({
+    threadId,
+    enabled: !!threadId,
+  });
 
   // Inicializa thread quando dados chegam (executa uma vez)
   useEffect(() => {
@@ -98,48 +98,14 @@ export function AiChatProvider({ children }: { children: ReactNode }) {
 
     if (threadData?.thread) {
       // Thread existente encontrado
-      threadIdRef.current = threadData.thread.id;
-
-      // Carrega mensagens do localStorage se for o mesmo thread
-      const storedThreadId = localStorage.getItem(THREAD_KEY);
-      if (storedThreadId === threadData.thread.id) {
-        try {
-          const stored = localStorage.getItem(STORAGE_KEY);
-          if (stored) {
-            const parsed = JSON.parse(stored) as Message[];
-            setMessages(
-              parsed.map((msg) => ({
-                ...msg,
-                timestamp: new Date(msg.timestamp),
-              }))
-            );
-          }
-        } catch (e) {
-          console.error("Failed to load AI chat messages:", e);
-        }
-      } else {
-        // Thread diferente, limpa mensagens locais
-        localStorage.setItem(THREAD_KEY, threadData.thread.id);
-        localStorage.removeItem(STORAGE_KEY);
-      }
-      setIsReady(true);
+      setThreadId(threadData.thread.id);
+      localStorage.setItem(THREAD_KEY, threadData.thread.id);
     } else {
       // Nenhum thread encontrado, cria um novo
       isInitializingRef.current = true;
       newConversationMutation.mutate({ title: "Nova conversa" });
     }
-  }, [threadData, isLoadingThread]); // Removido newConversationMutation das deps
-
-  // Salva mensagens no localStorage quando mudam
-  useEffect(() => {
-    if (messages.length > 0 && threadIdRef.current) {
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
-      } catch (e) {
-        console.error("Failed to save AI chat messages:", e);
-      }
-    }
-  }, [messages]);
+  }, [threadData, isLoadingThread]);
 
   // Actions com useCallback estável
   const toggle = useCallback(() => setIsOpen((prev) => !prev), []);
@@ -147,73 +113,53 @@ export function AiChatProvider({ children }: { children: ReactNode }) {
   const close = useCallback(() => setIsOpen(false), []);
 
   const sendMessage = useCallback(
-    async (content: string) => {
+    (content: string) => {
       if (!content.trim()) return;
 
-      const threadId = threadIdRef.current;
       if (!threadId) {
         console.error("No thread available - waiting for initialization");
         return;
       }
 
-      // Adiciona mensagem do usuário imediatamente
-      const userMessage: Message = {
-        id: generateId(),
-        role: "user",
-        content: content.trim(),
-        timestamp: new Date(),
-      };
-
-      setMessages((prev) => [...prev, userMessage]);
-      setIsLoading(true);
-
-      try {
-        const result = await sendMutation.mutateAsync({
-          threadId,
-          message: content.trim(),
-        });
-
-        // Adiciona resposta da IA
-        const aiMessage: Message = {
-          id: generateId(),
-          role: "assistant",
-          content: result.response,
-          timestamp: new Date(),
-        };
-        setMessages((prev) => [...prev, aiMessage]);
-      } catch (error) {
-        console.error("Send error:", error);
-        const errorMessage: Message = {
-          id: generateId(),
-          role: "assistant",
-          content:
-            "Desculpe, ocorreu um erro ao processar sua mensagem. Por favor, tente novamente.",
-          timestamp: new Date(),
-        };
-        setMessages((prev) => [...prev, errorMessage]);
-      } finally {
-        setIsLoading(false);
-      }
+      // Envia via PartyKit (streaming)
+      ivyChat.sendMessage(content.trim());
     },
-    [sendMutation]
+    [ivyChat, threadId]
   );
 
   const clearMessages = useCallback(() => {
     // Previne chamadas múltiplas
     if (isInitializingRef.current) return;
 
+    // Limpa no PartyKit
+    ivyChat.clearMessages();
+
+    // Cria nova thread
     isInitializingRef.current = true;
+    hasInitializedRef.current = false;
+    setThreadId(null);
     newConversationMutation.mutate({ title: "Nova conversa" });
-  }, [newConversationMutation]);
+  }, [ivyChat, newConversationMutation]);
+
+  // Converte mensagens do PartyKit para o formato do provider
+  const messages = useMemo(
+    () => ivyChat.messages.map(toMessage),
+    [ivyChat.messages]
+  );
+
+  // isReady = tem threadId
+  const isReady = !!threadId;
 
   // Valor do contexto memoizado
   const value = useMemo(
     () => ({
       isOpen,
       messages,
-      isLoading,
-      streamingContent,
+      isLoading: ivyChat.isStreaming,
+      streamingContent: ivyChat.streamingContent || null,
+      streamingMessageId: ivyChat.streamingMessageId,
       isReady,
+      isConnected: ivyChat.isConnected,
       toggle,
       open,
       close,
@@ -223,9 +169,11 @@ export function AiChatProvider({ children }: { children: ReactNode }) {
     [
       isOpen,
       messages,
-      isLoading,
-      streamingContent,
+      ivyChat.isStreaming,
+      ivyChat.streamingContent,
+      ivyChat.streamingMessageId,
       isReady,
+      ivyChat.isConnected,
       toggle,
       open,
       close,

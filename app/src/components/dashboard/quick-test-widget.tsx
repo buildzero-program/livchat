@@ -162,7 +162,9 @@ export function QuickTestWidget() {
           <div className="flex items-center justify-between pt-2 border-t border-border/50">
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Clock className="h-3 w-3" />
-              <span>Último envio: {formatRelativeTime(lastTest.timestamp)}</span>
+              <span suppressHydrationWarning>
+                Último envio: {formatRelativeTime(lastTest.timestamp)}
+              </span>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-xs text-muted-foreground truncate max-w-[150px]">

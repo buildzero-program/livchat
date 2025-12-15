@@ -13,21 +13,23 @@ const IVY_IMAGE_SIZE = 1920;
 interface MessageBubbleProps {
   message: Message;
   isStreaming?: boolean;
+  skipAnimation?: boolean;
 }
 
-function MessageBubble({ message, isStreaming = false }: MessageBubbleProps) {
+function MessageBubble({
+  message,
+  isStreaming = false,
+  skipAnimation = false,
+}: MessageBubbleProps) {
   const isUser = message.role === "user";
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+      initial={skipAnimation ? false : { opacity: 0, y: 10, scale: 0.95 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, scale: 0.95 }}
       transition={{ duration: 0.2 }}
-      className={cn(
-        "flex",
-        isUser ? "justify-end" : "justify-start"
-      )}
+      className={cn("flex", isUser ? "justify-end" : "justify-start")}
     >
       {/* Message content */}
       <div
@@ -120,8 +122,12 @@ function EmptyState() {
 }
 
 export function AiChatMessages() {
-  const { messages, isLoading, streamingContent } = useAiChat();
+  const { messages, isLoading, streamingContent, streamingMessageId } =
+    useAiChat();
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Check if we're actively streaming
+  const isStreaming = isLoading && streamingContent !== null;
 
   // Auto-scroll to bottom when new messages arrive or streaming updates
   useEffect(() => {
@@ -134,27 +140,31 @@ export function AiChatMessages() {
     return <EmptyState />;
   }
 
-  // Check if we're streaming (has partial content)
-  const isStreaming = isLoading && streamingContent !== null;
-
   return (
     <ScrollArea className="h-full" ref={scrollRef}>
       <div className="flex flex-col gap-4 p-4">
         <AnimatePresence mode="popLayout">
           {messages.map((message) => (
-            <MessageBubble key={message.id} message={message} />
-          ))}
-          {/* Show streaming message with cursor */}
-          {isStreaming && (
             <MessageBubble
-              key="streaming"
+              key={message.id}
+              message={message}
+              // Skip animation for messages that just finished streaming
+              // (their ID starts with "streaming_")
+              skipAnimation={message.id.startsWith("streaming_")}
+            />
+          ))}
+          {/* Show streaming message with the SAME ID that will be used for final message */}
+          {isStreaming && streamingMessageId && (
+            <MessageBubble
+              key={streamingMessageId}
               message={{
-                id: "streaming",
+                id: streamingMessageId,
                 role: "assistant",
                 content: streamingContent,
                 timestamp: new Date(),
               }}
               isStreaming
+              skipAnimation
             />
           )}
           {/* Show typing indicator only when loading but not yet streaming */}
