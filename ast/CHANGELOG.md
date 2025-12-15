@@ -36,6 +36,11 @@ All notable changes to this fork of agent-service-toolkit for LivChat.
   - Prod: `ep-soft-pine-acc7zl9c-pooler.sa-east-1.aws.neon.tech`
 - LangSmith project configuration (livchat-dev / livchat)
 
+### Fixed
+- **Timezone in @current_datetime** - Now uses Brazil timezone (America/Sao_Paulo) instead of UTC
+  - Added `ZoneInfo('America/Sao_Paulo')` to `template_processor.py`
+  - Ivy now shows correct local time in chat responses
+
 ### Changed
 - Port changed from 8080 to 9000 (avoid conflict with wuzapi)
 - Healthcheck updated to use Python instead of curl

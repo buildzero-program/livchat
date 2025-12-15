@@ -7,6 +7,10 @@ All datetime formatting uses Brazilian Portuguese (PT-BR).
 
 import re
 from datetime import datetime
+from zoneinfo import ZoneInfo
+
+# Brazilian timezone
+TZ_BRAZIL = ZoneInfo("America/Sao_Paulo")
 
 # Brazilian Portuguese weekday names (Monday = 0, Sunday = 6)
 WEEKDAYS_PT = [
@@ -99,7 +103,7 @@ def process_template(
         template: The template string containing @variable patterns
         model_name: The LLM model name (optional)
         thread_id: The thread/conversation ID (optional)
-        now: The datetime to use for @current_datetime (defaults to datetime.now())
+        now: The datetime to use for @current_datetime (defaults to now in Brazil timezone)
 
     Returns:
         Processed template with variables replaced
@@ -119,7 +123,7 @@ def process_template(
         "Modelo: gpt-4o-mini"
     """
     if now is None:
-        now = datetime.now()
+        now = datetime.now(TZ_BRAZIL)
 
     # Pattern: @variable or @variable.variation
     # Matches @word followed optionally by .word(.word)*
