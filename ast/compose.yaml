@@ -47,6 +47,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
+    env_file:
+      - .env
     environment:
       - AGENT_URL=http://agent_service:9000
     develop:

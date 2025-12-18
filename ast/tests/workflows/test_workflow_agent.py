@@ -12,6 +12,29 @@ from agents.workflow_agent import (
 
 
 # =============================================================================
+# Fixtures
+# =============================================================================
+
+
+@pytest.fixture
+def clean_workflow_agent():
+    """
+    Reset workflow_agent checkpointer for tests that need isolation.
+
+    When service tests run first, they configure agents with checkpointer,
+    which then affects workflow_agent tests. Use this fixture for isolation.
+    """
+    from agents.workflow_agent import workflow_agent
+
+    original_checkpointer = workflow_agent.checkpointer
+    workflow_agent.checkpointer = None
+
+    yield workflow_agent
+
+    workflow_agent.checkpointer = original_checkpointer
+
+
+# =============================================================================
 # Tests for count_tokens_approx
 # =============================================================================
 
@@ -120,67 +143,92 @@ def test_trim_messages_exact_limit():
 # =============================================================================
 
 
-def test_get_model_from_name_openai():
-    """Should find OpenAI model by string name."""
-    with patch("agents.workflow_agent.get_model") as mock_get_model:
-        mock_model = MagicMock()
-        mock_get_model.return_value = mock_model
+@pytest.mark.asyncio
+async def test_get_model_from_name_openai():
+    """Should find OpenAI model by string name (via auto-detection since not in registry)."""
+    with patch("agents.workflow_agent.model_registry") as mock_registry:
+        mock_registry.get_model_info = AsyncMock(return_value=None)
 
-        result = get_model_from_name("gpt-5-mini")
-
-        assert result == mock_model
-        mock_get_model.assert_called_once()
-
-
-def test_get_model_from_name_anthropic():
-    """Should find Anthropic model by string name."""
-    with patch("agents.workflow_agent.get_model") as mock_get_model:
-        mock_model = MagicMock()
-        mock_get_model.return_value = mock_model
-
-        result = get_model_from_name("claude-sonnet-4-5")
-
-        assert result == mock_model
-        mock_get_model.assert_called_once()
-
-
-def test_get_model_from_name_groq():
-    """Should find Groq model by string name."""
-    with patch("agents.workflow_agent.get_model") as mock_get_model:
-        mock_model = MagicMock()
-        mock_get_model.return_value = mock_model
-
-        result = get_model_from_name("llama-3.3-70b")
-
-        assert result == mock_model
-        mock_get_model.assert_called_once()
-
-
-def test_get_model_from_name_xai():
-    """Should find XAI/Grok model by string name."""
-    with patch("agents.workflow_agent.get_model") as mock_get_model:
-        mock_model = MagicMock()
-        mock_get_model.return_value = mock_model
-
-        result = get_model_from_name("grok-4")
-
-        assert result == mock_model
-        mock_get_model.assert_called_once()
-
-
-def test_get_model_from_name_unknown_uses_default():
-    """Unknown model name should use default model."""
-    with patch("agents.workflow_agent.get_model") as mock_get_model:
-        with patch("agents.workflow_agent.settings") as mock_settings:
-            mock_settings.DEFAULT_MODEL = "fake-default"
+        with patch("agents.workflow_agent.get_model") as mock_get_model:
             mock_model = MagicMock()
             mock_get_model.return_value = mock_model
 
-            result = get_model_from_name("unknown-model-xyz")
+            result = await get_model_from_name("gpt-5-mini")
 
             assert result == mock_model
-            # Should be called with default model
-            mock_get_model.assert_called_once()
+            mock_get_model.assert_called_once_with("gpt-5-mini")
+
+
+@pytest.mark.asyncio
+async def test_get_model_from_name_anthropic():
+    """Should find Anthropic model by string name (via auto-detection)."""
+    with patch("agents.workflow_agent.model_registry") as mock_registry:
+        mock_registry.get_model_info = AsyncMock(return_value=None)
+
+        with patch("agents.workflow_agent.get_model") as mock_get_model:
+            mock_model = MagicMock()
+            mock_get_model.return_value = mock_model
+
+            result = await get_model_from_name("claude-sonnet-4-5")
+
+            assert result == mock_model
+            mock_get_model.assert_called_once_with("claude-sonnet-4-5")
+
+
+@pytest.mark.asyncio
+async def test_get_model_from_name_groq():
+    """Should find Groq model by string name (via auto-detection)."""
+    with patch("agents.workflow_agent.model_registry") as mock_registry:
+        mock_registry.get_model_info = AsyncMock(return_value=None)
+
+        with patch("agents.workflow_agent.get_model") as mock_get_model:
+            mock_model = MagicMock()
+            mock_get_model.return_value = mock_model
+
+            result = await get_model_from_name("llama-3.3-70b")
+
+            assert result == mock_model
+            mock_get_model.assert_called_once_with("llama-3.3-70b")
+
+
+@pytest.mark.asyncio
+async def test_get_model_from_name_xai():
+    """Should find XAI/Grok model by string name (via auto-detection)."""
+    with patch("agents.workflow_agent.model_registry") as mock_registry:
+        mock_registry.get_model_info = AsyncMock(return_value=None)
+
+        with patch("agents.workflow_agent.get_model") as mock_get_model:
+            mock_model = MagicMock()
+            mock_get_model.return_value = mock_model
+
+            result = await get_model_from_name("grok-4")
+
+            assert result == mock_model
+            mock_get_model.assert_called_once_with("grok-4")
+
+
+@pytest.mark.asyncio
+async def test_get_model_from_name_unknown_uses_default():
+    """Unknown model name should fallback to default model."""
+    with patch("agents.workflow_agent.model_registry") as mock_registry:
+        mock_registry.get_model_info = AsyncMock(return_value=None)
+
+        with patch("agents.workflow_agent.get_model") as mock_get_model:
+            with patch("agents.workflow_agent.settings") as mock_settings:
+                mock_settings.DEFAULT_MODEL = "fake-default"
+                mock_model = MagicMock()
+                # First call raises (auto-detect fails), second succeeds (default)
+                mock_get_model.side_effect = [
+                    ValueError("Cannot detect provider"),
+                    mock_model,
+                ]
+
+                result = await get_model_from_name("unknown-model-xyz")
+
+                assert result == mock_model
+                # Should be called twice: once for unknown, once for default
+                assert mock_get_model.call_count == 2
+                mock_get_model.assert_called_with("fake-default")
 
 
 # =============================================================================
@@ -244,9 +292,9 @@ def sample_config():
 
 
 @pytest.mark.asyncio
-async def test_workflow_agent_missing_workflow_id(mock_store):
+async def test_workflow_agent_missing_workflow_id(mock_store, clean_workflow_agent):
     """Should raise error if workflow_id is missing."""
-    from agents.workflow_agent import workflow_agent
+    workflow_agent = clean_workflow_agent
 
     inputs = {"messages": [HumanMessage(content="Hello")]}
     config = {"configurable": {}}  # No workflow_id
@@ -259,9 +307,9 @@ async def test_workflow_agent_missing_workflow_id(mock_store):
 
 
 @pytest.mark.asyncio
-async def test_workflow_agent_workflow_not_found(mock_store, sample_config):
+async def test_workflow_agent_workflow_not_found(mock_store, sample_config, clean_workflow_agent):
     """Should raise error if workflow not found in store."""
-    from agents.workflow_agent import workflow_agent
+    workflow_agent = clean_workflow_agent
 
     # Mock store to return None
     with patch("agents.workflow_agent.get_workflow", new_callable=AsyncMock) as mock_get:
@@ -276,9 +324,9 @@ async def test_workflow_agent_workflow_not_found(mock_store, sample_config):
 
 
 @pytest.mark.asyncio
-async def test_workflow_agent_empty_nodes(mock_store, sample_config):
+async def test_workflow_agent_empty_nodes(mock_store, sample_config, clean_workflow_agent):
     """Should raise error if workflow has no nodes."""
-    from agents.workflow_agent import workflow_agent
+    workflow_agent = clean_workflow_agent
 
     workflow_no_nodes = {
         "id": "wf_test123",
@@ -297,10 +345,10 @@ async def test_workflow_agent_empty_nodes(mock_store, sample_config):
 
 @pytest.mark.asyncio
 async def test_workflow_agent_processes_template(
-    mock_store, mock_workflow, sample_config
+    mock_store, mock_workflow, sample_config, clean_workflow_agent
 ):
     """Should process template variables in system prompt."""
-    from agents.workflow_agent import workflow_agent
+    workflow_agent = clean_workflow_agent
     from datetime import datetime
 
     mock_model = AsyncMock()
@@ -327,9 +375,9 @@ async def test_workflow_agent_processes_template(
 
 
 @pytest.mark.asyncio
-async def test_workflow_agent_merges_messages(mock_store, mock_workflow, sample_config):
+async def test_workflow_agent_merges_messages(mock_store, mock_workflow, sample_config, clean_workflow_agent):
     """Should merge previous messages with new input."""
-    from agents.workflow_agent import workflow_agent
+    workflow_agent = clean_workflow_agent
 
     mock_model = AsyncMock()
     mock_model.ainvoke = AsyncMock(return_value=AIMessage(content="Response"))
@@ -355,9 +403,9 @@ async def test_workflow_agent_merges_messages(mock_store, mock_workflow, sample_
 
 
 @pytest.mark.asyncio
-async def test_workflow_agent_returns_response(mock_store, mock_workflow, sample_config):
+async def test_workflow_agent_returns_response(mock_store, mock_workflow, sample_config, clean_workflow_agent):
     """Should return AI response in correct format."""
-    from agents.workflow_agent import workflow_agent
+    workflow_agent = clean_workflow_agent
 
     expected_response = AIMessage(content="I'm here to help!")
 

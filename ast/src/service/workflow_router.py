@@ -17,6 +17,7 @@ from langchain_core.messages import HumanMessage
 from langchain_core.runnables import RunnableConfig
 
 from agents import get_agent
+from core.profiling import log_timing, start_timer
 from core.settings import settings
 from schema.workflow_schema import (
     WorkflowCreate,
@@ -24,6 +25,7 @@ from schema.workflow_schema import (
     WorkflowResponse,
     WorkflowInvokeInput,
     WorkflowStreamInput,
+    validate_workflow_models,
 )
 from workflows import (
     create_workflow,
@@ -96,7 +98,21 @@ async def create_workflow_endpoint(workflow_data: WorkflowCreate) -> WorkflowRes
 
     Returns:
         Created workflow with generated ID
+
+    Raises:
+        HTTPException: 400 if workflow contains invalid models
     """
+    # Validate models before saving
+    is_valid, errors = await validate_workflow_models(workflow_data.model_dump())
+    if not is_valid:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "message": "Workflow contém modelos inválidos",
+                "errors": errors,
+            },
+        )
+
     store = _get_store()
 
     try:
@@ -189,8 +205,23 @@ async def update_workflow_endpoint(
         Updated workflow
 
     Raises:
+        HTTPException: 400 if workflow contains invalid models
         HTTPException: 404 if workflow not found
     """
+    # Validate models if flowData is being updated
+    if updates.flowData:
+        is_valid, errors = await validate_workflow_models(
+            {"flowData": updates.flowData.model_dump()}
+        )
+        if not is_valid:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "message": "Workflow contém modelos inválidos",
+                    "errors": errors,
+                },
+            )
+
     store = _get_store()
 
     try:
@@ -269,10 +300,14 @@ async def invoke_workflow(
     Raises:
         HTTPException: 404 if workflow not found
     """
+    total_start = start_timer()
     store = _get_store()
 
     # Verify workflow exists
+    start = start_timer()
     workflow = await get_workflow(store, workflow_id)
+    log_timing("router_get_workflow", start)
+
     if not workflow:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -293,16 +328,19 @@ async def invoke_workflow(
             run_id=run_id,
         )
 
+        start = start_timer()
         response_events = await agent.ainvoke(
             input={"messages": [HumanMessage(content=input_data.message)]},
             config=config,
             stream_mode=["updates", "values"],
         )
+        log_timing("router_agent_invoke", start)
 
         # Get the last response
         response_type, response = response_events[-1]
         if response_type == "values":
             last_message = response["messages"][-1]
+            log_timing("router_invoke_total", total_start)
             return {
                 "message": {
                     "content": last_message.content,
@@ -340,6 +378,10 @@ async def workflow_stream_generator(
     Yields:
         SSE-formatted events
     """
+    stream_start = start_timer()
+    first_token_logged = False
+    first_event_logged = False
+
     agent = get_agent(WORKFLOW_AGENT_ID)
     thread_id = input_data.threadId or str(uuid4())
 
@@ -354,18 +396,33 @@ async def workflow_stream_generator(
             run_id=run_id,
         )
 
+        # Log config details for debugging
+        logger.warning(f"⏱️ [stream_config_created] thread={thread_id}, workflow={workflow_id}")
+
+        # Log time before calling astream_events (checkpoint loading happens here)
+        log_timing("stream_before_astream", stream_start)
+        logger.warning("⏱️ [stream_calling_astream_events] About to call astream_events...")
+
         # Use astream_events for proper token streaming
         async for event in agent.astream_events(
             input={"messages": [HumanMessage(content=input_data.message)]},
             config=config,
             version="v2",
         ):
+            # Log first event received (after checkpoint loading completes)
+            if not first_event_logged:
+                log_timing("stream_first_event", stream_start)
+                first_event_logged = True
+
             event_kind = event.get("event")
 
             # Stream tokens from chat model
             if event_kind == "on_chat_model_stream":
                 chunk = event.get("data", {}).get("chunk")
                 if chunk and hasattr(chunk, "content") and chunk.content:
+                    if not first_token_logged:
+                        log_timing("stream_first_token", stream_start)
+                        first_token_logged = True
                     yield f"data: {json.dumps({'type': 'token', 'content': chunk.content})}\n\n"
 
             # Chain/Graph completion
@@ -383,6 +440,7 @@ async def workflow_stream_generator(
         yield f"data: {json.dumps({'type': 'error', 'content': str(e)})}\n\n"
 
     finally:
+        log_timing("stream_total", stream_start)
         yield f"data: {json.dumps({'type': 'done', 'threadId': thread_id})}\n\n"
         yield "data: [DONE]\n\n"
 

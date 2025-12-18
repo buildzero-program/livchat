@@ -15,7 +15,15 @@ from schema.workflow_schema import WorkflowResponse
 
 
 @pytest.fixture
-def app():
+def mock_settings():
+    """Mock settings to disable auth."""
+    with patch("service.workflow_router.settings") as mock:
+        mock.AUTH_SECRET = None
+        yield mock
+
+
+@pytest.fixture
+def app(mock_settings):
     """Create a test FastAPI app with the workflow router."""
     app = FastAPI()
     app.include_router(router)
@@ -30,7 +38,7 @@ def client(app):
 
 @pytest.fixture
 def auth_header():
-    """Auth header for protected endpoints."""
+    """Auth header for protected endpoints (not needed when auth disabled)."""
     return {"Authorization": "Bearer test-secret"}
 
 

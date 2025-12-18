@@ -37,9 +37,34 @@ Após exploração, seguir ciclo RED → GREEN → REFACTOR:
 - Manter CHANGELOG.md atualizado com mudanças
 - Registrar decisões técnicas e trade-offs
 
-## Plano Ativo
+## Planos
 
-### Plan-11: AST Workflows System
+### Plan-15: Multimodal Files (Planejamento)
+
+Suporte a upload e processamento de arquivos (imagens, PDFs, documentos) nos workflows.
+
+| Fase | Descrição | Status |
+|------|-----------|--------|
+| 1 | Schema e Tipos | 📋 Planejado |
+| 2 | Message Builder | 📋 Planejado |
+| 3 | File Processor | 📋 Planejado |
+| 4 | File Router | 📋 Planejado |
+| 5 | Integração Workflow | 📋 Planejado |
+| 6 | Client | 📋 Planejado |
+| 7 | Dependências | 📋 Planejado |
+
+### Plan-14: Model Registry ✅
+
+Sistema dinâmico de descoberta de modelos LLM via SDKs nativos.
+
+| Fase | Descrição | Status |
+|------|-----------|--------|
+| 1 | Schema ModelInfo | ✅ 10 testes |
+| 2 | Model Registry | ✅ 27 testes |
+| 3 | Model Router | ✅ 13 testes |
+| 4 | Deprecar Enums | ✅ Documentado |
+
+### Plan-11: AST Workflows System ✅
 
 Sistema de workflows dinâmicos para a Ivy e futuros agentes AI.
 

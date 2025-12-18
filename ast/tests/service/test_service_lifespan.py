@@ -73,5 +73,6 @@ async def test_lifespan(monkeypatch, caplog) -> None:
     assert agents["bad"].checkpointer is fake_saver
     assert agents["bad"].store is fake_store
 
-    assert "Agent loaded: good" in caplog.text
+    # The log format is now "⏱️ [agent_loaded_good]" from log_timing()
+    assert "agent_loaded_good" in caplog.text
     assert "Failed to load agent bad: boom" in caplog.text

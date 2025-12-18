@@ -95,13 +95,31 @@ async def seed_ivy():
         namespace = ("workflows",)
         now = datetime.now(timezone.utc).isoformat()
 
+        # Structure expected by workflow_agent.py
         workflow_data = {
-            "workflow_id": IVY_WORKFLOW_ID,
+            "id": IVY_WORKFLOW_ID,
             "name": "Ivy",
             "description": "Assistente virtual do LivChat.ai",
-            "model_name": "gpt-4o-mini",
-            "system_prompt": IVY_SYSTEM_PROMPT,
-            "max_tokens": 16000,
+            "flowData": {
+                "nodes": [
+                    {
+                        "id": "agent_1",
+                        "type": "agent",
+                        "config": {
+                            "prompt": {
+                                "system": IVY_SYSTEM_PROMPT,
+                            },
+                            "llm": {
+                                "model": "gpt-4o-mini",
+                            },
+                            "memory": {
+                                "tokenLimit": 16000,
+                            },
+                        },
+                    }
+                ],
+                "edges": [],
+            },
             "is_active": True,
             "created_at": now,
             "updated_at": now,
@@ -130,10 +148,11 @@ async def seed_ivy():
 
         print()
         print("📋 Detalhes:")
-        print(f"   ID: {workflow_data['workflow_id']}")
+        print(f"   ID: {workflow_data['id']}")
         print(f"   Nome: {workflow_data['name']}")
-        print(f"   Modelo: {workflow_data['model_name']}")
-        print(f"   Max Tokens: {workflow_data['max_tokens']}")
+        agent_config = workflow_data["flowData"]["nodes"][0]["config"]
+        print(f"   Modelo: {agent_config['llm']['model']}")
+        print(f"   Token Limit: {agent_config['memory']['tokenLimit']}")
         print(f"   Ativo: {workflow_data['is_active']}")
         print()
         print("🎉 Seed completo!")

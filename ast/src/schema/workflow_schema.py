@@ -2,7 +2,21 @@
 
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+
+# Lazy import to avoid circular dependency
+_registry = None
+
+
+def get_registry():
+    """Get model registry singleton (lazy load)."""
+    global _registry
+    if _registry is None:
+        from core.model_registry import model_registry
+
+        _registry = model_registry
+    return _registry
 
 
 class PromptConfig(BaseModel):
@@ -23,6 +37,18 @@ class LLMConfig(BaseModel):
     temperature: float = Field(
         default=0.7, ge=0.0, le=2.0, description="Sampling temperature"
     )
+
+    @field_validator("model")
+    @classmethod
+    def validate_model_not_empty(cls, v: str) -> str:
+        """
+        Validate model name is not empty.
+
+        NOTE: Full async validation against registry is done via validate_workflow_models().
+        """
+        if not v or not v.strip():
+            raise ValueError("Model name cannot be empty")
+        return v.strip()
 
 
 class MemoryConfig(BaseModel):
@@ -131,3 +157,33 @@ class WorkflowStreamInput(WorkflowInvokeInput):
     """Schema for streaming workflow invocation."""
 
     pass
+
+
+async def validate_workflow_models(workflow_data: dict) -> tuple[bool, list[str]]:
+    """
+    Validate all models in a workflow asynchronously against the registry.
+
+    Args:
+        workflow_data: Dict containing flowData with nodes
+
+    Returns:
+        Tuple of (is_valid, list_of_error_messages)
+    """
+    registry = get_registry()
+    errors = []
+
+    flow_data = workflow_data.get("flowData", {})
+    nodes = flow_data.get("nodes", [])
+
+    for node in nodes:
+        config = node.get("config", {})
+        llm_config = config.get("llm", {})
+        model_name = llm_config.get("model")
+
+        if model_name:
+            is_valid, error_msg = await registry.validate_model(model_name)
+            if not is_valid:
+                node_id = node.get("id", "unknown")
+                errors.append(f"Node '{node_id}': {error_msg}")
+
+    return (len(errors) == 0, errors)

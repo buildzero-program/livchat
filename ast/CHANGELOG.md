@@ -2,6 +2,39 @@
 
 All notable changes to this fork of agent-service-toolkit for LivChat.
 
+## 2025-12-18
+
+### Added
+- **Model Registry (Plan-14)** - Dynamic LLM model discovery system
+  - `src/schema/model_info.py` - Schema for model metadata (10 tests)
+  - `src/core/model_registry.py` - Singleton registry with cache (27 tests)
+    - Dynamic discovery via native SDKs (OpenAI, Anthropic, Google, Groq)
+    - In-memory cache with 24h TTL
+    - Fallback to static list when APIs fail
+    - Thread-safe async operations
+  - `src/service/model_router.py` - REST endpoints for models (13 tests)
+    - `GET /models` - List all models (filter by provider)
+    - `GET /models/providers` - List configured providers
+    - `GET /models/info/{id}` - Get model details
+    - `POST /models/validate` - Validate model list
+    - `POST /models/refresh` - Force cache refresh
+  - Workflow model validation - HTTP 400 on invalid models
+    - Added `validate_workflow_models()` async function
+    - Integrated in create/update workflow endpoints
+  - Registry initialization in service lifespan
+- **Plan-15 Planning** - Multimodal file support architecture documented
+  - Support for images, PDFs, documents in workflows
+  - File processing strategies (resize, tiling, PDF→images)
+  - Integration with Gemini 3 Flash `media_resolution` parameter
+
+### Fixed
+- **Streamlit AUTH_SECRET** - Added `env_file: .env` to streamlit_app in compose.yaml
+  - Fixes 401 Unauthorized when AUTH_SECRET is configured on agent_service
+
+### Changed
+- **get_model_from_name** refactored to async - Uses Model Registry for provider detection
+- **Deprecated enums** - Hardcoded model enums moved to `_deprecated_models.py`
+
 ## 2025-12-14
 
 ### Added

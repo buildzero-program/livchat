@@ -8,9 +8,13 @@ from service import app
 
 
 @pytest.fixture
-def test_client():
-    """Fixture to create a FastAPI test client."""
-    return TestClient(app)
+def test_client(mock_settings):
+    """Fixture to create a FastAPI test client with auth disabled by default."""
+    # Default: disable auth for most tests
+    if not hasattr(mock_settings, "_auth_configured"):
+        mock_settings.AUTH_SECRET = None
+        mock_settings.LANGFUSE_TRACING = False
+    yield TestClient(app)
 
 
 @pytest.fixture
@@ -26,28 +30,37 @@ def mock_agent():
 
 
 @pytest.fixture
-def mock_settings(mock_env):
-    """Fixture to ensure settings are clean for each test."""
-    with patch("service.service.settings") as mock_settings:
-        yield mock_settings
+def mock_settings():
+    """Fixture to mock settings for tests."""
+    with patch("service.service.settings") as settings_mock:
+        # Set default values
+        settings_mock.AUTH_SECRET = None
+        settings_mock.LANGFUSE_TRACING = False
+        yield settings_mock
 
 
 @pytest.fixture
 def mock_httpx():
     """Patch httpx.stream and httpx.get to use our test client."""
+    # Disable auth for e2e tests
+    with patch("service.service.settings") as mock_settings:
+        mock_settings.AUTH_SECRET = None
+        mock_settings.LANGFUSE_TRACING = False
+        mock_settings.AVAILABLE_MODELS = ["gpt-5-nano", "gpt-5-mini"]
+        mock_settings.DEFAULT_MODEL = "gpt-5-nano"
 
-    with TestClient(app) as client:
+        with TestClient(app) as client:
 
-        def mock_stream(method: str, url: str, **kwargs):
-            # Strip the base URL since TestClient expects just the path
-            path = url.replace("http://0.0.0.0", "")
-            return client.stream(method, path, **kwargs)
+            def mock_stream(method: str, url: str, **kwargs):
+                # Strip the base URL since TestClient expects just the path
+                path = url.replace("http://0.0.0.0", "")
+                return client.stream(method, path, **kwargs)
 
-        def mock_get(url: str, **kwargs):
-            # Strip the base URL since TestClient expects just the path
-            path = url.replace("http://0.0.0.0", "")
-            return client.get(path, **kwargs)
+            def mock_get(url: str, **kwargs):
+                # Strip the base URL since TestClient expects just the path
+                path = url.replace("http://0.0.0.0", "")
+                return client.get(path, **kwargs)
 
-        with patch("httpx.stream", mock_stream):
-            with patch("httpx.get", mock_get):
-                yield
+            with patch("httpx.stream", mock_stream):
+                with patch("httpx.get", mock_get):
+                    yield

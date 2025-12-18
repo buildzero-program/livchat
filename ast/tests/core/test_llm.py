@@ -66,6 +66,6 @@ def test_get_model_fake():
 
 
 def test_get_model_invalid():
-    with pytest.raises(ValueError, match="Unsupported model:"):
+    with pytest.raises(ValueError, match="Cannot detect provider"):
         # Using type: ignore since we're intentionally testing invalid input
         get_model("invalid_model")  # type: ignore

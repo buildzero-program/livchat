@@ -39,6 +39,7 @@ from service.utils import (
     langchain_to_chat_message,
     remove_tool_calls,
 )
+from service.model_router import router as model_router
 from service.workflow_router import router as workflow_router
 
 warnings.filterwarnings("ignore", category=LangChainBetaWarning)
@@ -69,22 +70,36 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     Configurable lifespan that initializes the appropriate database checkpointer, store,
     and agents with async loading - for example for starting up MCP clients.
     """
+    from core.profiling import log_timing, start_timer
+
     try:
         # Initialize both checkpointer (for short-term memory) and store (for long-term memory)
+        lifespan_start = start_timer()
+        logger.warning("⏱️ [lifespan_init_start] Starting database initialization...")
+
         async with initialize_database() as saver, initialize_store() as store:
+            log_timing("lifespan_db_contexts_entered", lifespan_start)
+
             # Set up both components
             if hasattr(saver, "setup"):  # ignore: union-attr
                 await saver.setup()
+            logger.warning("⏱️ [lifespan_saver_setup_done]")
+
             # Only setup store for Postgres as InMemoryStore doesn't need setup
             if hasattr(store, "setup"):  # ignore: union-attr
                 await store.setup()
+            logger.warning("⏱️ [lifespan_store_setup_done]")
 
             # Configure agents with both memory components and async loading
             agents = get_all_agent_info()
+            agents_start = start_timer()
+            logger.warning(f"⏱️ [lifespan_agents_start] Loading {len(agents)} agents...")
+
             for a in agents:
                 try:
+                    agent_start = start_timer()
                     await load_agent(a.key)
-                    logger.info(f"Agent loaded: {a.key}")
+                    log_timing(f"agent_loaded_{a.key}", agent_start)
                 except Exception as e:
                     logger.error(f"Failed to load agent {a.key}: {e}")
                     # Continue with other agents rather than failing startup
@@ -94,6 +109,18 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                 agent.checkpointer = saver
                 # Set store for long-term memory (cross-conversation knowledge)
                 agent.store = store
+
+            log_timing("lifespan_agents_all_loaded", agents_start)
+
+            # Initialize Model Registry (async model discovery)
+            from core.model_registry import model_registry
+
+            registry_start = start_timer()
+            logger.warning("⏱️ [lifespan_model_registry_start] Initializing model registry...")
+            await model_registry.initialize()
+            log_timing("lifespan_model_registry_done", registry_start)
+
+            log_timing("lifespan_total", lifespan_start)
             yield
     except Exception as e:
         logger.error(f"Error during database/store/agents initialization: {e}")
@@ -429,4 +456,5 @@ async def health_check():
 
 
 app.include_router(router)
+app.include_router(model_router)
 app.include_router(workflow_router)
