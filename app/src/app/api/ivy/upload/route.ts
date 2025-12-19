@@ -1,25 +1,29 @@
 /**
- * API Route: Upload de imagens para o chat da Ivy
+ * API Route: Upload de arquivos para o chat da Ivy
  *
  * POST /api/ivy/upload
  * Body: FormData com campo "file"
  * Response: { url: string }
+ *
+ * Suporta imagens e PDFs. PDFs são convertidos para imagens
+ * pelo AST via /files/process antes de enviar ao LLM.
  */
 
 import { put } from "@vercel/blob";
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 
-// Tipos de imagem permitidos
+// Tipos permitidos (imagens + PDF)
 const ALLOWED_TYPES = [
   "image/jpeg",
   "image/png",
   "image/gif",
   "image/webp",
+  "application/pdf",
 ];
 
-// Tamanho máximo: 20MB (limite do Gemini)
-const MAX_SIZE = 20 * 1024 * 1024;
+// Tamanho máximo: 50MB (PDFs podem ser maiores)
+const MAX_SIZE = 50 * 1024 * 1024;
 
 export async function POST(request: Request) {
   try {
@@ -57,7 +61,7 @@ export async function POST(request: Request) {
     if (file.size > MAX_SIZE) {
       return NextResponse.json(
         {
-          error: `File too large: ${(file.size / 1024 / 1024).toFixed(2)}MB. Max: 20MB`,
+          error: `File too large: ${(file.size / 1024 / 1024).toFixed(2)}MB. Max: 50MB`,
         },
         { status: 400 }
       );

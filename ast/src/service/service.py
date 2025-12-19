@@ -39,6 +39,7 @@ from service.utils import (
     langchain_to_chat_message,
     remove_tool_calls,
 )
+from service.file_router import router as file_router
 from service.model_router import router as model_router
 from service.workflow_router import router as workflow_router
 
@@ -456,5 +457,6 @@ async def health_check():
 
 
 app.include_router(router)
+app.include_router(file_router)
 app.include_router(model_router)
 app.include_router(workflow_router)

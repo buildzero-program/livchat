@@ -155,13 +155,21 @@ export default class IvyChatServer implements Party.Server {
     if (hasImages || hasAudio) {
       const multimodalContent: object[] = [];
 
-      // Adiciona imagens (como URL)
+      // Processa arquivos (imagens, PDFs) via AST
+      // PDFs são convertidos em imagens automaticamente
       if (hasImages) {
-        for (const url of images) {
-          multimodalContent.push({
-            type: "image_url",
-            image_url: { url },
-          });
+        try {
+          const processedFiles = await this.processFilesForLLM(images);
+          multimodalContent.push(...processedFiles);
+        } catch (error) {
+          console.error("Failed to process files:", error);
+          // Fallback: tenta enviar URLs diretas
+          for (const url of images) {
+            multimodalContent.push({
+              type: "image_url",
+              image_url: { url },
+            });
+          }
         }
       }
 
@@ -304,6 +312,114 @@ export default class IvyChatServer implements Party.Server {
       messageId,
       fullContent,
     });
+  }
+
+  // ===========================================================================
+  // FILE PROCESSING
+  // ===========================================================================
+
+  /**
+   * Process files (images, PDFs) for LLM consumption.
+   * PDFs are converted to images via AST /files/process endpoint.
+   * Large images are compressed/tiled automatically.
+   */
+  private async processFilesForLLM(
+    urls: string[]
+  ): Promise<{ type: "image_url"; image_url: { url: string } }[]> {
+    const astUrl = this.room.env.AST_URL as string;
+    const astKey = this.room.env.AST_API_KEY as string | undefined;
+
+    const results: { type: "image_url"; image_url: { url: string } }[] = [];
+
+    for (const url of urls) {
+      // Detect mime type from URL extension
+      const mimeType = this.getMimeTypeFromUrl(url);
+
+      // Check if file needs processing (PDF or potentially large image)
+      const needsProcessing = mimeType === "application/pdf";
+
+      if (needsProcessing && astUrl) {
+        try {
+          const response = await fetch(`${astUrl}/files/process`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(astKey && { Authorization: `Bearer ${astKey}` }),
+            },
+            body: JSON.stringify({ url, mime_type: mimeType }),
+          });
+
+          if (response.ok) {
+            const data = await response.json() as {
+              files: { data: string; mime_type: string }[];
+              action: string;
+              original_pages?: number;
+            };
+
+            console.log(`Processed ${url}: ${data.action}, ${data.files.length} files`);
+
+            // Add each processed image
+            for (const file of data.files) {
+              results.push({
+                type: "image_url",
+                image_url: { url: `data:${file.mime_type};base64,${file.data}` },
+              });
+            }
+            continue;
+          } else {
+            console.error(`File processing failed: ${response.status}`);
+          }
+        } catch (error) {
+          console.error("Error processing file:", error);
+        }
+      }
+
+      // For regular images or if processing failed, fetch and convert to base64
+      try {
+        const response = await fetch(url);
+        if (!response.ok) {
+          console.error(`Failed to fetch image: ${response.status}`);
+          continue;
+        }
+
+        const contentType = response.headers.get("content-type") || mimeType;
+        const arrayBuffer = await response.arrayBuffer();
+        const bytes = new Uint8Array(arrayBuffer);
+
+        let binary = "";
+        for (let i = 0; i < bytes.length; i++) {
+          binary += String.fromCharCode(bytes[i]);
+        }
+        const base64 = btoa(binary);
+
+        results.push({
+          type: "image_url",
+          image_url: { url: `data:${contentType};base64,${base64}` },
+        });
+      } catch (error) {
+        console.error(`Failed to process ${url}:`, error);
+      }
+    }
+
+    return results;
+  }
+
+  /**
+   * Get MIME type from URL extension.
+   */
+  private getMimeTypeFromUrl(url: string): string {
+    const extension = url.split(".").pop()?.toLowerCase().split("?")[0];
+
+    const mimeTypes: Record<string, string> = {
+      pdf: "application/pdf",
+      png: "image/png",
+      jpg: "image/jpeg",
+      jpeg: "image/jpeg",
+      gif: "image/gif",
+      webp: "image/webp",
+    };
+
+    return mimeTypes[extension || ""] || "application/octet-stream";
   }
 
   // ===========================================================================

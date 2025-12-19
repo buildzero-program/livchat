@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, type KeyboardEvent } from "react";
-import { ArrowUp, Plus, X, Loader2, Mic, Square, Trash2 } from "lucide-react";
+import { ArrowUp, Plus, X, Loader2, Mic, Square, Trash2, FileText } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import NextImage from "next/image";
 import { Button } from "~/components/ui/button";
@@ -15,8 +15,8 @@ interface AiChatInputProps {
 
 export function AiChatInput({ autoFocus = true }: AiChatInputProps) {
   const [value, setValue] = useState("");
-  const [selectedImage, setSelectedImage] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [filePreview, setFilePreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
@@ -57,38 +57,49 @@ export function AiChatInput({ autoFocus = true }: AiChatInputProps) {
   // Cleanup preview URL on unmount
   useEffect(() => {
     return () => {
-      if (imagePreview) {
-        URL.revokeObjectURL(imagePreview);
+      if (filePreview) {
+        URL.revokeObjectURL(filePreview);
       }
     };
-  }, [imagePreview]);
+  }, [filePreview]);
 
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+    const allowedTypes = [
+      "image/jpeg",
+      "image/png",
+      "image/gif",
+      "image/webp",
+      "application/pdf",
+    ];
     if (!allowedTypes.includes(file.type)) {
-      setUploadError("Tipo não suportado. Use JPG, PNG, GIF ou WebP.");
+      setUploadError("Tipo não suportado. Use JPG, PNG, GIF, WebP ou PDF.");
       return;
     }
 
-    if (file.size > 20 * 1024 * 1024) {
-      setUploadError("Arquivo muito grande. Máximo: 20MB.");
+    if (file.size > 50 * 1024 * 1024) {
+      setUploadError("Arquivo muito grande. Máximo: 50MB.");
       return;
     }
 
     setUploadError(null);
-    if (imagePreview) URL.revokeObjectURL(imagePreview);
-    setSelectedImage(file);
-    setImagePreview(URL.createObjectURL(file));
+    if (filePreview) URL.revokeObjectURL(filePreview);
+    setSelectedFile(file);
+    // Only create preview URL for images, not for PDFs
+    if (file.type !== "application/pdf") {
+      setFilePreview(URL.createObjectURL(file));
+    } else {
+      setFilePreview(null);
+    }
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const handleRemoveImage = () => {
-    if (imagePreview) URL.revokeObjectURL(imagePreview);
-    setSelectedImage(null);
-    setImagePreview(null);
+  const handleRemoveFile = () => {
+    if (filePreview) URL.revokeObjectURL(filePreview);
+    setSelectedFile(null);
+    setFilePreview(null);
     setUploadError(null);
   };
 
@@ -166,8 +177,8 @@ export function AiChatInput({ autoFocus = true }: AiChatInputProps) {
     let audioUrlUploaded: string | undefined;
 
     // Upload image if selected
-    if (selectedImage) {
-      const url = await uploadImage(selectedImage);
+    if (selectedFile) {
+      const url = await uploadImage(selectedFile);
       if (!url) {
         setIsUploading(false);
         return;
@@ -191,7 +202,7 @@ export function AiChatInput({ autoFocus = true }: AiChatInputProps) {
     const images = imageUrl ? [imageUrl] : undefined;
 
     setValue("");
-    handleRemoveImage();
+    handleRemoveFile();
     clearRecording();
     await sendMessage(message, images, audioUrlUploaded);
   };
@@ -208,9 +219,9 @@ export function AiChatInput({ autoFocus = true }: AiChatInputProps) {
 
   return (
     <div className="border-t border-border/50 bg-background px-3 pb-3 pt-2">
-      {/* Image Preview - INSIDE container */}
+      {/* File Preview - INSIDE container */}
       <AnimatePresence>
-        {imagePreview && (
+        {selectedFile && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
@@ -218,19 +229,35 @@ export function AiChatInput({ autoFocus = true }: AiChatInputProps) {
             className="mb-2"
           >
             <div className="relative inline-block">
-              <NextImage
-                src={imagePreview}
-                alt="Preview"
-                width={80}
-                height={80}
-                className="rounded-lg object-cover"
-                style={{ maxHeight: 80, width: "auto" }}
-              />
+              {selectedFile.type === "application/pdf" ? (
+                // PDF Preview - show icon and filename
+                <div className="flex items-center gap-2 rounded-lg bg-muted/60 px-3 py-2">
+                  <FileText className="h-8 w-8 text-red-500" />
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium truncate max-w-[150px]">
+                      {selectedFile.name}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {(selectedFile.size / 1024 / 1024).toFixed(1)} MB
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                // Image Preview
+                <NextImage
+                  src={filePreview!}
+                  alt="Preview"
+                  width={80}
+                  height={80}
+                  className="rounded-lg object-cover"
+                  style={{ maxHeight: 80, width: "auto" }}
+                />
+              )}
               <Button
                 size="icon"
                 variant="secondary"
                 className="absolute -right-1.5 -top-1.5 h-5 w-5 rounded-full border border-border shadow-sm"
-                onClick={handleRemoveImage}
+                onClick={handleRemoveFile}
                 disabled={isUploading}
               >
                 <X className="h-3 w-3" />
@@ -298,9 +325,9 @@ export function AiChatInput({ autoFocus = true }: AiChatInputProps) {
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/jpeg,image/png,image/gif,image/webp"
+          accept="image/jpeg,image/png,image/gif,image/webp,application/pdf"
           className="hidden"
-          onChange={handleImageSelect}
+          onChange={handleFileSelect}
         />
 
         {/* Row 1: Textarea (full width) */}
@@ -311,8 +338,8 @@ export function AiChatInput({ autoFocus = true }: AiChatInputProps) {
             onChange={(e) => setValue(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={
-              selectedImage
-                ? "Descreva a imagem..."
+              selectedFile
+                ? "Descreva o arquivo..."
                 : audioBlob
                   ? "Adicione uma mensagem (opcional)..."
                   : "Pergunte algo..."
@@ -376,8 +403,8 @@ export function AiChatInput({ autoFocus = true }: AiChatInputProps) {
                 "text-muted-foreground hover:text-foreground hover:bg-muted"
               )}
               onClick={() => fileInputRef.current?.click()}
-              disabled={isLoading || isUploading || !!selectedImage || isRecording}
-              title="Anexar imagem"
+              disabled={isLoading || isUploading || !!selectedFile || isRecording}
+              title="Anexar arquivo"
             >
               <Plus className="h-5 w-5" />
             </Button>

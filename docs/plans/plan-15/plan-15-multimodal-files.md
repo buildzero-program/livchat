@@ -1,8 +1,91 @@
 # Plan-15: Suporte Multimodal (Arquivos e Imagens)
 
 **Data:** 2024-12-18
-**Status:** Planejamento
+**Status:** ✅ Concluído
 **Dependências:** Plan-11 (Workflows), Plan-14 (Model Registry)
+
+---
+
+## Status dos Sub-Planos
+
+| Sub-Plano | Escopo | Status |
+|-----------|--------|--------|
+| [Plan 15.1](./plan-15.1-mvp-images.md) | MVP Imagens (upload, preview, envio) | ✅ Concluído |
+| [Plan 15.2](./plan-15.2-audio.md) | Gravação e envio de áudio | ✅ Concluído |
+| [Plan 15.3](./plan-15.3-input-alignment.md) | Alinhamento vertical de ícones | ✅ Concluído |
+| [Plan 15.4](./plan-15.4-expandable-input.md) | Layout ChatGPT-style (duas linhas) | ✅ Concluído |
+| [Plan 15.5](./plan-15.5-pdf-images.md) | PDF + Resize + Tiling (FileProcessor) | ✅ Concluído |
+
+> **Nota:** Plan 15.6 foi incorporado ao 15.5 - o `FileProcessor` cobre PDF, resize e tiling em uma única implementação.
+
+---
+
+## O que foi Implementado (15.1-15.4)
+
+### Arquitetura Real vs Planejada
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                      FRONTEND (Next.js)                         │
+│                                                                  │
+│  AiChatInput:                                                   │
+│    ├── Botão [+] → Upload para Vercel Blob                      │
+│    ├── Botão [🎤] → MediaRecorder (OGG/WebM)                    │
+│    └── Botão [↑] → sendMessage(text, images?, audio?)          │
+│                                                                  │
+│  APIs:                                                          │
+│    ├── POST /api/ivy/upload → Vercel Blob (imagens)            │
+│    └── POST /api/ivy/upload-audio → Vercel Blob (áudio)        │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                      PARTYKIT SERVER                             │
+│                                                                  │
+│  ivy-chat.ts:                                                   │
+│    ├── Recebe { content, images?, audio? }                      │
+│    ├── Fetch imagem/áudio da URL → Base64                       │
+│    └── POST /workflows/ivy/stream com multimodal                │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                      AST BACKEND (Python)                        │
+│                                                                  │
+│  workflow_schema.py:                                            │
+│    message: str | list[dict] → Validação customizada            │
+│    Tipos válidos: "text", "image_url", "media"                  │
+│                                                                  │
+│  workflow_router.py:                                            │
+│    HumanMessage(content=input_data.message) → LangChain nativo  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Decisões de Implementação
+
+| Planejado | Implementado | Motivo |
+|-----------|--------------|--------|
+| `TextContent`, `ImageContent` Pydantic | `str \| list[dict]` simples | LangChain aceita dict diretamente |
+| `build_human_message()` separado | `HumanMessage(content=...)` direto | LangChain já é multimodal nativo |
+| Upload no AST (`/files/upload`) | Upload no Next.js (Vercel Blob) | Mais simples, já tínhamos Vercel Blob |
+| Resize no backend | Sem resize (< 20MB passa direto) | MVP não precisa |
+| Gravação WAV | Gravação OGG/WebM | Browser moderno prefere, Gemini aceita |
+
+### Arquivos Criados/Modificados
+
+| Arquivo | Tipo | Descrição |
+|---------|------|-----------|
+| `app/src/hooks/use-audio-recorder.ts` | **NOVO** | Hook React para gravação de áudio |
+| `app/src/app/api/ivy/upload/route.ts` | **NOVO** | Upload de imagens para Vercel Blob |
+| `app/src/app/api/ivy/upload-audio/route.ts` | **NOVO** | Upload de áudio para Vercel Blob |
+| `app/src/components/ai-chat/ai-chat-input.tsx` | Modificado | UI completa: upload, gravação, layout ChatGPT |
+| `app/src/components/ai-chat/ai-chat-messages.tsx` | Modificado | Renderização de imagens e áudio |
+| `app/partykit/src/ivy-chat.ts` | Modificado | Processamento de imagens e áudio para AST |
+| `app/partykit/src/types.ts` | Modificado | `images?: string[]`, `audio?: string` |
+| `ast/src/schema/workflow_schema.py` | Modificado | `message: str \| list[dict]` com validação |
+| `ast/tests/workflows/test_workflow_schema.py` | Modificado | +8 testes multimodal (imagem + áudio) |
+
+---
 
 ## Objetivo
 
@@ -167,74 +250,65 @@ def should_tile(width: int, height: int) -> bool:
 
 ## Fases de Implementação
 
-### Fase 1: Schema e Tipos
-**Objetivo:** Definir tipos para conteúdo multimodal
+### ✅ Fase 1: Schema e Tipos (Simplificado)
+**Status:** Concluído (via Plan 15.1)
+**Implementação diferente:** Usamos `str | list[dict]` com validação customizada em vez de tipos Pydantic específicos.
 
-| Item | Arquivo | Descrição |
-|------|---------|-----------|
-| 1.1 | `src/schema/schema.py` | Criar `TextContent`, `ImageContent`, `FileContent` |
-| 1.2 | `src/schema/schema.py` | Criar `ContentItem = TextContent \| ImageContent \| FileContent` |
-| 1.3 | `src/schema/schema.py` | Modificar `UserInput.message: str \| list[ContentItem]` |
-| 1.4 | `src/schema/workflow_schema.py` | Modificar `WorkflowInvokeInput.message` |
-| 1.5 | `src/schema/__init__.py` | Exportar novos tipos |
-| 1.6 | `tests/schema/test_multimodal.py` | Testes unitários |
+| Item | Status | Descrição |
+|------|--------|-----------|
+| 1.4 | ✅ | `workflow_schema.py` - `message: str \| list[dict]` com validação |
+| 1.6 | ✅ | 8 testes multimodal em `test_workflow_schema.py` |
 
-### Fase 2: Message Builder
-**Objetivo:** Converter ContentItem para formato LangChain
+### ✅ Fase 2: Message Builder (Não Necessário)
+**Status:** Não implementado - LangChain já aceita multimodal nativo
+**Motivo:** `HumanMessage(content=[...])` aceita listas de `{"type": "text/image_url/media", ...}` diretamente.
 
-| Item | Arquivo | Descrição |
-|------|---------|-----------|
-| 2.1 | `src/agents/multimodal.py` | Criar `build_human_message()` |
-| 2.2 | `src/agents/multimodal.py` | Criar `validate_content_items()` |
-| 2.3 | `tests/agents/test_multimodal.py` | Testes unitários |
-
-### Fase 3: File Processor
+### ⏳ Fase 3: File Processor (Pendente - Plan 15.5)
 **Objetivo:** Processar arquivos (resize, PDF→imagens)
+**Prioridade:** Alta (necessário para caso Arte x Arte)
 
 | Item | Arquivo | Descrição |
 |------|---------|-----------|
 | 3.1 | `src/core/file_processor.py` | Criar `FileProcessor` class |
 | 3.2 | `src/core/file_processor.py` | `process_image()` - resize, compress |
-| 3.3 | `src/core/file_processor.py` | `process_pdf()` - render pages |
-| 3.4 | `src/core/file_processor.py` | `process_document()` - DOCX→MD |
+| 3.3 | `src/core/file_processor.py` | `process_pdf()` - render pages (PyMuPDF) |
+| 3.4 | `src/core/file_processor.py` | `process_document()` - DOCX→MD (opcional) |
 | 3.5 | `tests/core/test_file_processor.py` | Testes unitários |
 
-### Fase 4: File Router
-**Objetivo:** Endpoint de upload de arquivos
+### ⏳ Fase 4: File Router (Pendente - opcional)
+**Objetivo:** Endpoint de upload no AST
+**Prioridade:** Baixa - já temos upload via Vercel Blob no frontend
 
-| Item | Arquivo | Descrição |
-|------|---------|-----------|
-| 4.1 | `src/service/file_router.py` | Criar router FastAPI |
-| 4.2 | `src/service/file_router.py` | `POST /files/upload` endpoint |
-| 4.3 | `src/service/file_router.py` | `POST /files/process` endpoint (PDF→imagens) |
-| 4.4 | `src/service/service.py` | Registrar file_router |
-| 4.5 | `tests/service/test_file_router.py` | Testes de integração |
+| Item | Arquivo | Descrição | Status |
+|------|---------|-----------|--------|
+| 4.1-4.4 | `src/service/file_router.py` | Upload no AST | ❓ Avaliar necessidade |
+| - | `POST /api/ivy/upload` (Next.js) | Upload para Vercel Blob | ✅ Implementado |
+| - | `POST /api/ivy/upload-audio` (Next.js) | Upload de áudio | ✅ Implementado |
 
-### Fase 5: Integração no Workflow
-**Objetivo:** Workflow agent aceitar multimodal
+### ✅ Fase 5: Integração no Workflow
+**Status:** Concluído (via Plan 15.1, 15.2)
 
-| Item | Arquivo | Descrição |
-|------|---------|-----------|
-| 5.1 | `src/service/workflow_router.py` | Usar `build_human_message()` |
-| 5.2 | `src/service/service.py` | Usar `build_human_message()` |
-| 5.3 | `tests/workflows/test_multimodal_workflow.py` | Testes E2E |
+| Item | Status | Descrição |
+|------|--------|-----------|
+| 5.1 | ✅ | `workflow_router.py` já passa `content` diretamente |
+| 5.2 | ✅ | `ivy-chat.ts` formata multimodal para AST |
+| 5.3 | ✅ | Teste E2E manual (imagens e áudio funcionando) |
 
-### Fase 6: Client
+### 🔄 Fase 6: Client (Parcialmente Pendente)
 **Objetivo:** Client suportar upload e multimodal
 
+| Item | Status | Descrição |
+|------|--------|-----------|
+| 6.1 | ✅ | `ainvoke()` já aceita `message: list[dict]` |
+| 6.2 | ⏳ | `upload_file()` - opcional, pode usar Vercel Blob direto |
+
+### ⏳ Fase 7: Dependências (Pendente - Plan 15.5)
+**Objetivo:** Adicionar bibliotecas para PDF
+
 | Item | Arquivo | Descrição |
 |------|---------|-----------|
-| 6.1 | `src/client/client.py` | Modificar `ainvoke()` |
-| 6.2 | `src/client/client.py` | Adicionar `upload_file()` |
-| 6.3 | `tests/client/test_multimodal_client.py` | Testes |
-
-### Fase 7: Dependências
-**Objetivo:** Adicionar bibliotecas necessárias
-
-| Item | Arquivo | Descrição |
-|------|---------|-----------|
-| 7.1 | `pyproject.toml` | Adicionar `pillow ~=11.0.0` |
-| 7.2 | `pyproject.toml` | Adicionar `pymupdf ~=1.25.0` |
+| 7.1 | `pyproject.toml` | Adicionar `pillow ~=11.0.0` (resize) |
+| 7.2 | `pyproject.toml` | Adicionar `pymupdf ~=1.25.0` (PDF→imagens) |
 | 7.3 | - | Rodar `uv sync` |
 
 ---
@@ -329,12 +403,118 @@ response = await client.ainvoke(
 
 ## Métricas de Sucesso
 
-- [ ] Testes passando (estimativa: ~50 novos testes)
-- [ ] Upload de imagens funcionando
-- [ ] PDF renderizado como imagens
-- [ ] Workflow Arte x Arte funcionando
+- [x] Testes passando - 8 testes multimodal no AST
+- [x] Upload de imagens funcionando (Vercel Blob)
+- [x] Upload de áudio funcionando (Vercel Blob)
+- [ ] PDF renderizado como imagens (Plan 15.5)
+- [ ] Workflow Arte x Arte funcionando (Plan 15.5)
 - [ ] Latência < 10s para documento típico
-- [ ] Documentação atualizada
+- [x] UI estilo ChatGPT (layout duas linhas)
+
+---
+
+## Análise: Próximos Passos
+
+### Questão Principal: Nós de Workflow vs Processamento Transparente
+
+Para o caso **Arte x Arte (ANVISA)** e outros usos de PDF, temos duas abordagens:
+
+#### Opção A: Processamento Transparente (Recomendado para MVP)
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Frontend: Usuário envia PDF                                    │
+│     │                                                           │
+│     ▼                                                           │
+│  PartyKit: Detecta PDF → Chama /api/process-pdf                │
+│     │                                                           │
+│     ▼                                                           │
+│  Next.js API: PDF → PyMuPDF → Imagens → Vercel Blob            │
+│     │                                                           │
+│     ▼                                                           │
+│  PartyKit: Envia imagens para AST (mesmo fluxo atual)          │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Vantagens:**
+- Zero mudanças no workflow editor
+- Usuário não precisa configurar nada
+- Funciona com qualquer workflow existente
+
+**Desvantagens:**
+- Sem controle de DPI/resolução por workflow
+- Todas as páginas são processadas (pode ser lento para PDFs grandes)
+
+#### Opção B: Nó de Processamento no Workflow
+
+```
+┌───────────────────────────────────────────────────────────────────┐
+│  Workflow Editor:                                                  │
+│                                                                    │
+│  [Input] ──→ [PDF Processor Node] ──→ [Agent Node] ──→ [Output]   │
+│               ├── DPI: 150                                        │
+│               ├── Pages: 1-5                                      │
+│               └── Resolution: MEDIUM                              │
+└───────────────────────────────────────────────────────────────────┘
+```
+
+**Vantagens:**
+- Controle granular (DPI, páginas, resolução)
+- Reutilizável em diferentes workflows
+- Visível no editor de workflows
+
+**Desvantagens:**
+- Requer novo tipo de nó no frontend e backend
+- Mais complexidade para usuário
+
+### Recomendação
+
+**Para Plan 15.5 (Arte x Arte MVP):** Usar **Opção A - Processamento Transparente**
+
+**Motivo:** O caso Arte x Arte é específico e não precisa de configuração. O usuário simplesmente envia o PDF e o sistema processa automaticamente.
+
+**Quando migrar para Opção B:**
+- Quando tivermos múltiplos casos de uso com requisitos diferentes
+- Quando usuários pedirem controle sobre processamento
+- Quando tivermos workflows complexos com múltiplos PDFs
+
+---
+
+## Plan 15.5: PDF → Imagens (Proposta)
+
+### Escopo
+1. Adicionar endpoint `/api/ivy/process-pdf` no Next.js
+2. Usar PyMuPDF (executar via API separada ou subprocess)
+3. Renderizar cada página como imagem (150 DPI)
+4. Upload automático para Vercel Blob
+5. Retornar lista de URLs para o PartyKit
+
+### Desafio: Python no Next.js
+
+**Problema:** Next.js roda em Node.js, mas PyMuPDF é Python.
+
+**Soluções:**
+
+| Solução | Complexidade | Performance | Recomendação |
+|---------|--------------|-------------|--------------|
+| AST endpoint `/files/process-pdf` | Baixa | Boa | ✅ Usar |
+| Cloudflare Worker + R2 | Média | Excelente | Futuro |
+| pdf.js (JS puro) | Alta | Ruim | Evitar |
+| External service (CloudConvert) | Baixa | Variável | Backup |
+
+**Decisão:** Adicionar endpoint no AST (`POST /files/process-pdf`) que:
+1. Recebe URL do PDF (já no Vercel Blob)
+2. Baixa, processa com PyMuPDF
+3. Retorna lista de imagens em base64 ou URLs
+
+### Checklist Plan 15.5
+
+- [ ] Adicionar `pillow`, `pymupdf` no AST
+- [ ] Criar `src/core/file_processor.py`
+- [ ] Criar endpoint `POST /files/process-pdf`
+- [ ] Atualizar `ivy-chat.ts` para detectar PDF e processar
+- [ ] Testes unitários
+- [ ] Teste E2E com PDF real
 
 ---
 

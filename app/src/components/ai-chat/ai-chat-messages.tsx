@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
-import { Play, Pause } from "lucide-react";
+import { Play, Pause, FileText } from "lucide-react";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { Button } from "~/components/ui/button";
 import { useAiChat, type Message } from "./ai-chat-provider";
@@ -105,6 +105,52 @@ function MessageAudio({ src }: { src: string }) {
 }
 
 /**
+ * Check if URL is a PDF file
+ */
+function isPdfUrl(url: string): boolean {
+  const lowerUrl = url.toLowerCase();
+  return lowerUrl.endsWith(".pdf") || lowerUrl.includes(".pdf?");
+}
+
+/**
+ * Extract filename from URL
+ */
+function getFilenameFromUrl(url: string): string {
+  try {
+    const pathname = new URL(url).pathname;
+    const filename = pathname.split("/").pop() || "document.pdf";
+    // Remove query params and decode
+    return decodeURIComponent(filename.split("?")[0] || filename);
+  } catch {
+    return "document.pdf";
+  }
+}
+
+/**
+ * Componente para exibir preview de PDF
+ */
+function MessagePdf({ src }: { src: string }) {
+  const filename = getFilenameFromUrl(src);
+
+  return (
+    <a
+      href={src}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex items-center gap-2 rounded-lg bg-background/20 px-3 py-2 transition-colors hover:bg-background/30"
+    >
+      <FileText className="h-8 w-8 shrink-0 text-red-400" />
+      <div className="flex flex-col min-w-0">
+        <span className="text-sm font-medium truncate max-w-[180px]">
+          {filename}
+        </span>
+        <span className="text-xs opacity-70">Clique para abrir</span>
+      </div>
+    </a>
+  );
+}
+
+/**
  * Componente para exibir imagem com lightbox
  */
 function MessageImage({ src, alt }: { src: string; alt: string }) {
@@ -194,12 +240,16 @@ function MessageBubble({
             : "bg-muted text-foreground rounded-bl-md"
         )}
       >
-        {/* Images (render before text for user messages) */}
+        {/* Images/PDFs (render before text for user messages) */}
         {hasImages && (
           <div className="mb-2 flex flex-wrap gap-2">
-            {message.images!.map((url, index) => (
-              <MessageImage key={url} src={url} alt={`Imagem ${index + 1}`} />
-            ))}
+            {message.images!.map((url, index) =>
+              isPdfUrl(url) ? (
+                <MessagePdf key={url} src={url} />
+              ) : (
+                <MessageImage key={url} src={url} alt={`Imagem ${index + 1}`} />
+              )
+            )}
           </div>
         )}
 
