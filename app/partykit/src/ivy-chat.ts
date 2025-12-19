@@ -59,7 +59,7 @@ export default class IvyChatServer implements Party.Server {
 
       switch (data.type) {
         case "message":
-          await this.handleUserMessage(data.content);
+          await this.handleUserMessage(data.content, data.images);
           break;
 
         case "history":
@@ -87,7 +87,7 @@ export default class IvyChatServer implements Party.Server {
   // MESSAGE HANDLING
   // ===========================================================================
 
-  private async handleUserMessage(content: string) {
+  private async handleUserMessage(content: string, images?: string[]) {
     // Previne mensagens concorrentes
     if (this.state.isStreaming) {
       return;
@@ -104,10 +104,11 @@ export default class IvyChatServer implements Party.Server {
       role: "user",
       content,
       timestamp: new Date().toISOString(),
+      images,
     };
     this.state.messages.push(userMessage);
 
-    // Broadcast mensagem do usuário
+    // Broadcast mensagem do usuário (inclui imagens)
     this.broadcast({
       type: "message",
       ...userMessage,
@@ -118,7 +119,7 @@ export default class IvyChatServer implements Party.Server {
     this.broadcast({ type: "streaming", isStreaming: true });
 
     try {
-      await this.streamFromAST(content);
+      await this.streamFromAST(content, images);
     } catch (error) {
       console.error("AST streaming error:", error);
       this.broadcast({
@@ -136,12 +137,35 @@ export default class IvyChatServer implements Party.Server {
   // AST STREAMING
   // ===========================================================================
 
-  private async streamFromAST(message: string) {
+  private async streamFromAST(message: string, images?: string[]) {
     const astUrl = this.room.env.AST_URL as string;
     const astKey = this.room.env.AST_API_KEY as string | undefined;
 
     if (!astUrl) {
       throw new Error("AST_URL not configured");
+    }
+
+    // Constrói payload - se tem imagens, envia como array multimodal
+    let payload: { message: string | object[]; threadId: string | null };
+
+    if (images && images.length > 0) {
+      // Formato multimodal: imagens ANTES do texto (best practice para Gemini)
+      const multimodalContent: object[] = [
+        ...images.map((url) => ({
+          type: "image_url",
+          image_url: { url },
+        })),
+        { type: "text", text: message },
+      ];
+      payload = {
+        message: multimodalContent,
+        threadId: this.state.threadId,
+      };
+    } else {
+      payload = {
+        message,
+        threadId: this.state.threadId,
+      };
     }
 
     // Faz request para o AST stream
@@ -151,10 +175,7 @@ export default class IvyChatServer implements Party.Server {
         "Content-Type": "application/json",
         ...(astKey && { Authorization: `Bearer ${astKey}` }),
       },
-      body: JSON.stringify({
-        message,
-        threadId: this.state.threadId,
-      }),
+      body: JSON.stringify(payload),
     });
 
     if (!response.ok) {

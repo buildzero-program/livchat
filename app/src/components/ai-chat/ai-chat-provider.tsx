@@ -18,6 +18,8 @@ export interface Message {
   role: "user" | "assistant";
   content: string;
   timestamp: Date;
+  /** URLs de imagens (Vercel Blob) */
+  images?: string[];
 }
 
 // Converte ChatMessage do PartyKit para Message do provider
@@ -27,6 +29,7 @@ function toMessage(msg: ChatMessage): Message {
     role: msg.role,
     content: msg.content,
     timestamp: new Date(msg.timestamp),
+    images: msg.images,
   };
 }
 
@@ -44,7 +47,7 @@ interface AiChatContextType {
   toggle: () => void;
   open: () => void;
   close: () => void;
-  sendMessage: (content: string) => void;
+  sendMessage: (content: string, images?: string[]) => void;
   clearMessages: () => void;
 }
 
@@ -113,8 +116,8 @@ export function AiChatProvider({ children }: { children: ReactNode }) {
   const close = useCallback(() => setIsOpen(false), []);
 
   const sendMessage = useCallback(
-    (content: string) => {
-      if (!content.trim()) return;
+    (content: string, images?: string[]) => {
+      if (!content.trim() && (!images || images.length === 0)) return;
 
       if (!threadId) {
         console.error("No thread available - waiting for initialization");
@@ -122,7 +125,7 @@ export function AiChatProvider({ children }: { children: ReactNode }) {
       }
 
       // Envia via PartyKit (streaming)
-      ivyChat.sendMessage(content.trim());
+      ivyChat.sendMessage(content.trim(), images);
     },
     [ivyChat, threadId]
   );

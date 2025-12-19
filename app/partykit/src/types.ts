@@ -11,6 +11,8 @@ export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   timestamp: string;
+  /** URLs de imagens (Vercel Blob) */
+  images?: string[];
 }
 
 // =============================================================================
@@ -18,7 +20,7 @@ export interface ChatMessage {
 // =============================================================================
 
 export type ClientMessage =
-  | { type: "message"; content: string }
+  | { type: "message"; content: string; images?: string[] }
   | { type: "history" }
   | { type: "clear" };
 
@@ -33,6 +35,7 @@ export type ServerMessage =
       role: "user" | "assistant";
       content: string;
       timestamp: string;
+      images?: string[];
     }
   | { type: "token"; content: string }
   | { type: "done"; messageId: string; fullContent: string }

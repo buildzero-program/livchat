@@ -34,7 +34,7 @@ interface UseIvyChatReturn {
   /** Erro de conexão ou streaming */
   error: string | null;
   /** Envia mensagem para a Ivy */
-  sendMessage: (content: string) => void;
+  sendMessage: (content: string, images?: string[]) => void;
   /** Limpa todas as mensagens */
   clearMessages: () => void;
 }
@@ -162,9 +162,9 @@ export function useIvyChat({
   }, [threadId, enabled]);
 
   // Actions
-  const sendMessage = useCallback((content: string) => {
-    if (!content.trim()) return;
-    clientRef.current?.sendMessage(content.trim());
+  const sendMessage = useCallback((content: string, images?: string[]) => {
+    if (!content.trim() && (!images || images.length === 0)) return;
+    clientRef.current?.sendMessage(content.trim(), images);
   }, []);
 
   const clearMessages = useCallback(() => {

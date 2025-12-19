@@ -15,10 +15,12 @@ export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   timestamp: string;
+  /** URLs de imagens (Vercel Blob) */
+  images?: string[];
 }
 
 type ClientMessage =
-  | { type: "message"; content: string }
+  | { type: "message"; content: string; images?: string[] }
   | { type: "history" }
   | { type: "clear" };
 
@@ -29,6 +31,7 @@ type ServerMessage =
       role: "user" | "assistant";
       content: string;
       timestamp: string;
+      images?: string[];
     }
   | { type: "token"; content: string }
   | { type: "done"; messageId: string; fullContent: string }
@@ -94,8 +97,8 @@ export class IvyClient {
     this.socket = null;
   }
 
-  sendMessage(content: string) {
-    this.send({ type: "message", content });
+  sendMessage(content: string, images?: string[]) {
+    this.send({ type: "message", content, images });
   }
 
   requestHistory() {
@@ -123,6 +126,7 @@ export class IvyClient {
             role: message.role,
             content: message.content,
             timestamp: message.timestamp,
+            images: message.images,
           });
           break;
 

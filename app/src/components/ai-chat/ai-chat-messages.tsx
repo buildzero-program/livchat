@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { ScrollArea } from "~/components/ui/scroll-area";
@@ -16,12 +16,77 @@ interface MessageBubbleProps {
   skipAnimation?: boolean;
 }
 
+/**
+ * Componente para exibir imagem com lightbox
+ */
+function MessageImage({ src, alt }: { src: string; alt: string }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  return (
+    <>
+      {/* Thumbnail */}
+      <div
+        className="relative cursor-pointer overflow-hidden rounded-lg"
+        onClick={() => setIsOpen(true)}
+      >
+        <Image
+          src={src}
+          alt={alt}
+          width={200}
+          height={200}
+          className={cn(
+            "max-h-[200px] w-auto rounded-lg object-cover transition-opacity",
+            isLoading ? "opacity-0" : "opacity-100"
+          )}
+          onLoad={() => setIsLoading(false)}
+          unoptimized // URLs externas do Vercel Blob
+        />
+        {isLoading && (
+          <div className="absolute inset-0 animate-pulse rounded-lg bg-muted" />
+        )}
+      </div>
+
+      {/* Lightbox */}
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+            onClick={() => setIsOpen(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.9 }}
+              className="relative max-h-[90vh] max-w-[90vw]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Image
+                src={src}
+                alt={alt}
+                width={1200}
+                height={1200}
+                className="max-h-[90vh] w-auto rounded-lg object-contain"
+                unoptimized
+              />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
+  );
+}
+
 function MessageBubble({
   message,
   isStreaming = false,
   skipAnimation = false,
 }: MessageBubbleProps) {
   const isUser = message.role === "user";
+  const hasImages = message.images && message.images.length > 0;
 
   return (
     <motion.div
@@ -40,13 +105,30 @@ function MessageBubble({
             : "bg-muted text-foreground rounded-bl-md"
         )}
       >
-        <span className="text-sm leading-relaxed whitespace-pre-wrap">
-          {message.content}
-          {/* Streaming cursor - appears when receiving tokens */}
-          {isStreaming && (
-            <span className="ml-0.5 inline-block h-4 w-0.5 animate-pulse bg-current align-middle" />
-          )}
-        </span>
+        {/* Images (render before text for user messages) */}
+        {hasImages && (
+          <div className="mb-2 flex flex-wrap gap-2">
+            {message.images!.map((url, index) => (
+              <MessageImage key={url} src={url} alt={`Imagem ${index + 1}`} />
+            ))}
+          </div>
+        )}
+
+        {/* Text content */}
+        {message.content && (
+          <span className="text-sm leading-relaxed whitespace-pre-wrap">
+            {message.content}
+            {/* Streaming cursor - appears when receiving tokens */}
+            {isStreaming && (
+              <span className="ml-0.5 inline-block h-4 w-0.5 animate-pulse bg-current align-middle" />
+            )}
+          </span>
+        )}
+
+        {/* Show cursor for image-only messages while streaming */}
+        {isStreaming && !message.content && (
+          <span className="ml-0.5 inline-block h-4 w-0.5 animate-pulse bg-current align-middle" />
+        )}
       </div>
     </motion.div>
   );

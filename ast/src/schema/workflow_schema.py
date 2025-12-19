@@ -1,6 +1,7 @@
 """Pydantic schemas for workflow system."""
 
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -145,12 +146,29 @@ class WorkflowResponse(BaseModel):
 class WorkflowInvokeInput(BaseModel):
     """Schema for invoking a workflow."""
 
-    message: str = Field(
+    message: str | list[dict[str, Any]] = Field(
         ...,
-        min_length=1,
-        description="User message to send to the workflow",
+        description="User message - string for text-only, or list of content items for multimodal",
     )
     threadId: str = Field(..., description="Thread ID (UUID) for conversation")
+
+    @field_validator("message")
+    @classmethod
+    def validate_message(cls, v: str | list[dict[str, Any]]) -> str | list[dict[str, Any]]:
+        """Validate message is not empty."""
+        if isinstance(v, str):
+            if not v.strip():
+                raise ValueError("Message cannot be empty")
+            return v
+        elif isinstance(v, list):
+            if not v:
+                raise ValueError("Message list cannot be empty")
+            # Validate each item has a type
+            for item in v:
+                if not isinstance(item, dict) or "type" not in item:
+                    raise ValueError("Each multimodal item must have a 'type' field")
+            return v
+        raise ValueError("Message must be a string or list of content items")
 
 
 class WorkflowStreamInput(WorkflowInvokeInput):

@@ -469,3 +469,39 @@ class TestWorkflowInvokeInput:
                 message="",
                 threadId="550e8400-e29b-41d4-a716-446655440000",
             )
+
+    def test_invoke_input_multimodal_valid(self):
+        """Test multimodal message with image and text."""
+        from schema.workflow_schema import WorkflowInvokeInput
+
+        input_data = WorkflowInvokeInput(
+            message=[
+                {"type": "image_url", "image_url": {"url": "https://example.com/img.jpg"}},
+                {"type": "text", "text": "Descreva esta imagem"},
+            ],
+            threadId="550e8400-e29b-41d4-a716-446655440000",
+        )
+        assert isinstance(input_data.message, list)
+        assert len(input_data.message) == 2
+        assert input_data.message[0]["type"] == "image_url"
+        assert input_data.message[1]["type"] == "text"
+
+    def test_invoke_input_multimodal_empty_list_fails(self):
+        """Test that empty multimodal list fails validation."""
+        from schema.workflow_schema import WorkflowInvokeInput
+
+        with pytest.raises(ValidationError):
+            WorkflowInvokeInput(
+                message=[],
+                threadId="550e8400-e29b-41d4-a716-446655440000",
+            )
+
+    def test_invoke_input_multimodal_missing_type_fails(self):
+        """Test that items without 'type' field fail validation."""
+        from schema.workflow_schema import WorkflowInvokeInput
+
+        with pytest.raises(ValidationError):
+            WorkflowInvokeInput(
+                message=[{"text": "Hello"}],  # Missing 'type' field
+                threadId="550e8400-e29b-41d4-a716-446655440000",
+            )
