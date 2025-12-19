@@ -17,10 +17,12 @@ export interface ChatMessage {
   timestamp: string;
   /** URLs de imagens (Vercel Blob) */
   images?: string[];
+  /** URL do áudio (Vercel Blob) */
+  audio?: string;
 }
 
 type ClientMessage =
-  | { type: "message"; content: string; images?: string[] }
+  | { type: "message"; content: string; images?: string[]; audio?: string }
   | { type: "history" }
   | { type: "clear" };
 
@@ -32,6 +34,7 @@ type ServerMessage =
       content: string;
       timestamp: string;
       images?: string[];
+      audio?: string;
     }
   | { type: "token"; content: string }
   | { type: "done"; messageId: string; fullContent: string }
@@ -97,8 +100,8 @@ export class IvyClient {
     this.socket = null;
   }
 
-  sendMessage(content: string, images?: string[]) {
-    this.send({ type: "message", content, images });
+  sendMessage(content: string, images?: string[], audio?: string) {
+    this.send({ type: "message", content, images, audio });
   }
 
   requestHistory() {
@@ -127,6 +130,7 @@ export class IvyClient {
             content: message.content,
             timestamp: message.timestamp,
             images: message.images,
+            audio: message.audio,
           });
           break;
 

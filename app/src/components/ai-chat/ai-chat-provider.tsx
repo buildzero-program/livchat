@@ -20,6 +20,8 @@ export interface Message {
   timestamp: Date;
   /** URLs de imagens (Vercel Blob) */
   images?: string[];
+  /** URL do áudio (Vercel Blob) */
+  audio?: string;
 }
 
 // Converte ChatMessage do PartyKit para Message do provider
@@ -30,6 +32,7 @@ function toMessage(msg: ChatMessage): Message {
     content: msg.content,
     timestamp: new Date(msg.timestamp),
     images: msg.images,
+    audio: msg.audio,
   };
 }
 
@@ -47,7 +50,7 @@ interface AiChatContextType {
   toggle: () => void;
   open: () => void;
   close: () => void;
-  sendMessage: (content: string, images?: string[]) => void;
+  sendMessage: (content: string, images?: string[], audio?: string) => void;
   clearMessages: () => void;
 }
 
@@ -116,8 +119,10 @@ export function AiChatProvider({ children }: { children: ReactNode }) {
   const close = useCallback(() => setIsOpen(false), []);
 
   const sendMessage = useCallback(
-    (content: string, images?: string[]) => {
-      if (!content.trim() && (!images || images.length === 0)) return;
+    (content: string, images?: string[], audio?: string) => {
+      // Precisa ter texto, imagens OU áudio
+      const hasContent = content.trim().length > 0 || (images && images.length > 0) || !!audio;
+      if (!hasContent) return;
 
       if (!threadId) {
         console.error("No thread available - waiting for initialization");
@@ -125,7 +130,7 @@ export function AiChatProvider({ children }: { children: ReactNode }) {
       }
 
       // Envia via PartyKit (streaming)
-      ivyChat.sendMessage(content.trim(), images);
+      ivyChat.sendMessage(content.trim(), images, audio);
     },
     [ivyChat, threadId]
   );

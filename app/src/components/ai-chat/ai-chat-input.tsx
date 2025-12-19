@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useRef, useEffect, type KeyboardEvent } from "react";
-import { ArrowUp, Plus, X, Loader2 } from "lucide-react";
+import { ArrowUp, Plus, X, Loader2, Mic, Square, Trash2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import NextImage from "next/image";
 import { Button } from "~/components/ui/button";
 import { useAiChat } from "./ai-chat-provider";
+import { useAudioRecorder } from "~/hooks/use-audio-recorder";
 import { cn } from "~/lib/utils";
 
 interface AiChatInputProps {
@@ -22,6 +23,20 @@ export function AiChatInput({ autoFocus = true }: AiChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { sendMessage, isLoading, isOpen } = useAiChat();
+
+  // Audio recorder
+  const {
+    isRecording,
+    duration,
+    audioBlob,
+    audioUrl,
+    mimeType,
+    error: audioError,
+    startRecording,
+    stopRecording,
+    cancelRecording,
+    clearRecording,
+  } = useAudioRecorder();
 
   // Auto-focus when chat opens
   useEffect(() => {
@@ -103,26 +118,82 @@ export function AiChatInput({ autoFocus = true }: AiChatInputProps) {
     }
   };
 
+  const uploadAudio = async (blob: Blob, mime: string): Promise<string | null> => {
+    const formData = new FormData();
+    // Determine extension from mime type
+    const ext = mime.includes("ogg") ? "ogg" : mime.includes("mp4") ? "m4a" : "webm";
+    formData.append("file", blob, `audio.${ext}`);
+
+    try {
+      const response = await fetch("/api/ivy/upload-audio", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Upload failed");
+      }
+
+      const data = await response.json();
+      return data.url;
+    } catch (error) {
+      console.error("Audio upload error:", error);
+      setUploadError(
+        error instanceof Error ? error.message : "Erro ao fazer upload do áudio"
+      );
+      return null;
+    }
+  };
+
+  // Format duration as MM:SS
+  const formatDuration = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  };
+
   const handleSubmit = async () => {
-    if (!value.trim() || isLoading || isUploading) return;
+    // Precisa de texto OU áudio para enviar
+    const hasText = value.trim().length > 0;
+    const hasAudio = audioBlob !== null;
+
+    if ((!hasText && !hasAudio) || isLoading || isUploading) return;
+
+    setIsUploading(true);
 
     let imageUrl: string | undefined;
+    let audioUrlUploaded: string | undefined;
 
+    // Upload image if selected
     if (selectedImage) {
-      setIsUploading(true);
       const url = await uploadImage(selectedImage);
-      setIsUploading(false);
-
-      if (!url) return;
+      if (!url) {
+        setIsUploading(false);
+        return;
+      }
       imageUrl = url;
     }
 
-    const message = value;
+    // Upload audio if recorded
+    if (audioBlob && mimeType) {
+      const url = await uploadAudio(audioBlob, mimeType);
+      if (!url) {
+        setIsUploading(false);
+        return;
+      }
+      audioUrlUploaded = url;
+    }
+
+    setIsUploading(false);
+
+    const message = hasText ? value : ""; // Áudio pode não ter texto
     const images = imageUrl ? [imageUrl] : undefined;
 
     setValue("");
     handleRemoveImage();
-    await sendMessage(message, images);
+    clearRecording();
+    await sendMessage(message, images, audioUrlUploaded);
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -132,7 +203,8 @@ export function AiChatInput({ autoFocus = true }: AiChatInputProps) {
     }
   };
 
-  const canSend = value.trim().length > 0 && !isLoading && !isUploading;
+  // Pode enviar se tem texto OU áudio gravado
+  const canSend = (value.trim().length > 0 || audioBlob !== null) && !isLoading && !isUploading && !isRecording;
 
   return (
     <div className="border-t border-border/50 bg-background px-3 pb-3 pt-2">
@@ -173,25 +245,51 @@ export function AiChatInput({ autoFocus = true }: AiChatInputProps) {
         )}
       </AnimatePresence>
 
+      {/* Audio Preview */}
+      <AnimatePresence>
+        {audioUrl && !isRecording && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="mb-2"
+          >
+            <div className="flex items-center gap-2 rounded-lg bg-muted/60 p-2">
+              <audio src={audioUrl} controls className="h-8 flex-1" />
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-6 w-6 shrink-0 text-muted-foreground hover:text-destructive"
+                onClick={clearRecording}
+                disabled={isUploading}
+                title="Remover áudio"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Error Message */}
       <AnimatePresence>
-        {uploadError && (
+        {(uploadError || audioError) && (
           <motion.p
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             className="mb-2 text-xs text-destructive"
           >
-            {uploadError}
+            {uploadError || audioError}
           </motion.p>
         )}
       </AnimatePresence>
 
-      {/* Unified Input Container - Vercel AI Chatbot style */}
+      {/* Unified Input Container - ChatGPT style two-row layout */}
       <div
         className={cn(
-          "relative flex items-end gap-2",
-          "rounded-2xl border border-border bg-muted/40 p-1.5",
+          "relative flex flex-col gap-1",
+          "rounded-2xl border border-border bg-muted/40 p-2",
           "shadow-sm",
           "focus-within:border-border focus-within:ring-2 focus-within:ring-ring/20"
         )}
@@ -205,67 +303,129 @@ export function AiChatInput({ autoFocus = true }: AiChatInputProps) {
           onChange={handleImageSelect}
         />
 
-        {/* Attachment button */}
-        <Button
-          size="icon"
-          variant="ghost"
-          className={cn(
-            "h-8 w-8 shrink-0 rounded-lg",
-            "text-muted-foreground hover:text-foreground hover:bg-muted"
-          )}
-          onClick={() => fileInputRef.current?.click()}
-          disabled={isLoading || isUploading || !!selectedImage}
-          title="Anexar imagem"
-        >
-          <Plus className="h-5 w-5" />
-        </Button>
-
-        {/* Textarea - clean, borderless */}
-        <textarea
-          ref={textareaRef}
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={selectedImage ? "Descreva a imagem..." : "Pergunte algo..."}
-          disabled={isLoading || isUploading}
-          rows={1}
-          className={cn(
-            "flex-1 resize-none bg-transparent py-2 px-1",
-            "text-sm leading-relaxed",
-            "placeholder:text-muted-foreground/60",
-            "focus:outline-none",
-            "min-h-[36px] max-h-[150px]",
-            "scrollbar-thin scrollbar-thumb-muted"
-          )}
-        />
-
-        {/* Send button */}
-        <motion.div
-          initial={false}
-          animate={{
-            scale: canSend ? 1 : 0.95,
-            opacity: canSend ? 1 : 0.4,
-          }}
-          transition={{ duration: 0.1 }}
-        >
-          <Button
-            size="icon"
-            onClick={handleSubmit}
-            disabled={!canSend}
+        {/* Row 1: Textarea (full width) */}
+        {!isRecording && (
+          <textarea
+            ref={textareaRef}
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={
+              selectedImage
+                ? "Descreva a imagem..."
+                : audioBlob
+                  ? "Adicione uma mensagem (opcional)..."
+                  : "Pergunte algo..."
+            }
+            disabled={isLoading || isUploading}
+            rows={1}
             className={cn(
-              "h-8 w-8 rounded-lg transition-colors",
-              canSend
-                ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                : "bg-muted text-muted-foreground"
+              "w-full resize-none bg-transparent py-1 px-1",
+              "text-sm leading-relaxed",
+              "placeholder:text-muted-foreground/60",
+              "focus:outline-none",
+              "min-h-[24px] max-h-[150px]",
+              "scrollbar-thin scrollbar-thumb-muted"
             )}
-          >
-            {isUploading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <ArrowUp className="h-4 w-4" />
-            )}
-          </Button>
-        </motion.div>
+          />
+        )}
+
+        {/* Recording Mode: Replace textarea with recording UI */}
+        {isRecording && (
+          <div className="flex items-center gap-2 py-1 px-1">
+            <motion.div
+              className="h-3 w-3 rounded-full bg-red-500"
+              animate={{ opacity: [1, 0.4, 1] }}
+              transition={{ duration: 1, repeat: Infinity }}
+            />
+            <span className="text-sm font-medium tabular-nums text-foreground">
+              {formatDuration(duration)}
+            </span>
+            <span className="text-sm text-muted-foreground">Gravando...</span>
+
+            <Button
+              size="icon"
+              variant="ghost"
+              className="ml-auto h-7 w-7 shrink-0 rounded-lg text-muted-foreground hover:text-destructive"
+              onClick={cancelRecording}
+              title="Cancelar gravação"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+
+            <Button
+              size="icon"
+              variant="secondary"
+              className="h-7 w-7 shrink-0 rounded-lg"
+              onClick={stopRecording}
+              title="Parar gravação"
+            >
+              <Square className="h-3.5 w-3.5 fill-current" />
+            </Button>
+          </div>
+        )}
+
+        {/* Row 2: Buttons - Plus left, Mic+Send right */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1">
+            <Button
+              size="icon"
+              variant="ghost"
+              className={cn(
+                "h-8 w-8 rounded-lg",
+                "text-muted-foreground hover:text-foreground hover:bg-muted"
+              )}
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isLoading || isUploading || !!selectedImage || isRecording}
+              title="Anexar imagem"
+            >
+              <Plus className="h-5 w-5" />
+            </Button>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <Button
+              size="icon"
+              variant="ghost"
+              className={cn(
+                "h-8 w-8 rounded-lg",
+                "text-muted-foreground hover:text-foreground hover:bg-muted"
+              )}
+              onClick={startRecording}
+              disabled={isLoading || isUploading || !!audioBlob || isRecording}
+              title="Gravar áudio"
+            >
+              <Mic className="h-5 w-5" />
+            </Button>
+
+            <motion.div
+              initial={false}
+              animate={{
+                scale: canSend ? 1 : 0.95,
+                opacity: canSend ? 1 : 0.4,
+              }}
+              transition={{ duration: 0.1 }}
+            >
+              <Button
+                size="icon"
+                onClick={handleSubmit}
+                disabled={!canSend}
+                className={cn(
+                  "h-8 w-8 rounded-lg transition-colors",
+                  canSend
+                    ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                    : "bg-muted text-muted-foreground"
+                )}
+              >
+                {isUploading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <ArrowUp className="h-4 w-4" />
+                )}
+              </Button>
+            </motion.div>
+          </div>
+        </div>
       </div>
 
       {/* Keyboard hint - more subtle */}

@@ -155,7 +155,14 @@ class WorkflowInvokeInput(BaseModel):
     @field_validator("message")
     @classmethod
     def validate_message(cls, v: str | list[dict[str, Any]]) -> str | list[dict[str, Any]]:
-        """Validate message is not empty."""
+        """
+        Validate message is not empty.
+
+        For multimodal messages, validates each item has a valid type:
+        - "text": Text content
+        - "image_url": Image with URL
+        - "media": Audio/video with base64 data and mime_type
+        """
         if isinstance(v, str):
             if not v.strip():
                 raise ValueError("Message cannot be empty")
@@ -163,10 +170,29 @@ class WorkflowInvokeInput(BaseModel):
         elif isinstance(v, list):
             if not v:
                 raise ValueError("Message list cannot be empty")
-            # Validate each item has a type
+
+            # Valid content types for multimodal
+            valid_types = {"text", "image_url", "media"}
+
+            # Validate each item has a valid type
             for item in v:
                 if not isinstance(item, dict) or "type" not in item:
                     raise ValueError("Each multimodal item must have a 'type' field")
+
+                item_type = item.get("type")
+                if item_type not in valid_types:
+                    raise ValueError(
+                        f"Invalid content type '{item_type}'. "
+                        f"Must be one of: {', '.join(valid_types)}"
+                    )
+
+                # Validate media type has required fields
+                if item_type == "media":
+                    if "data" not in item or "mime_type" not in item:
+                        raise ValueError(
+                            "Media content must have 'data' and 'mime_type' fields"
+                        )
+
             return v
         raise ValueError("Message must be a string or list of content items")
 

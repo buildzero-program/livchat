@@ -505,3 +505,53 @@ class TestWorkflowInvokeInput:
                 message=[{"text": "Hello"}],  # Missing 'type' field
                 threadId="550e8400-e29b-41d4-a716-446655440000",
             )
+
+    def test_invoke_input_audio_media_valid(self):
+        """Test multimodal message with audio (media type)."""
+        from schema.workflow_schema import WorkflowInvokeInput
+
+        input_data = WorkflowInvokeInput(
+            message=[
+                {"type": "media", "data": "base64encodedaudio...", "mime_type": "audio/ogg"},
+                {"type": "text", "text": "Transcreva este áudio"},
+            ],
+            threadId="550e8400-e29b-41d4-a716-446655440000",
+        )
+        assert isinstance(input_data.message, list)
+        assert len(input_data.message) == 2
+        assert input_data.message[0]["type"] == "media"
+        assert input_data.message[0]["mime_type"] == "audio/ogg"
+
+    def test_invoke_input_media_missing_fields_fails(self):
+        """Test that media type without data/mime_type fails validation."""
+        from schema.workflow_schema import WorkflowInvokeInput
+
+        with pytest.raises(ValidationError):
+            WorkflowInvokeInput(
+                message=[{"type": "media", "data": "base64..."}],  # Missing mime_type
+                threadId="550e8400-e29b-41d4-a716-446655440000",
+            )
+
+    def test_invoke_input_invalid_content_type_fails(self):
+        """Test that invalid content type fails validation."""
+        from schema.workflow_schema import WorkflowInvokeInput
+
+        with pytest.raises(ValidationError):
+            WorkflowInvokeInput(
+                message=[{"type": "video", "url": "https://example.com/video.mp4"}],
+                threadId="550e8400-e29b-41d4-a716-446655440000",
+            )
+
+    def test_invoke_input_mixed_media_valid(self):
+        """Test multimodal message with image, audio, and text."""
+        from schema.workflow_schema import WorkflowInvokeInput
+
+        input_data = WorkflowInvokeInput(
+            message=[
+                {"type": "image_url", "image_url": {"url": "https://example.com/img.jpg"}},
+                {"type": "media", "data": "base64audio...", "mime_type": "audio/mpeg"},
+                {"type": "text", "text": "Compare imagem e áudio"},
+            ],
+            threadId="550e8400-e29b-41d4-a716-446655440000",
+        )
+        assert len(input_data.message) == 3

@@ -13,6 +13,8 @@ export interface ChatMessage {
   timestamp: string;
   /** URLs de imagens (Vercel Blob) */
   images?: string[];
+  /** URL do áudio (Vercel Blob) */
+  audio?: string;
 }
 
 // =============================================================================
@@ -20,7 +22,7 @@ export interface ChatMessage {
 // =============================================================================
 
 export type ClientMessage =
-  | { type: "message"; content: string; images?: string[] }
+  | { type: "message"; content: string; images?: string[]; audio?: string }
   | { type: "history" }
   | { type: "clear" };
 
@@ -36,6 +38,7 @@ export type ServerMessage =
       content: string;
       timestamp: string;
       images?: string[];
+      audio?: string;
     }
   | { type: "token"; content: string }
   | { type: "done"; messageId: string; fullContent: string }

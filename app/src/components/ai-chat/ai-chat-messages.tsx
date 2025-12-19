@@ -3,7 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
+import { Play, Pause } from "lucide-react";
 import { ScrollArea } from "~/components/ui/scroll-area";
+import { Button } from "~/components/ui/button";
 import { useAiChat, type Message } from "./ai-chat-provider";
 import { cn } from "~/lib/utils";
 
@@ -14,6 +16,92 @@ interface MessageBubbleProps {
   message: Message;
   isStreaming?: boolean;
   skipAnimation?: boolean;
+}
+
+/**
+ * Componente para exibir player de áudio customizado
+ */
+function MessageAudio({ src }: { src: string }) {
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [duration, setDuration] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
+
+  const togglePlayPause = () => {
+    if (!audioRef.current) return;
+
+    if (isPlaying) {
+      audioRef.current.pause();
+    } else {
+      audioRef.current.play();
+    }
+    setIsPlaying(!isPlaying);
+  };
+
+  const handleLoadedMetadata = () => {
+    if (audioRef.current) {
+      setDuration(audioRef.current.duration);
+    }
+  };
+
+  const handleTimeUpdate = () => {
+    if (audioRef.current) {
+      setCurrentTime(audioRef.current.currentTime);
+    }
+  };
+
+  const handleEnded = () => {
+    setIsPlaying(false);
+    setCurrentTime(0);
+  };
+
+  const formatTime = (time: number) => {
+    const mins = Math.floor(time / 60);
+    const secs = Math.floor(time % 60);
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  };
+
+  const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
+
+  return (
+    <div className="flex items-center gap-2 rounded-lg bg-background/20 px-2 py-1.5">
+      <audio
+        ref={audioRef}
+        src={src}
+        onLoadedMetadata={handleLoadedMetadata}
+        onTimeUpdate={handleTimeUpdate}
+        onEnded={handleEnded}
+        onPlay={() => setIsPlaying(true)}
+        onPause={() => setIsPlaying(false)}
+      />
+
+      <Button
+        size="icon"
+        variant="ghost"
+        className="h-8 w-8 shrink-0 rounded-full"
+        onClick={togglePlayPause}
+      >
+        {isPlaying ? (
+          <Pause className="h-4 w-4 fill-current" />
+        ) : (
+          <Play className="h-4 w-4 fill-current" />
+        )}
+      </Button>
+
+      {/* Progress bar */}
+      <div className="relative h-1.5 flex-1 rounded-full bg-background/30">
+        <div
+          className="absolute left-0 top-0 h-full rounded-full bg-current transition-all"
+          style={{ width: `${progress}%` }}
+        />
+      </div>
+
+      {/* Duration */}
+      <span className="min-w-[40px] text-xs tabular-nums opacity-70">
+        {formatTime(currentTime)} / {formatTime(duration)}
+      </span>
+    </div>
+  );
 }
 
 /**
@@ -87,6 +175,7 @@ function MessageBubble({
 }: MessageBubbleProps) {
   const isUser = message.role === "user";
   const hasImages = message.images && message.images.length > 0;
+  const hasAudio = !!message.audio;
 
   return (
     <motion.div
@@ -114,6 +203,13 @@ function MessageBubble({
           </div>
         )}
 
+        {/* Audio (render before text) */}
+        {hasAudio && (
+          <div className="mb-2">
+            <MessageAudio src={message.audio!} />
+          </div>
+        )}
+
         {/* Text content */}
         {message.content && (
           <span className="text-sm leading-relaxed whitespace-pre-wrap">
@@ -125,8 +221,8 @@ function MessageBubble({
           </span>
         )}
 
-        {/* Show cursor for image-only messages while streaming */}
-        {isStreaming && !message.content && (
+        {/* Show cursor for media-only messages while streaming */}
+        {isStreaming && !message.content && (hasImages || hasAudio) && (
           <span className="ml-0.5 inline-block h-4 w-0.5 animate-pulse bg-current align-middle" />
         )}
       </div>

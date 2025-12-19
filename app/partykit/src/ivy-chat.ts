@@ -59,7 +59,7 @@ export default class IvyChatServer implements Party.Server {
 
       switch (data.type) {
         case "message":
-          await this.handleUserMessage(data.content, data.images);
+          await this.handleUserMessage(data.content, data.images, data.audio);
           break;
 
         case "history":
@@ -87,7 +87,7 @@ export default class IvyChatServer implements Party.Server {
   // MESSAGE HANDLING
   // ===========================================================================
 
-  private async handleUserMessage(content: string, images?: string[]) {
+  private async handleUserMessage(content: string, images?: string[], audio?: string) {
     // Previne mensagens concorrentes
     if (this.state.isStreaming) {
       return;
@@ -105,10 +105,11 @@ export default class IvyChatServer implements Party.Server {
       content,
       timestamp: new Date().toISOString(),
       images,
+      audio,
     };
     this.state.messages.push(userMessage);
 
-    // Broadcast mensagem do usuário (inclui imagens)
+    // Broadcast mensagem do usuário (inclui imagens e áudio)
     this.broadcast({
       type: "message",
       ...userMessage,
@@ -119,7 +120,7 @@ export default class IvyChatServer implements Party.Server {
     this.broadcast({ type: "streaming", isStreaming: true });
 
     try {
-      await this.streamFromAST(content, images);
+      await this.streamFromAST(content, images, audio);
     } catch (error) {
       console.error("AST streaming error:", error);
       this.broadcast({
@@ -137,7 +138,7 @@ export default class IvyChatServer implements Party.Server {
   // AST STREAMING
   // ===========================================================================
 
-  private async streamFromAST(message: string, images?: string[]) {
+  private async streamFromAST(message: string, images?: string[], audio?: string) {
     const astUrl = this.room.env.AST_URL as string;
     const astKey = this.room.env.AST_API_KEY as string | undefined;
 
@@ -145,18 +146,50 @@ export default class IvyChatServer implements Party.Server {
       throw new Error("AST_URL not configured");
     }
 
-    // Constrói payload - se tem imagens, envia como array multimodal
+    // Constrói payload - se tem mídia, envia como array multimodal
     let payload: { message: string | object[]; threadId: string | null };
 
-    if (images && images.length > 0) {
-      // Formato multimodal: imagens ANTES do texto (best practice para Gemini)
-      const multimodalContent: object[] = [
-        ...images.map((url) => ({
-          type: "image_url",
-          image_url: { url },
-        })),
-        { type: "text", text: message },
-      ];
+    const hasImages = images && images.length > 0;
+    const hasAudio = !!audio;
+
+    if (hasImages || hasAudio) {
+      const multimodalContent: object[] = [];
+
+      // Adiciona imagens (como URL)
+      if (hasImages) {
+        for (const url of images) {
+          multimodalContent.push({
+            type: "image_url",
+            image_url: { url },
+          });
+        }
+      }
+
+      // Adiciona áudio (precisa converter para base64)
+      if (hasAudio) {
+        try {
+          const audioData = await this.fetchAudioAsBase64(audio);
+          if (audioData) {
+            multimodalContent.push({
+              type: "media",
+              data: audioData.base64,
+              mime_type: audioData.mimeType,
+            });
+          }
+        } catch (error) {
+          console.error("Failed to fetch audio:", error);
+          // Continua sem o áudio se falhar
+        }
+      }
+
+      // Adiciona texto por último
+      if (message) {
+        multimodalContent.push({ type: "text", text: message });
+      } else {
+        // Se não tem texto, adiciona instrução padrão
+        multimodalContent.push({ type: "text", text: "Processe este conteúdo." });
+      }
+
       payload = {
         message: multimodalContent,
         threadId: this.state.threadId,
@@ -271,6 +304,50 @@ export default class IvyChatServer implements Party.Server {
       messageId,
       fullContent,
     });
+  }
+
+  // ===========================================================================
+  // AUDIO PROCESSING
+  // ===========================================================================
+
+  /**
+   * Fetch audio from URL and convert to base64.
+   * Returns { base64, mimeType } or null if failed.
+   */
+  private async fetchAudioAsBase64(
+    url: string
+  ): Promise<{ base64: string; mimeType: string } | null> {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) {
+        console.error(`Failed to fetch audio: ${response.status}`);
+        return null;
+      }
+
+      const contentType = response.headers.get("content-type") || "audio/webm";
+      const arrayBuffer = await response.arrayBuffer();
+
+      // Convert to base64
+      const bytes = new Uint8Array(arrayBuffer);
+      let binary = "";
+      for (let i = 0; i < bytes.length; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      const base64 = btoa(binary);
+
+      // Map content type to Gemini-compatible mime type
+      // Gemini suporta: audio/wav, audio/mpeg, audio/aac, audio/ogg, audio/flac
+      // NÃO suporta: audio/webm
+      let mimeType = contentType.split(";")[0]; // Remove codecs suffix
+
+      // Log para debug
+      console.log(`Audio fetched: ${url}, type: ${mimeType}, size: ${bytes.length} bytes`);
+
+      return { base64, mimeType };
+    } catch (error) {
+      console.error("Error fetching audio:", error);
+      return null;
+    }
   }
 
   // ===========================================================================
