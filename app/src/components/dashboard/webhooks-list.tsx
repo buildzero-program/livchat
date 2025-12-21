@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Plus, Webhook, Link2, Loader2, AlertTriangle, RefreshCw } from "lucide-react";
+import { Plus, Webhook, Link2, AlertTriangle, RefreshCw } from "lucide-react";
 import { Button } from "~/components/ui/button";
+import { ViewToggle, type ViewMode } from "~/components/shared/view-toggle";
 import {
   Dialog,
   DialogContent,
@@ -188,6 +189,9 @@ export function WebhooksList() {
   const [logsDialogOpen, setLogsDialogOpen] = useState(false);
   const [viewingWebhook, setViewingWebhook] = useState<WebhookData | null>(null);
   const [resendingLogId, setResendingLogId] = useState<string | null>(null);
+
+  // View mode
+  const [view, setView] = useState<ViewMode>("list");
 
   // ═══════════════════════════════════════════════════════════════════════════
   // Queries
@@ -423,10 +427,13 @@ export function WebhooksList() {
           </span>
         </div>
         {webhooks.length > 0 && (
-          <Button size="sm" onClick={handleOpenAddDialog}>
-            <Plus className="h-4 w-4 mr-1.5" />
-            Adicionar
-          </Button>
+          <div className="flex items-center gap-2">
+            <ViewToggle view={view} onViewChange={setView} />
+            <Button size="sm" onClick={handleOpenAddDialog}>
+              <Plus className="h-4 w-4 mr-1.5" />
+              Adicionar
+            </Button>
+          </div>
         )}
       </div>
 
