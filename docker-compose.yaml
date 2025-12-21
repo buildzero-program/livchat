@@ -1,0 +1,219 @@
+# =============================================================================
+# LivChat - Docker Compose (Development)
+# =============================================================================
+# Runs all services locally with PostgreSQL and Redis
+#
+# Usage:
+#   docker compose up -d              # Start all services
+#   docker compose up -d app          # Start only app + dependencies
+#   docker compose logs -f            # Follow logs
+#   docker compose down               # Stop all services
+#   docker compose down -v            # Stop and remove volumes
+#
+# For production (Fly.io), use individual fly.toml files in each service
+# =============================================================================
+
+services:
+  # ===========================================================================
+  # CORE SERVICES
+  # ===========================================================================
+
+  # ---------------------------------------------------------------------------
+  # App - Next.js + tRPC (porta 3000)
+  # ---------------------------------------------------------------------------
+  app:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      - SKIP_ENV_VALIDATION=true
+      - PORT=3000
+      - HOSTNAME=0.0.0.0
+      # Override URLs for internal Docker network (each service has its own database)
+      - DATABASE_URL=postgresql://livchat:livchat@postgres:5432/livchat_app?sslmode=disable
+      - WUZAPI_URL=http://wuzapi:8080
+      - AST_URL=http://ast:9000
+      - UPSTASH_REDIS_REST_URL=http://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      wuzapi:
+        condition: service_healthy
+      ast:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "bun", "-e", "fetch('http://localhost:3000/api/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - livchat
+
+  # ---------------------------------------------------------------------------
+  # AST - Agent Service Toolkit (porta 9000)
+  # ---------------------------------------------------------------------------
+  ast:
+    build:
+      context: ./ast
+      dockerfile: docker/Dockerfile.service
+    ports:
+      - "9000:9000"
+    env_file:
+      - .env
+    environment:
+      - MODE=dev
+      - HOST=0.0.0.0
+      - PORT=9000
+      # Override for internal Docker network
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=livchat
+      - POSTGRES_PASSWORD=livchat
+      - POSTGRES_DB=livchat_ast
+      - POSTGRES_SSLMODE=disable
+      - DATABASE_TYPE=postgres
+    volumes:
+      - ./ast/privatecredentials:/privatecredentials
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:9000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+    networks:
+      - livchat
+
+  # ---------------------------------------------------------------------------
+  # WuzAPI - WhatsApp Backend (porta 8080)
+  # ---------------------------------------------------------------------------
+  wuzapi:
+    build:
+      context: ./wuzapi
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      - WUZAPI_PORT=8080
+      # Override for internal Docker network
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=livchat
+      - DB_PASSWORD=livchat
+      - DB_NAME=livchat_wuzapi
+      - DB_SSLMODE=disable
+      # Webhook points to app service
+      - WUZAPI_GLOBAL_WEBHOOK=http://app:3000/api/webhooks/wuzapi
+    volumes:
+      - wuzapi_sessions:/app/dbdata
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - livchat
+
+  # ===========================================================================
+  # INFRASTRUCTURE
+  # ===========================================================================
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL 16
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=livchat
+      - POSTGRES_PASSWORD=livchat
+      - POSTGRES_DB=livchat_app
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-databases.sql:/docker-entrypoint-initdb.d/init-databases.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U livchat -d livchat_app"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - livchat
+
+  # ---------------------------------------------------------------------------
+  # Redis (cache)
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - livchat
+
+  # ---------------------------------------------------------------------------
+  # MinIO (S3-compatible storage) - Optional
+  # ---------------------------------------------------------------------------
+  # Uncomment if you need local S3-compatible storage instead of Vercel Blob
+  # minio:
+  #   image: minio/minio:latest
+  #   ports:
+  #     - "9100:9000"    # API
+  #     - "9101:9001"    # Console
+  #   environment:
+  #     - MINIO_ROOT_USER=livchat
+  #     - MINIO_ROOT_PASSWORD=livchat123
+  #   volumes:
+  #     - minio_data:/data
+  #   command: server /data --console-address ":9001"
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+  #     interval: 30s
+  #     timeout: 20s
+  #     retries: 3
+  #   restart: unless-stopped
+  #   networks:
+  #     - livchat
+
+# =============================================================================
+# VOLUMES
+# =============================================================================
+volumes:
+  postgres_data:
+  redis_data:
+  wuzapi_sessions:
+  # minio_data:
+
+# =============================================================================
+# NETWORKS
+# =============================================================================
+networks:
+  livchat:
+    driver: bridge
