@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 import { Button } from "~/components/ui/button";
 import { EditableName } from "~/components/shared/editable-name";
 import { StatusBadge, type InstanceStatus } from "~/components/shared/status-badge";
+import { formatPhone, getInstanceStatusText } from "~/lib/utils";
 
 export type { InstanceStatus };
 
@@ -28,36 +29,6 @@ interface InstanceCardProps {
   onClick?: () => void;
   isDisconnecting?: boolean;
   isDeleting?: boolean;
-}
-
-function formatPhone(phone: string | undefined): string {
-  if (!phone) return "Não conectado";
-  if (phone.length >= 12) {
-    return `+${phone.slice(0, 2)} ${phone.slice(2, 4)} ${phone.slice(4, 9)}-${phone.slice(9)}`;
-  }
-  return phone;
-}
-
-function getStatusText(status: InstanceStatus, messagesUsed: number): string {
-  const parts: string[] = [];
-
-  switch (status) {
-    case "online":
-      parts.push("Online");
-      break;
-    case "connecting":
-      parts.push("Conectando...");
-      break;
-    case "offline":
-      parts.push("Offline");
-      break;
-  }
-
-  if (messagesUsed > 0) {
-    parts.push(`${messagesUsed} msgs`);
-  }
-
-  return parts.join(" · ");
 }
 
 export function InstanceCard({
@@ -99,14 +70,14 @@ export function InstanceCard({
           <StatusBadge status={instance.status} />
         </div>
 
-        {/* Action Buttons - Red like widget */}
+        {/* Action Buttons - Ghost style with hover */}
         <div className="flex items-center gap-1">
           {/* Disconnect Button (only when online) */}
           {isOnline && (
             <Button
-              variant="outline"
+              variant="ghost"
               size="icon"
-              className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-500/10 border-red-500/30"
+              className="h-8 w-8 text-muted-foreground hover:text-destructive"
               onClick={(e) => {
                 e.stopPropagation();
                 onDisconnect();
@@ -125,9 +96,9 @@ export function InstanceCard({
 
           {/* Delete Button */}
           <Button
-            variant="outline"
+            variant="ghost"
             size="icon"
-            className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-500/10 border-red-500/30"
+            className="h-8 w-8 text-muted-foreground hover:text-destructive"
             onClick={(e) => {
               e.stopPropagation();
               onDelete();
@@ -151,7 +122,7 @@ export function InstanceCard({
           {formatPhone(instance.phoneNumber)}
         </p>
         <p className="text-xs text-muted-foreground/70">
-          {getStatusText(instance.status, instance.messagesUsed)}
+          {getInstanceStatusText(instance.status, instance.messagesUsed)}
         </p>
       </div>
     </motion.div>

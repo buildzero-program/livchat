@@ -7,7 +7,6 @@ import { Button } from "~/components/ui/button";
 import { ViewToggle, type ViewMode } from "~/components/shared/view-toggle";
 import { ListSectionHeader } from "~/components/shared/list-section-header";
 import { DeleteConfirmDialog } from "~/components/shared/delete-confirm-dialog";
-import { InstanceRow } from "~/components/instances/instance-row";
 import { InstanceCard, type Instance } from "~/components/instances/instance-card";
 import { InstanceFormDialog } from "~/components/instances/instance-form-dialog";
 import { api } from "~/trpc/react";
@@ -247,7 +246,7 @@ export default function InstancesPage() {
               ) : (
                 <div className="space-y-3">
                   {instances.map((instance) => (
-                    <InstanceRow
+                    <InstanceCard
                       key={instance.id}
                       instance={instance}
                       onRename={handleRename(instance.id)}

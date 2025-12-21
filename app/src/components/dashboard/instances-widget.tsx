@@ -22,6 +22,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 import { Skeleton } from "~/components/ui/skeleton";
 import { api } from "~/trpc/react";
 import { formatRelativeTime } from "~/lib/mock-dashboard";
+import { formatPhone } from "~/lib/utils";
 
 // Shared components
 import { StatusBadge, type InstanceStatus } from "~/components/shared/status-badge";
@@ -75,15 +76,6 @@ function InstanceCard({
     return () => clearInterval(interval);
   }, [instance.connectedSince]);
 
-  // Format phone number for display
-  const formatPhone = (phone: string | undefined) => {
-    if (!phone) return "Não conectado";
-    // Format: +55 11 94818-2061
-    if (phone.length >= 12) {
-      return `+${phone.slice(0, 2)} ${phone.slice(2, 4)} ${phone.slice(4, 9)}-${phone.slice(9)}`;
-    }
-    return phone;
-  };
 
   return (
     <motion.div

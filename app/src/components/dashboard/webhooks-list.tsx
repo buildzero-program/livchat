@@ -5,15 +5,8 @@ import { motion } from "framer-motion";
 import { Plus, Webhook, Link2, AlertTriangle, RefreshCw } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { ViewToggle, type ViewMode } from "~/components/shared/view-toggle";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "~/components/ui/dialog";
-import { Input } from "~/components/ui/input";
+import { DeleteConfirmDialog } from "~/components/shared/delete-confirm-dialog";
+import { ListSectionHeader } from "~/components/shared/list-section-header";
 import { Skeleton } from "~/components/ui/skeleton";
 import { WebhookCard, type WebhookData, type Instance } from "./webhook-card";
 import {
@@ -107,72 +100,6 @@ function EmptyState({ onAdd }: { onAdd: () => void }) {
   );
 }
 
-// ============================================
-// DELETE DIALOG
-// ============================================
-
-function DeleteWebhookDialog({
-  webhook,
-  open,
-  onOpenChange,
-  onDelete,
-  isLoading,
-}: {
-  webhook: WebhookData | null;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onDelete: () => void;
-  isLoading: boolean;
-}) {
-  const [confirmation, setConfirmation] = useState("");
-
-  const canDelete = confirmation === webhook?.name;
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="text-destructive">
-            Deletar Webhook
-          </DialogTitle>
-          <DialogDescription>
-            Esta ação é irreversível. O webhook será removido permanentemente.
-          </DialogDescription>
-        </DialogHeader>
-        {webhook && (
-          <div className="space-y-4 py-4">
-            <p className="text-sm">
-              Digite <strong>{webhook.name}</strong> para confirmar:
-            </p>
-            <Input
-              value={confirmation}
-              onChange={(e) => setConfirmation(e.target.value)}
-              placeholder={webhook.name}
-              autoFocus
-            />
-          </div>
-        )}
-        <DialogFooter>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={isLoading}
-          >
-            Cancelar
-          </Button>
-          <Button
-            variant="destructive"
-            onClick={onDelete}
-            disabled={isLoading || !canDelete}
-          >
-            Deletar
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
 
 // ============================================
 // MAIN COMPONENT
@@ -418,15 +345,12 @@ export function WebhooksList() {
   return (
     <>
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-2">
-          <Webhook className="h-5 w-5" />
-          <h2 className="text-lg font-semibold">Webhooks</h2>
-          <span className="text-sm text-muted-foreground">
-            ({webhooks.length})
-          </span>
-        </div>
-        {webhooks.length > 0 && (
+      <ListSectionHeader
+        title="Webhooks"
+        icon={Webhook}
+        count={webhooks.length}
+        hideActionsWhenEmpty
+        actions={
           <div className="flex items-center gap-2">
             <ViewToggle view={view} onViewChange={setView} />
             <Button size="sm" onClick={handleOpenAddDialog}>
@@ -434,8 +358,8 @@ export function WebhooksList() {
               Adicionar
             </Button>
           </div>
-        )}
-      </div>
+        }
+      />
 
       {/* Content */}
       {webhooks.length === 0 ? (
@@ -472,12 +396,14 @@ export function WebhooksList() {
       />
 
       {/* Delete Dialog */}
-      <DeleteWebhookDialog
-        webhook={deletingWebhook}
+      <DeleteConfirmDialog
+        itemName={deletingWebhook?.name ?? ""}
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
-        onDelete={handleDelete}
+        onConfirm={handleDelete}
         isLoading={deleteMutation.isPending}
+        title="Deletar Webhook"
+        description="Esta ação é irreversível. O webhook será removido permanentemente."
       />
 
       {/* Logs Dialog */}
