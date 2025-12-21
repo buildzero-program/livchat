@@ -774,9 +774,19 @@ func (s *server) GetStatus() http.HandlerFunc {
 		}
 		hmacConfigured := len(hmacKey) > 0
 
+		// Get the real WhatsApp push name (user's display name in WhatsApp)
+		pushName := ""
+		if isLoggedIn {
+			waClient := clientManager.GetWhatsmeowClient(txtid)
+			if waClient != nil && waClient.Store != nil {
+				pushName = waClient.Store.PushName
+			}
+		}
+
 		response := map[string]interface{}{
 			"id":              txtid,
 			"name":            userInfo.Get("Name"),
+			"pushName":        pushName, // Real WhatsApp user name
 			"connected":       isConnected,
 			"loggedIn":        isLoggedIn,
 			"token":           userInfo.Get("Token"),
