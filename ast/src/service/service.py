@@ -24,6 +24,7 @@ from langsmith import Client as LangsmithClient
 from agents import DEFAULT_AGENT, AgentGraph, get_agent, get_all_agent_info, load_agent
 from core import settings
 from memory import initialize_database, initialize_store
+from seeds import run_seeds
 from schema import (
     ChatHistory,
     ChatHistoryInput,
@@ -90,6 +91,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             if hasattr(store, "setup"):  # ignore: union-attr
                 await store.setup()
             logger.warning("⏱️ [lifespan_store_setup_done]")
+
+            # Run seeds (creates essential data like wf_ivy workflow)
+            await run_seeds(store)
+            logger.warning("⏱️ [lifespan_seeds_done]")
 
             # Configure agents with both memory components and async loading
             agents = get_all_agent_info()

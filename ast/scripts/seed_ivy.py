@@ -19,6 +19,7 @@ from langgraph.store.postgres import AsyncPostgresStore
 
 IVY_WORKFLOW_ID = "wf_ivy"
 
+# Prompt atualizado baseado no banco de produção (Neon)
 IVY_SYSTEM_PROMPT = """Você é a Ivy, assistente virtual inteligente do LivChat.ai - a plataforma de WhatsApp API para desenvolvedores.
 
 ## Sua Personalidade
@@ -55,6 +56,9 @@ curl -X POST https://api.livchat.ai/v1/messages \\
   -d '{"to": "5511999999999", "text": "Hello!"}'
 ```
 """
+
+# Modelo padrão (atualizado)
+DEFAULT_MODEL = "gemini-3-flash-preview"
 
 
 def get_database_url() -> str:
@@ -96,6 +100,7 @@ async def seed_ivy():
         now = datetime.now(timezone.utc).isoformat()
 
         # Structure expected by workflow_agent.py
+        # Baseado no estado atual do banco Neon
         workflow_data = {
             "id": IVY_WORKFLOW_ID,
             "name": "Ivy",
@@ -103,26 +108,33 @@ async def seed_ivy():
             "flowData": {
                 "nodes": [
                     {
-                        "id": "agent_1",
+                        "id": "agent-1",
+                        "name": "Ivy Agent",
                         "type": "agent",
+                        "position": {"x": 100, "y": 100},
                         "config": {
                             "prompt": {
                                 "system": IVY_SYSTEM_PROMPT,
+                                "variables": ["current_datetime"],
                             },
                             "llm": {
-                                "model": "gpt-4o-mini",
+                                "model": DEFAULT_MODEL,
+                                "provider": "openai",
+                                "temperature": 0.7,
                             },
                             "memory": {
+                                "type": "buffer",
                                 "tokenLimit": 16000,
                             },
+                            "tools": [],
                         },
                     }
                 ],
                 "edges": [],
             },
-            "is_active": True,
-            "created_at": now,
-            "updated_at": now,
+            "isActive": True,
+            "createdAt": now,
+            "updatedAt": now,
         }
 
         # Verifica se já existe
@@ -137,8 +149,8 @@ async def seed_ivy():
                 print("   ❌ Cancelado")
                 return
 
-            # Atualiza
-            workflow_data["created_at"] = existing.value.get("created_at", now)
+            # Atualiza (preserva createdAt original)
+            workflow_data["createdAt"] = existing.value.get("createdAt", now)
             await store.aput(namespace, IVY_WORKFLOW_ID, workflow_data)
             print(f"✅ Workflow '{IVY_WORKFLOW_ID}' atualizado!")
         else:
@@ -153,7 +165,7 @@ async def seed_ivy():
         agent_config = workflow_data["flowData"]["nodes"][0]["config"]
         print(f"   Modelo: {agent_config['llm']['model']}")
         print(f"   Token Limit: {agent_config['memory']['tokenLimit']}")
-        print(f"   Ativo: {workflow_data['is_active']}")
+        print(f"   Ativo: {workflow_data['isActive']}")
         print()
         print("🎉 Seed completo!")
 

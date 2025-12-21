@@ -134,6 +134,7 @@ class Settings(BaseSettings):
     POSTGRES_PORT: int | None = None
     POSTGRES_DB: str | None = None
     POSTGRES_APPLICATION_NAME: str = "agent-service-toolkit"
+    POSTGRES_SSLMODE: str = "require"  # Options: disable, require, verify-ca, verify-full
     POSTGRES_MIN_CONNECTIONS_PER_POOL: int = 5
     POSTGRES_MAX_CONNECTIONS_PER_POOL: int = 20
 

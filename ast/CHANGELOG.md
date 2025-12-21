@@ -2,6 +2,22 @@
 
 All notable changes to this fork of agent-service-toolkit for LivChat.
 
+## 2025-12-21
+
+### Added
+- **Auto-seed on startup** - Runs essential seeds automatically on container start
+  - `src/seeds/__init__.py` - Seed module with `run_seeds()` function
+  - Creates `wf_ivy` workflow if not exists (idempotent)
+  - Called from FastAPI lifespan after `store.setup()`
+  - Similar to WuzAPI's `initializeSchema()` and App's `db-setup.ts`
+- Updated `docker/Dockerfile.service` to include seeds module
+
+### Changed
+- Updated `scripts/seed_ivy.py` to match production data structure
+  - `isActive` instead of `is_active` (camelCase)
+  - Added `position`, `name`, `tools` fields to workflow nodes
+  - Default model: `gemini-3-flash-preview`
+
 ## 2025-12-18
 
 ### Added
