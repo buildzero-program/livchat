@@ -9,7 +9,8 @@ export interface WuzAPIStatusData {
   loggedIn: boolean;
   jid?: string;
   id?: string;
-  name?: string;
+  name?: string; // Instance name in WuzAPI (e.g., "livchat_xxx")
+  pushName?: string; // Real WhatsApp user name (e.g., "Pedro Nascimento")
   events?: string;
   webhook?: string;
   qrcode?: string; // QR code is included in status response when not logged in

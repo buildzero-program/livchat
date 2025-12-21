@@ -6,6 +6,7 @@ import {
   getConnectedDeviceInstance,
   getOrReuseVirginOrphan,
   createInstanceForDevice,
+  createInstanceForOrganization,
   syncInstanceStatus,
   canSendMessage,
   getInstanceLimit,
@@ -123,8 +124,17 @@ export const whatsappRouter = createTRPCRouter({
    *
    * HÍBRIDO: Se usuário está logado, mostra instância da organização.
    *          Se anônimo, usa fluxo de device cookie.
+   *
+   * @param instanceId - Opcional. Se passado, busca status dessa instância específica
+   *                     (usado para polling após whatsapp.create)
    */
-  status: hybridProcedure.query(async ({ ctx }) => {
+  status: hybridProcedure
+    .input(
+      z.object({
+        instanceId: z.string().uuid().optional(),
+      }).optional()
+    )
+    .query(async ({ ctx, input }) => {
     const { device, user, log } = ctx;
 
     // DEBUG: Log do estado de autenticação
@@ -134,10 +144,96 @@ export const whatsappRouter = createTRPCRouter({
       organizationId: user?.organizationId,
       hasDevice: !!device,
       deviceId: device?.id?.slice(0, 8),
+      instanceId: input?.instanceId,
     });
 
     // Variável para controlar se estamos mostrando instância do user logado
     let isAuthenticatedInstance = false;
+
+    // ═══ CASO ESPECIAL: instanceId passado (polling após create) ═══
+    if (input?.instanceId && user) {
+      const specificInstance = await db.query.instances.findFirst({
+        where: and(
+          eq(instances.id, input.instanceId),
+          eq(instances.organizationId, user.organizationId)
+        ),
+      });
+
+      if (!specificInstance) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Instance not found",
+        });
+      }
+
+      const client = new WuzAPIClient({
+        baseUrl: env.WUZAPI_URL,
+        token: specificInstance.providerToken,
+      });
+
+      try {
+        let statusRes = await client.getStatus();
+
+        // Se não está conectado, iniciar conexão para gerar QR code
+        if (!statusRes.data.connected) {
+          try {
+            await client.connect(["Message", "ReadReceipt", "Connected"]);
+            await new Promise((resolve) => setTimeout(resolve, 2000));
+            statusRes = await client.getStatus();
+          } catch (connectError) {
+            log.warn("status.specific", "Failed to connect for QR", {
+              instanceId: specificInstance.id,
+              error: connectError instanceof Error ? connectError.message : String(connectError),
+            });
+          }
+        }
+
+        // Sync status no banco (pushName é o nome real do WhatsApp)
+        await syncInstanceStatus(specificInstance.id, {
+          connected: statusRes.data.connected,
+          loggedIn: statusRes.data.loggedIn,
+          jid: statusRes.data.jid,
+          name: statusRes.data.pushName,
+        });
+
+        const usage = await canSendMessage(specificInstance.id);
+
+        return {
+          connected: statusRes.data.connected,
+          loggedIn: statusRes.data.loggedIn,
+          qrCode: !statusRes.data.loggedIn ? statusRes.data.qrcode : undefined,
+          jid: extractPhoneFromJID(statusRes.data.jid),
+          instanceId: specificInstance.id,
+          apiKey: undefined, // Será preenchido após login completo
+          messagesUsed: usage.used,
+          messagesLimit: usage.limit,
+          messagesRemaining: usage.remaining,
+          connectedSince: specificInstance.lastConnectedAt?.toISOString() ?? null,
+          deviceName: specificInstance.whatsappName ?? statusRes.data.pushName ?? null,
+          pictureUrl: specificInstance.whatsappPictureUrl ?? null,
+          isAuthenticatedInstance: true,
+        };
+      } catch (error) {
+        log.error("status.specific", "Failed to get specific instance status", error);
+        return {
+          connected: false,
+          loggedIn: false,
+          qrCode: undefined,
+          jid: undefined,
+          instanceId: specificInstance.id,
+          apiKey: undefined,
+          messagesUsed: 0,
+          messagesLimit: DEMO_MESSAGE_LIMIT,
+          messagesRemaining: DEMO_MESSAGE_LIMIT,
+          connectedSince: null,
+          deviceName: null,
+          pictureUrl: null,
+          isAuthenticatedInstance: true,
+        };
+      }
+    }
+
+    // ═══ FLUXO NORMAL: Resolução automática de instância ═══
 
     // PRIORIDADE 1: Se usuário está LOGADO, buscar instância da organização
     let instanceData = null;
@@ -251,11 +347,12 @@ export const whatsappRouter = createTRPCRouter({
       }
 
       // Sync status no banco (também cria API key se primeira conexão)
+      // pushName é o nome real do WhatsApp, não o nome da instância no WuzAPI
       const syncResult = await syncInstanceStatus(instance.id, {
         connected: statusRes.data.connected,
         loggedIn: statusRes.data.loggedIn,
         jid: statusRes.data.jid,
-        name: statusRes.data.name,
+        name: statusRes.data.pushName,
       });
 
       // QR code quando não logado
@@ -292,7 +389,7 @@ export const whatsappRouter = createTRPCRouter({
         messagesRemaining: usage.remaining,
         // Task #16: Campos extras para dashboard
         connectedSince: instance.lastConnectedAt?.toISOString() ?? null,
-        deviceName: instance.whatsappName ?? statusRes.data.name ?? null,
+        deviceName: instance.whatsappName ?? statusRes.data.pushName ?? null,
         pictureUrl: instance.whatsappPictureUrl ?? null,
         // HÍBRIDO: indica se é instância de usuário autenticado
         isAuthenticatedInstance,
@@ -765,6 +862,23 @@ export const whatsappRouter = createTRPCRouter({
             const status = await client.getStatus();
             const isOnline = status.data.connected && status.data.loggedIn;
 
+            // Sync status em background (atualiza nome, jid, etc no banco)
+            // Similar ao que fazemos com avatar
+            if (isOnline && status.data.pushName) {
+              setImmediate(async () => {
+                try {
+                  await syncInstanceStatus(instance.id, {
+                    connected: status.data.connected,
+                    loggedIn: status.data.loggedIn,
+                    jid: status.data.jid,
+                    name: status.data.pushName,
+                  });
+                } catch {
+                  // Ignora erro de sync em background
+                }
+              });
+            }
+
             // Trigger avatar sync only if requested AND rate-limit allows
             if (syncAvatars && isOnline && status.data.jid && needsAvatarSync(instance)) {
               syncAvatarInBackground(instance, client, status.data.jid);
@@ -773,11 +887,14 @@ export const whatsappRouter = createTRPCRouter({
             // Get usage from Redis
             const messagesUsed = await getQuotaUsage(instance.id);
 
+            // Usa pushName do WuzAPI como fallback (exibe imediatamente mesmo antes do sync)
+            const displayName = instance.whatsappName ?? status.data.pushName ?? null;
+
             return {
               id: instance.id,
-              name: instance.name,
+              name: displayName ?? instance.name, // Usa pushName se disponível, senão nome do banco
               phoneNumber: extractPhoneFromJID(instance.whatsappJid ?? undefined),
-              whatsappName: instance.whatsappName ?? status.data.name ?? null,
+              whatsappName: displayName,
               pictureUrl: instance.whatsappPictureUrl,
               status: deriveInstanceStatus(status.data.connected, status.data.loggedIn),
               connectedSince: instance.lastConnectedAt?.toISOString() ?? null,
@@ -819,6 +936,80 @@ export const whatsappRouter = createTRPCRouter({
         maxInstances: org?.maxInstances ?? 1,
         messagesLimit: org?.maxMessagesPerDay ?? DEMO_MESSAGE_LIMIT,
       };
+    }),
+
+  /**
+   * whatsapp.create
+   * Cria uma nova instância para a organização do usuário
+   * Requer autenticação (Clerk)
+   *
+   * Retorna a instância criada + QR code para conexão
+   */
+  create: protectedProcedure
+    .input(
+      z.object({
+        name: z.string().min(1).max(50).optional().default("WhatsApp"),
+      }).optional()
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { user, log } = ctx;
+      const name = input?.name ?? "WhatsApp";
+
+      try {
+        // 1. Criar instância (verifica limite internamente)
+        const { instance, client } = await createInstanceForOrganization(
+          user.organizationId,
+          name
+        );
+
+        // 2. Conectar ao WuzAPI para gerar QR code
+        try {
+          await client.connect(["Message", "ReadReceipt", "Connected"]);
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+        } catch (connectError) {
+          log.warn(LogActions.WUZAPI_CONNECT, "Failed to connect new instance", {
+            instanceId: instance.id,
+            error: connectError instanceof Error ? connectError.message : String(connectError),
+          });
+        }
+
+        // 3. Buscar status (inclui QR code)
+        const status = await client.getStatus();
+
+        log.info("instance.create", "Created new instance", {
+          instanceId: instance.id,
+          organizationId: user.organizationId,
+          name,
+          connected: status.data.connected,
+        });
+
+        return {
+          instance: {
+            id: instance.id,
+            name: instance.name,
+            status: "connecting" as const,
+          },
+          qrCode: status.data.qrcode ?? null,
+          connected: status.data.connected,
+          loggedIn: status.data.loggedIn,
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Failed to create instance";
+
+        // Erro de limite
+        if (errorMessage.includes("limit reached")) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: errorMessage,
+          });
+        }
+
+        log.error("instance.create", "Failed to create instance", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: errorMessage,
+        });
+      }
     }),
 
   /**

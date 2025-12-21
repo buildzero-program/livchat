@@ -232,6 +232,11 @@ export async function syncInstanceStatus(
 
   if (status.name) {
     updates.whatsappName = status.name;
+
+    // Se o nome da instância ainda é o default "WhatsApp", usar o pushName do WhatsApp
+    if (instance.name === "WhatsApp" || instance.name === "WhatsApp Demo") {
+      updates.name = status.name;
+    }
   }
 
   await db.update(instances).set(updates).where(eq(instances.id, instanceId));
@@ -380,6 +385,98 @@ export async function getInstanceById(instanceId: string) {
   return db.query.instances.findFirst({
     where: eq(instances.id, instanceId),
   });
+}
+
+/**
+ * Cria nova instance para uma organização (dashboard)
+ *
+ * Diferente de createInstanceForDevice, esta:
+ * - Recebe organizationId (não deviceId)
+ * - Verifica limite de instâncias da org
+ * - Retorna a instância + QR code após conectar
+ */
+export async function createInstanceForOrganization(
+  organizationId: string,
+  name = "WhatsApp"
+): Promise<InstanceWithClient> {
+  if (!WUZAPI_ADMIN_TOKEN) {
+    throw new Error("WUZAPI_ADMIN_TOKEN not configured");
+  }
+
+  // 1. Buscar org para verificar limite
+  const { organizations } = await import("~/server/db/schema");
+  const org = await db.query.organizations.findFirst({
+    where: eq(organizations.id, organizationId),
+  });
+
+  if (!org) {
+    throw new Error("Organization not found");
+  }
+
+  // 2. Contar instâncias atuais
+  const currentInstances = await db.query.instances.findMany({
+    where: eq(instances.organizationId, organizationId),
+  });
+
+  if (currentInstances.length >= (org.maxInstances ?? 1)) {
+    throw new Error(`Instance limit reached (${org.maxInstances ?? 1})`);
+  }
+
+  // 3. Gerar credenciais
+  const instanceName = generateProviderId();
+  const providerToken = generateProviderToken();
+
+  // 4. Criar user no WuzAPI
+  let wuzapiUserId: string;
+  try {
+    const result = await createWuzAPIInstance(
+      WUZAPI_BASE_URL,
+      WUZAPI_ADMIN_TOKEN,
+      instanceName,
+      providerToken,
+      "Message,ReadReceipt,Connected"
+    );
+    wuzapiUserId = result.data.id;
+    logger.debug(LogActions.INSTANCE_CREATE, "WuzAPI instance created for org", {
+      name: instanceName,
+      wuzapiId: wuzapiUserId,
+      organizationId,
+    });
+  } catch (error) {
+    logger.error(LogActions.INSTANCE_CREATE, "Failed to create WuzAPI instance for org", error);
+    throw new Error("Failed to create WhatsApp instance");
+  }
+
+  // 5. Criar instance no banco
+  const [instance] = await db
+    .insert(instances)
+    .values({
+      organizationId,
+      createdByDeviceId: null, // Criada pelo dashboard, não device
+      name,
+      providerId: wuzapiUserId,
+      providerToken,
+      providerType: "wuzapi",
+      status: "disconnected",
+    })
+    .returning();
+
+  if (!instance) {
+    throw new Error("Failed to create instance in database");
+  }
+
+  const client = new WuzAPIClient({
+    baseUrl: WUZAPI_BASE_URL,
+    token: providerToken,
+  });
+
+  logger.info(LogActions.INSTANCE_CREATE, "Created instance for organization", {
+    instanceId: instance.id,
+    organizationId,
+    name,
+  });
+
+  return { instance, client };
 }
 
 /**

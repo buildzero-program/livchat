@@ -73,4 +73,9 @@ export const redis = {
     if (!client) throw new Error("Redis not available");
     return client.expireat(key, timestamp);
   },
+  setex: async (key: string, seconds: number, value: string): Promise<string | null> => {
+    const client = getRedis();
+    if (!client) throw new Error("Redis not available");
+    return client.setex(key, seconds, value);
+  },
 };

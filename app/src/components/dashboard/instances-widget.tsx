@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Smartphone,
@@ -18,22 +18,15 @@ import {
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
-import { Badge } from "~/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 import { Skeleton } from "~/components/ui/skeleton";
-import { Input } from "~/components/ui/input";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "~/components/ui/dialog";
 import { api } from "~/trpc/react";
 import { formatRelativeTime } from "~/lib/mock-dashboard";
 
-type InstanceStatus = "online" | "connecting" | "offline";
+// Shared components
+import { StatusBadge, type InstanceStatus } from "~/components/shared/status-badge";
+import { EditableName } from "~/components/shared/editable-name";
+import { DeleteConfirmDialog } from "~/components/shared/delete-confirm-dialog";
 
 interface Instance {
   id: string;
@@ -44,195 +37,6 @@ interface Instance {
   status: InstanceStatus;
   connectedSince: string | null;
   messagesUsed: number;
-}
-
-// ============================================
-// STATUS BADGE
-// ============================================
-
-function StatusBadge({ status }: { status: InstanceStatus }) {
-  if (status === "online") {
-    return (
-      <Badge
-        variant="default"
-        className="bg-green-500/10 text-green-500 border-green-500/20 hover:bg-green-500/20"
-      >
-        <motion.span
-          className="w-2 h-2 rounded-full mr-1.5 bg-green-500"
-          animate={{ scale: [1, 1.2, 1] }}
-          transition={{ duration: 2, repeat: Infinity }}
-        />
-        Online
-      </Badge>
-    );
-  }
-
-  if (status === "connecting") {
-    return (
-      <Badge
-        variant="secondary"
-        className="bg-yellow-500/10 text-yellow-600 border-yellow-500/20"
-      >
-        <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
-        Conectando
-      </Badge>
-    );
-  }
-
-  return (
-    <Badge variant="destructive" className="bg-red-500/10 text-red-500 border-red-500/20">
-      <span className="w-2 h-2 rounded-full mr-1.5 bg-red-500" />
-      Offline
-    </Badge>
-  );
-}
-
-// ============================================
-// EDITABLE NAME (ClickUp style - optimistic UI)
-// ============================================
-
-function EditableName({
-  name,
-  onSave,
-}: {
-  name: string;
-  onSave: (name: string) => void;
-}) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [displayName, setDisplayName] = useState(name);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  // Sync from prop only when backend confirms (name changes)
-  useEffect(() => {
-    setDisplayName(name);
-  }, [name]);
-
-  // Focus input when entering edit mode
-  useEffect(() => {
-    if (isEditing && inputRef.current) {
-      inputRef.current.focus();
-      inputRef.current.select();
-    }
-  }, [isEditing]);
-
-  const handleSave = () => {
-    const trimmed = displayName.trim();
-    if (trimmed && trimmed !== name) {
-      // Optimistic: keep showing new name immediately
-      setDisplayName(trimmed);
-      onSave(trimmed);
-    } else {
-      setDisplayName(name);
-    }
-    setIsEditing(false);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      handleSave();
-    }
-    if (e.key === "Escape") {
-      setDisplayName(name);
-      setIsEditing(false);
-    }
-  };
-
-  // Shared typography
-  const typography = "font-semibold text-base leading-7";
-
-  if (isEditing) {
-    return (
-      <input
-        ref={inputRef}
-        value={displayName}
-        onChange={(e) => setDisplayName(e.target.value)}
-        onBlur={handleSave}
-        onKeyDown={handleKeyDown}
-        maxLength={50}
-        className={`${typography} h-7 field-sizing-content min-w-20 max-w-full rounded-md border border-input bg-transparent px-2 outline-none transition-colors focus-visible:border-ring`}
-      />
-    );
-  }
-
-  return (
-    <h3
-      onClick={() => setIsEditing(true)}
-      className={`${typography} h-7 truncate cursor-text rounded-md px-2 hover:bg-muted/50 transition-colors`}
-      title="Clique para editar"
-    >
-      {displayName}
-    </h3>
-  );
-}
-
-// ============================================
-// DELETE DIALOG
-// ============================================
-
-function DeleteDialog({
-  instance,
-  open,
-  onOpenChange,
-  onDelete,
-  isLoading,
-}: {
-  instance: Instance;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onDelete: () => void;
-  isLoading: boolean;
-}) {
-  const [confirmation, setConfirmation] = useState("");
-
-  useEffect(() => {
-    if (open) setConfirmation("");
-  }, [open]);
-
-  const canDelete = confirmation === instance.name;
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-destructive">
-            <AlertTriangle className="h-5 w-5" />
-            Deletar Instância
-          </DialogTitle>
-          <DialogDescription>
-            Esta ação é irreversível. A instância será desconectada e removida permanentemente.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-4">
-          <p className="text-sm">
-            Digite <strong>{instance.name}</strong> para confirmar:
-          </p>
-          <Input
-            value={confirmation}
-            onChange={(e) => setConfirmation(e.target.value)}
-            placeholder={instance.name}
-            autoFocus
-          />
-        </div>
-        <DialogFooter>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={isLoading}
-          >
-            Cancelar
-          </Button>
-          <Button
-            variant="destructive"
-            onClick={onDelete}
-            disabled={isLoading || !canDelete}
-          >
-            {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Deletar"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
 }
 
 // ============================================
@@ -670,11 +474,11 @@ export function InstancesWidget() {
 
       {/* Delete Dialog */}
       {currentInstance && (
-        <DeleteDialog
-          instance={currentInstance}
+        <DeleteConfirmDialog
+          itemName={currentInstance.name}
           open={deleteDialogOpen}
           onOpenChange={setDeleteDialogOpen}
-          onDelete={() =>
+          onConfirm={() =>
             deleteMutation.mutate({ instanceId: currentInstance.id })
           }
           isLoading={deleteMutation.isPending}
