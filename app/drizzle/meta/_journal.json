@@ -5,15 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1765135873426,
-      "tag": "0000_giant_psynapse",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1765331321471,
-      "tag": "0001_abnormal_romulus",
+      "when": 1766292276922,
+      "tag": "0000_init",
       "breakpoints": true
     }
   ]
