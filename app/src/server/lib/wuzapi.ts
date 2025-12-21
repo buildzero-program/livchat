@@ -77,12 +77,17 @@ export class WuzAPIClient {
     const headers: HeadersInit = {
       Token: this.token,
       "Content-Type": "application/json",
+      // Force new connection on each request to avoid stale keep-alive issues
+      Connection: "close",
       ...options.headers,
     };
 
     const response = await fetch(url, {
       ...options,
       headers,
+      // Disable keep-alive to prevent "socket connection closed unexpectedly" errors
+      // This is a workaround for Bun's HTTP client not detecting closed connections properly
+      keepalive: false,
     });
 
     if (!response.ok) {
@@ -216,7 +221,9 @@ export async function listWuzAPIInstances(
     method: "GET",
     headers: {
       Authorization: adminToken,
+      Connection: "close",
     },
+    keepalive: false,
   });
 
   if (!response.ok) {
@@ -242,12 +249,14 @@ export async function createWuzAPIInstance(
     headers: {
       Authorization: adminToken,
       "Content-Type": "application/json",
+      Connection: "close",
     },
     body: JSON.stringify({
       name: instanceName,
       token: instanceToken,
       events: events,
     }),
+    keepalive: false,
   });
 
   if (!response.ok) {
