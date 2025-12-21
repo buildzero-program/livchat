@@ -8,6 +8,7 @@ const isPublicRoute = createRouteMatcher([
   "/roadmap",             // Roadmap público
   "/changelog",           // Changelog público
   "/sso-callback",        // OAuth callback
+  "/api/health",          // Health check (Docker/K8s)
   "/api/trpc(.*)",        // tRPC API (tem própria autenticação)
   "/api/webhooks(.*)",    // Webhooks externos
   "/api/public(.*)",      // APIs públicas

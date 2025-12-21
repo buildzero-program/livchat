@@ -7,7 +7,10 @@ import { withSentryConfig } from "@sentry/nextjs";
 import { withAxiom } from "next-axiom";
 
 /** @type {import("next").NextConfig} */
-const config = {};
+const config = {
+  // Required for Docker deployment (creates standalone build)
+  output: "standalone",
+};
 
 // Combine Axiom + Sentry (Axiom wraps the base config, Sentry wraps everything)
 export default withSentryConfig(withAxiom(config), {
