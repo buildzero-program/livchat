@@ -9,9 +9,9 @@
   },
   "favicon": "/favicon.svg",
   "colors": {
-    "primary": "#25D366",
-    "light": "#25D366",
-    "dark": "#128C7E"
+    "primary": "#A855F7",
+    "light": "#C084FC",
+    "dark": "#9333EA"
   },
   "topbarLinks": [
     {
@@ -20,7 +20,7 @@
     },
     {
       "name": "Changelog",
-      "url": "/changelog"
+      "url": "https://livchat.ai/changelog"
     }
   ],
   "topbarCtaButton": {
@@ -94,19 +94,6 @@
               {
                 "group": "Webhooks",
                 "pages": ["api-reference/webhook"]
-              }
-            ]
-          },
-          {
-            "tab": "Changelog",
-            "groups": [
-              {
-                "group": "Updates",
-                "pages": [
-                  "changelog/2024-12-12-user-webhooks",
-                  "changelog/2024-12-10-public-api",
-                  "changelog/2024-12-08-launch"
-                ]
               }
             ]
           }
