@@ -127,9 +127,11 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   const queryClient = useQueryClient();
 
   // ============================================================================
-  // CAMADA 2: MÁSCARA - único estado de controle de visibilidade
+  // ESTADOS DE CONTROLE
   // ============================================================================
   const [isRevealed, setIsRevealed] = React.useState(false);
+  // Token retornado diretamente pelo regenerate (evita race condition)
+  const [regeneratedToken, setRegeneratedToken] = React.useState<string | null>(null);
 
   // Fetch API keys from tRPC
   const {
@@ -145,24 +147,26 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   const apiKey = apiKeysData?.find((k) => k.isActive) ?? apiKeysData?.[0];
 
   // ============================================================================
-  // CAMADA 1: CONTEÚDO - busca token completo quando revelado
+  // REVEAL QUERY - só executa se NÃO temos regeneratedToken
+  // (evita chamada desnecessária após regenerate)
   // ============================================================================
   const { data: revealData } = api.apiKeys.reveal.useQuery(
     { keyId: apiKey?.id ?? "" },
     {
-      enabled: isRevealed && !!apiKey?.id,
+      enabled: isRevealed && !!apiKey?.id && !regeneratedToken,
       staleTime: 0,
     }
   );
 
-  // Regenerate mutation
+  // Regenerate mutation - usa token retornado diretamente
   const regenerateMutation = api.apiKeys.regenerate.useMutation({
-    onSuccess: async () => {
+    onSuccess: async (data) => {
       toast.success("Chave regenerada com sucesso!");
-      // Invalida cache PRIMEIRO para limpar dados antigos
+      // Guarda token para quando usuário revelar (evita race condition)
+      // NÃO muda isRevealed - mantém estado do olho como estava
+      setRegeneratedToken(data.token);
+      // Invalida cache e refetch para atualizar maskedToken na lista
       await queryClient.invalidateQueries({ queryKey: [["apiKeys"]] });
-      // Força revelação - React Query vai buscar o novo token automaticamente
-      setIsRevealed(true);
       await refetchKeys();
     },
     onError: () => {
@@ -174,6 +178,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   React.useEffect(() => {
     if (!open) {
       setIsRevealed(false);
+      setRegeneratedToken(null);
       setRegenerateDialogOpen(false);
     }
   }, [open]);
@@ -224,13 +229,18 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   };
 
   // ============================================================================
-  // LÓGICA SIMPLIFICADA: displayToken é binário
-  // - Se revelado E temos token → mostra full
-  // - Caso contrário → mostra masked
+  // LÓGICA DE DISPLAY: respeita isRevealed (estado do olho)
   // ============================================================================
-  const displayToken = isRevealed && revealData?.token
-    ? revealData.token
-    : apiKey?.maskedToken;
+  const displayToken = React.useMemo(() => {
+    // Se olho fechado, sempre mostra masked (mesmo tendo regeneratedToken guardado)
+    if (!isRevealed) {
+      return apiKey?.maskedToken;
+    }
+    // Olho aberto: prioriza regeneratedToken > revealData > masked
+    if (regeneratedToken) return regeneratedToken;
+    if (revealData?.token) return revealData.token;
+    return apiKey?.maskedToken;
+  }, [isRevealed, regeneratedToken, revealData?.token, apiKey?.maskedToken]);
 
   const handleCopyKey = async () => {
     if (!displayToken) return;
@@ -240,9 +250,16 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
     }
   };
 
-  // Toggle simples - apenas inverte o estado
+  // Toggle - inverte estado do olho (isRevealed é a intenção do usuário)
   const handleRevealToggle = () => {
-    setIsRevealed(!isRevealed);
+    if (isRevealed) {
+      // Escondendo: limpa regeneratedToken para forçar nova reveal query na próxima vez
+      setIsRevealed(false);
+      setRegeneratedToken(null);
+    } else {
+      // Revelando
+      setIsRevealed(true);
+    }
   };
 
   const handleRegenerate = () => {
