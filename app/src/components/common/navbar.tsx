@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Menu, X } from "lucide-react";
-import { useAuth, useSignUp } from "@clerk/nextjs";
+import { useAuth, useSignIn } from "@clerk/nextjs";
 
 import { Button } from "~/components/ui/button";
 import { APP_NAME, NAV_LINKS } from "~/lib/constants";
@@ -21,7 +21,7 @@ export function Navbar() {
   const [authError, setAuthError] = useState<string | null>(null);
 
   const { isSignedIn, isLoaded } = useAuth();
-  const { signUp, isLoaded: signUpLoaded } = useSignUp();
+  const { signIn, isLoaded: signInLoaded } = useSignIn();
   const router = useRouter();
 
   useEffect(() => {
@@ -45,7 +45,7 @@ export function Navbar() {
   }, [isSignedIn, authModalOpen, router]);
 
   async function handleOAuth(provider: "oauth_github" | "oauth_google") {
-    if (!signUpLoaded || !signUp) return;
+    if (!signInLoaded || !signIn) return;
 
     const providerKey = provider === "oauth_google" ? "google" : "github";
     setLoadingProvider(providerKey);
@@ -61,29 +61,31 @@ export function Navbar() {
         "width=480,height=640,menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=yes"
       );
 
-      // Se popup bloqueado, mostra erro amigável
+      // Se popup bloqueado, fallback para redirect
       if (!popup) {
-        setAuthError("Popup bloqueado. Habilite popups para este site e tente novamente.");
-        setLoadingProvider(null);
+        await signIn.authenticateWithRedirect({
+          strategy: provider,
+          redirectUrl,
+          redirectUrlComplete: "/app",
+        });
         return;
       }
 
-      // Usa signUp.authenticateWithPopup - funciona para novos E existentes
-      // Clerk automaticamente faz sign-in se o usuário já existe
-      await signUp.authenticateWithPopup({
+      // Usa signIn.authenticateWithPopup - vai DIRETO para Google/GitHub
+      // Não passa pela página hosted do Clerk (accounts.dev)
+      await signIn.authenticateWithPopup({
         strategy: provider,
         redirectUrl,
         redirectUrlComplete: "/app",
         popup,
       });
 
-      // Após autenticação bem-sucedida
+      // Popup fechou, auth bem-sucedida
       setAuthModalOpen(false);
       router.replace("/app");
     } catch (err) {
       console.error("OAuth error:", err);
       setAuthError("Erro ao autenticar. Tente novamente.");
-    } finally {
       setLoadingProvider(null);
     }
   }
