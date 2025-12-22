@@ -10,7 +10,9 @@ import {
   Loader2,
   Check,
   AlertCircle,
+  Info,
 } from "lucide-react";
+import Link from "next/link";
 
 import { Input } from "~/components/ui/input";
 import { Button } from "~/components/ui/button";
@@ -203,8 +205,11 @@ export function QrCard({
 
         {/* Status text */}
         <div className="mt-4 text-center">
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground inline-flex items-center gap-1.5">
             Escaneie com seu WhatsApp
+            <Link href="/terms" target="_blank" title="Termos de Uso">
+              <Info className="h-3.5 w-3.5 text-muted-foreground/50 hover:text-muted-foreground transition-colors" />
+            </Link>
           </p>
         </div>
 

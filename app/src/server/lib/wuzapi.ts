@@ -140,6 +140,20 @@ export class WuzAPIClient {
   }
 
   /**
+   * POST /chat/send/image
+   * Envia mensagem de imagem com legenda opcional
+   * @param phone - Número do destinatário
+   * @param image - Imagem em base64 embedded format (data:image/jpeg;base64,...)
+   * @param caption - Legenda opcional
+   */
+  async sendImage(phone: string, image: string, caption?: string): Promise<WuzAPIResponse<WuzAPISendData>> {
+    return this.request<WuzAPISendData>("/chat/send/image", {
+      method: "POST",
+      body: JSON.stringify({ Phone: phone, Image: image, Caption: caption }),
+    });
+  }
+
+  /**
    * POST /user/check
    * Verifica se números estão no WhatsApp
    */

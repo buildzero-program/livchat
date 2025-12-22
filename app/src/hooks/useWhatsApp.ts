@@ -115,6 +115,19 @@ export interface UseWhatsAppReturn {
     reset: () => void;
   };
 
+  sendImage: {
+    mutate: (params: { phone: string; image: string; caption?: string }) => void;
+    mutateAsync: (params: { phone: string; image: string; caption?: string }) => Promise<{
+      success: boolean;
+      messageId: string;
+      timestamp: number;
+    }>;
+    isPending: boolean;
+    data: { success: boolean; messageId: string; timestamp: number } | undefined;
+    error: unknown;
+    reset: () => void;
+  };
+
   disconnect: {
     mutate: () => void;
     mutateAsync: () => Promise<{ success: boolean }>;
@@ -170,6 +183,23 @@ export function useWhatsApp(): UseWhatsAppReturn {
   const pairingMutation = api.whatsapp.pairing.useMutation();
   const validateMutation = api.whatsapp.validate.useMutation();
   const sendMutation = api.whatsapp.send.useMutation({
+    onSuccess: (data) => {
+      // Atualiza quota imediatamente após envio (optimistic update)
+      if (data.usage && optimisticState) {
+        const newState = {
+          ...optimisticState,
+          messagesUsed: data.usage.used,
+          messagesLimit: data.usage.limit,
+        };
+        setStoredState(newState);
+        setOptimisticState({
+          ...newState,
+          expiresAt: Date.now() + STORAGE_TTL_MS,
+        });
+      }
+    },
+  });
+  const sendImageMutation = api.whatsapp.sendImage.useMutation({
     onSuccess: (data) => {
       // Atualiza quota imediatamente após envio (optimistic update)
       if (data.usage && optimisticState) {
@@ -261,6 +291,16 @@ export function useWhatsApp(): UseWhatsAppReturn {
       data: sendMutation.data,
       error: sendMutation.error,
       reset: sendMutation.reset,
+    },
+
+    // Send image mutation
+    sendImage: {
+      mutate: (params: { phone: string; image: string; caption?: string }) => sendImageMutation.mutate(params),
+      mutateAsync: (params: { phone: string; image: string; caption?: string }) => sendImageMutation.mutateAsync(params),
+      isPending: sendImageMutation.isPending,
+      data: sendImageMutation.data,
+      error: sendImageMutation.error,
+      reset: sendImageMutation.reset,
     },
 
     // Disconnect mutation

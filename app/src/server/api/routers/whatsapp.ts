@@ -720,6 +720,125 @@ export const whatsappRouter = createTRPCRouter({
     }),
 
   /**
+   * whatsapp.sendImage
+   * Envia uma mensagem de imagem com legenda opcional
+   * HÍBRIDO: Funciona para users anônimos (device) E logados (org)
+   */
+  sendImage: hybridProcedure
+    .input(
+      z.object({
+        phone: phoneSchema,
+        image: z.string().min(1).refine(
+          (val) => val.startsWith("data:image/"),
+          "Image must be in base64 embedded format (data:image/...)"
+        ),
+        caption: z.string().max(1024).optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { device, user, log } = ctx;
+
+      if (!device && !user) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Device ou usuário não identificado",
+        });
+      }
+
+      // SendImage requer instance conectada - busca híbrida (org primeiro, device depois)
+      const instanceData = await getConnectedInstanceForContext({ device, user });
+
+      if (!instanceData) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Instância não encontrada. Conecte o WhatsApp primeiro.",
+        });
+      }
+
+      const { instance, client } = instanceData;
+
+      // Verificar se está logado
+      const status = await log.time(
+        LogActions.WUZAPI_STATUS,
+        "Checked login status before sendImage",
+        () => client.getStatus(),
+        { instanceId: instance.id }
+      );
+      if (!status.data.loggedIn) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "WhatsApp não conectado. Escaneie o QR code primeiro.",
+        });
+      }
+
+      // INCR-first: Incrementa E verifica quota em 1 operação atômica
+      const limit = await getInstanceLimit(instance.id);
+      const quota = await useQuota(instance.id, limit);
+
+      if (!quota.allowed) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: `Limite de ${quota.limit} mensagens/dia atingido. Crie uma conta para continuar!`,
+        });
+      }
+
+      try {
+        // Use retry with exponential backoff for transient errors
+        const res = await withRetry(
+          () => log.time(
+            LogActions.WUZAPI_SEND,
+            "Image sent",
+            () => client.sendImage(input.phone, input.image, input.caption),
+            { instanceId: instance.id, phone: input.phone }
+          ),
+          {
+            maxAttempts: 3,
+            initialDelayMs: 1500,
+            maxDelayMs: 5000,
+            isRetryable: isTransientError,
+            onRetry: (attempt, error) => {
+              const errorMsg = error instanceof Error ? error.message : String(error);
+              log.warn(LogActions.WUZAPI_SEND, `Retry attempt ${attempt} (image)`, {
+                instanceId: instance.id,
+                phone: input.phone,
+                error: errorMsg,
+              });
+            },
+          }
+        );
+
+        // Log event for audit/billing (async - don't await)
+        void logEvent({
+          name: EventTypes.MESSAGE_SENT,
+          organizationId: instance.organizationId,
+          instanceId: instance.id,
+          metadata: {
+            messageId: res.data.Id,
+            to: input.phone,
+            type: "image",
+          },
+        });
+
+        return {
+          success: true,
+          messageId: res.data.Id,
+          timestamp: res.data.Timestamp,
+          usage: {
+            used: quota.used,
+            limit: quota.limit,
+            remaining: quota.remaining,
+          },
+        };
+      } catch (error) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message:
+            error instanceof Error ? error.message : "Failed to send image",
+        });
+      }
+    }),
+
+  /**
    * whatsapp.disconnect
    * Desconecta (logout) do WhatsApp
    */

@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { Zap, MessageSquare, CreditCard } from "lucide-react";
 
 import { QrCard } from "./qr-card";
-import { TestPanel } from "./test-panel";
+import { TestPanelV2 } from "./test-panel";
 import { useWhatsApp } from "~/hooks/useWhatsApp";
 
 const features = [
@@ -39,6 +39,15 @@ export function Hero() {
       timestamp: result.timestamp,
     };
   }, [whatsapp.send]);
+
+  const handleSendImage = useCallback(async (phone: string, imageBase64: string, caption?: string) => {
+    const result = await whatsapp.sendImage.mutateAsync({ phone, image: imageBase64, caption });
+    return {
+      success: result.success,
+      messageId: result.messageId,
+      timestamp: result.timestamp,
+    };
+  }, [whatsapp.sendImage]);
 
   return (
     <section className="relative min-h-screen pt-32 pb-20 px-6 overflow-hidden">
@@ -90,11 +99,12 @@ export function Hero() {
           className="flex justify-center mb-16"
         >
           {whatsapp.isLoggedIn ? (
-            <TestPanel
+            <TestPanelV2
               onDisconnect={handleDisconnect}
               onSendMessage={handleSendMessage}
+              onSendImage={handleSendImage}
               onValidatePhone={handleValidatePhone}
-              isSending={whatsapp.send.isPending}
+              isSending={whatsapp.send.isPending || whatsapp.sendImage.isPending}
               isDisconnecting={whatsapp.disconnect.isPending}
               jid={whatsapp.jid}
               apiKey={whatsapp.apiKey}

@@ -10,6 +10,25 @@ import { withAxiom } from "next-axiom";
 const config = {
   // Required for Docker deployment (creates standalone build)
   output: "standalone",
+
+  // Enable raw imports for markdown files
+  webpack: (config) => {
+    config.module.rules.push({
+      test: /\.md$/,
+      type: "asset/source",
+    });
+    return config;
+  },
+
+  // Turbopack configuration for markdown files
+  turbopack: {
+    rules: {
+      "*.md": {
+        loaders: ["raw-loader"],
+        as: "*.js",
+      },
+    },
+  },
 };
 
 // Combine Axiom + Sentry (Axiom wraps the base config, Sentry wraps everything)
