@@ -24,6 +24,7 @@ import {
   DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
 import { SidebarMenuButton } from "~/components/ui/sidebar";
+import { SettingsDialog } from "~/components/settings";
 
 function getInitials(name: string | null | undefined): string {
   if (!name) return "U";
@@ -48,6 +49,7 @@ export function UserDropdownMenu() {
   const { signOut } = useClerk();
   const { setTheme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = React.useState(false);
+  const [settingsOpen, setSettingsOpen] = React.useState(false);
 
   React.useEffect(() => {
     setMounted(true);
@@ -155,11 +157,12 @@ export function UserDropdownMenu() {
               <span>Perfil</span>
             </Link>
           </DropdownMenuItem>
-          <DropdownMenuItem asChild className="cursor-pointer">
-            <Link href="/app/settings">
-              <Settings className="mr-2 h-4 w-4" />
-              <span>Configurações</span>
-            </Link>
+          <DropdownMenuItem
+            className="cursor-pointer"
+            onSelect={() => setSettingsOpen(true)}
+          >
+            <Settings className="mr-2 h-4 w-4" />
+            <span>Configurações</span>
           </DropdownMenuItem>
         </DropdownMenuGroup>
 
@@ -174,6 +177,9 @@ export function UserDropdownMenu() {
           <span>Sair</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
+
+      {/* Settings Dialog */}
+      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
     </DropdownMenu>
   );
 }

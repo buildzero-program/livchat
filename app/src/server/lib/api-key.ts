@@ -77,8 +77,8 @@ export function generateApiKeyToken(env: "live" | "test" = "live"): string {
 
 /**
  * Mask API key token for display
- * Shows prefix and last 4 characters only
- * Example: lc_live_****************************4d5e
+ * Shows prefix + first 4 chars + masked middle + last 4 chars
+ * Example: lc_live_c27K************************NdQJ
  */
 export function maskApiKeyToken(token: string): string {
   if (token.length <= 4) {
@@ -88,10 +88,21 @@ export function maskApiKeyToken(token: string): string {
   // Find the prefix (lc_xxx_)
   const prefixMatch = token.match(/^(lc_\w+_)/);
   const prefix = prefixMatch?.[1] ?? "";
-  const suffix = token.slice(-4);
-  const maskedLength = token.length - prefix.length - 4;
 
-  return prefix + "*".repeat(maskedLength) + suffix;
+  // Get content after prefix
+  const withoutPrefix = token.slice(prefix.length);
+
+  // Need at least 8 chars to show 4+4
+  if (withoutPrefix.length < 8) {
+    const suffix = token.slice(-4);
+    return prefix + "*".repeat(Math.max(0, token.length - prefix.length - 4)) + suffix;
+  }
+
+  const first4 = withoutPrefix.slice(0, 4);
+  const last4 = withoutPrefix.slice(-4);
+  const maskedLength = Math.max(0, withoutPrefix.length - 8);
+
+  return prefix + first4 + "*".repeat(maskedLength) + last4;
 }
 
 /**
@@ -110,8 +121,12 @@ export function isValidTokenFormat(token: string): boolean {
  * Cria API Key automaticamente quando instance conecta ao WhatsApp
  * Chamada em syncInstanceStatus() quando loggedIn passa a true
  *
+ * IMPORTANTE: Se a instance já pertence a uma organização, a key herda
+ * automaticamente o organizationId. Isso evita keys órfãs para instances
+ * criadas via dashboard (que não passam pelo fluxo de claiming por device).
+ *
  * @param instanceId - ID da instance que conectou
- * @param deviceId - ID do device que criou (para claim posterior)
+ * @param deviceId - ID do device que criou (para claim posterior, se anônimo)
  * @returns API key criada (ou existente se já houver)
  */
 export async function createApiKeyForInstance(
@@ -131,15 +146,26 @@ export async function createApiKeyForInstance(
     return { id: existing.id, token: existing.token };
   }
 
+  // Buscar a instance para herdar organizationId (se já foi claimed)
+  const instance = await db.query.instances.findFirst({
+    where: eq(instances.id, instanceId),
+    columns: { organizationId: true },
+  });
+
   // Gerar nova key
   const token = generateApiKeyToken("live");
+
+  // Se a instance já tem org, a key nasce "claimed" (herda o orgId)
+  // Se não tem org, a key nasce órfã (será claimed via claimDeviceApiKeys)
+  const inheritedOrgId = instance?.organizationId ?? null;
 
   const [created] = await db
     .insert(apiKeys)
     .values({
       instanceId,
       createdByDeviceId: deviceId,
-      organizationId: null, // Órfã até claim
+      organizationId: inheritedOrgId,
+      claimedAt: inheritedOrgId ? new Date() : null,
       token,
       name: "Default",
       scopes: ["whatsapp:*"],
@@ -154,6 +180,8 @@ export async function createApiKeyForInstance(
     keyId: created.id,
     instanceId,
     deviceId,
+    organizationId: inheritedOrgId,
+    inherited: !!inheritedOrgId,
   });
 
   return { id: created.id, token: created.token };
@@ -441,5 +469,86 @@ export async function getApiKeyById(keyId: string): Promise<ApiKeyData | null> {
     expiresAt: key.expiresAt,
     claimedAt: key.claimedAt,
     createdAt: key.createdAt,
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// REVEAL & REGENERATE (Dashboard functions)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Get full API key token (for reveal in dashboard)
+ * Only returns token if key belongs to the organization
+ */
+export async function getApiKeyToken(
+  keyId: string,
+  organizationId: string
+): Promise<string | null> {
+  const key = await db.query.apiKeys.findFirst({
+    where: and(
+      eq(apiKeys.id, keyId),
+      eq(apiKeys.organizationId, organizationId)
+    ),
+    columns: { token: true },
+  });
+
+  if (key) {
+    logger.info(LogActions.API_KEY_USE, "API key token revealed", {
+      keyId,
+      organizationId,
+    });
+  }
+
+  return key?.token ?? null;
+}
+
+/**
+ * Regenerate API key token
+ * Updates the token for an existing key (invalidates the old one)
+ * Returns the new token (only time it's visible)
+ */
+export async function regenerateApiKey(
+  keyId: string,
+  organizationId: string
+): Promise<{ id: string; token: string; maskedToken: string } | null> {
+  // Verify ownership
+  const existingKey = await db.query.apiKeys.findFirst({
+    where: and(
+      eq(apiKeys.id, keyId),
+      eq(apiKeys.organizationId, organizationId)
+    ),
+  });
+
+  if (!existingKey) {
+    return null;
+  }
+
+  // Generate new token
+  const newToken = generateApiKeyToken("live");
+
+  // Update key with new token
+  const [updated] = await db
+    .update(apiKeys)
+    .set({
+      token: newToken,
+      updatedAt: new Date(),
+      lastUsedAt: null, // Reset usage tracking
+    })
+    .where(eq(apiKeys.id, keyId))
+    .returning();
+
+  if (!updated) {
+    return null;
+  }
+
+  logger.info(LogActions.API_KEY_USE, "API key regenerated", {
+    keyId,
+    organizationId,
+  });
+
+  return {
+    id: updated.id,
+    token: newToken,
+    maskedToken: maskApiKeyToken(newToken),
   };
 }

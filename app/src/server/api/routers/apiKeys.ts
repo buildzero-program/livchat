@@ -5,6 +5,8 @@ import {
   listApiKeys,
   revokeApiKey,
   deleteApiKey,
+  getApiKeyToken,
+  regenerateApiKey,
 } from "~/server/lib/api-key";
 import { LogActions } from "~/server/lib/logger";
 
@@ -134,6 +136,82 @@ export const apiKeysRouter = createTRPCRouter({
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to delete API key",
+        });
+      }
+    }),
+
+  /**
+   * apiKeys.reveal
+   * Returns the full token (for copy/reveal in dashboard)
+   */
+  reveal: protectedProcedure
+    .input(z.object({ keyId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const { user, log } = ctx;
+
+      try {
+        const token = await getApiKeyToken(input.keyId, user.organizationId);
+
+        if (!token) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "API key not found",
+          });
+        }
+
+        log.info(LogActions.API_KEY_USE, "API key revealed via tRPC", {
+          keyId: input.keyId,
+        });
+
+        return { token };
+      } catch (error) {
+        if (error instanceof TRPCError) throw error;
+
+        log.error(LogActions.API_KEY_USE, "Failed to reveal API key", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to reveal API key",
+        });
+      }
+    }),
+
+  /**
+   * apiKeys.regenerate
+   * Generates a new token for the key (invalidates the old one)
+   * Returns the new token (only visible at this moment)
+   */
+  regenerate: protectedProcedure
+    .input(z.object({ keyId: z.string().uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const { user, log } = ctx;
+
+      try {
+        const result = await regenerateApiKey(input.keyId, user.organizationId);
+
+        if (!result) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "API key not found",
+          });
+        }
+
+        log.info(LogActions.API_KEY_USE, "API key regenerated via tRPC", {
+          keyId: input.keyId,
+        });
+
+        return {
+          success: true,
+          keyId: result.id,
+          token: result.token,
+          maskedToken: result.maskedToken,
+        };
+      } catch (error) {
+        if (error instanceof TRPCError) throw error;
+
+        log.error(LogActions.API_KEY_USE, "Failed to regenerate API key", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to regenerate API key",
         });
       }
     }),

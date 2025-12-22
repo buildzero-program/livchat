@@ -1,6 +1,6 @@
 # Plan 20: Settings Modal (Estilo Notion)
 
-## Status: PENDENTE
+## Status: FASE 1 ✅ | FASE 2 ✅ CONCLUÍDA
 
 Data: 2025-12-22
 
@@ -10,482 +10,297 @@ Data: 2025-12-22
 
 ### 1.1 Objetivo
 
-Criar um modal de Settings completo estilo Notion/Linear com:
-- Navegação lateral por seções
+Criar um modal de Settings simplificado estilo Notion com:
+- Navegação lateral por seções (scroll-spy)
 - UI/UX premium e polida
-- API Keys com máscara inteligente (mostrar 4 primeiros + 4 últimos)
-- Funcionalidades de copiar e revelar key
+- Uma única API Key com máscara inteligente
+- Funcionalidades de copiar, revelar e regenerar key
 
-### 1.2 Referência Visual (Notion)
+### 1.2 Estrutura Final (Simplificada)
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│  ╳                                                                   │
-├───────────────┬─────────────────────────────────────────────────────┤
-│               │                                                      │
-│  ○ Conta      │  Conta                                               │
-│  ┄┄┄┄┄┄┄┄┄┄┄  │  ─────────────────────────────────────────────────   │
-│    Pedro      │  ┌──────┐                                            │
-│               │  │Avatar│   Nome                                     │
-│  ★ Preferênc  │  └──────┘   [Pedro Nascimento___________]            │
-│  ⚙ Notificaç  │                                                      │
-│               │             Crie seu retrato                         │
-│  ─────────────│                                                      │
-│  Espaço de    │  Segurança da conta                                  │
-│  trabalho     │  ─────────────────────────────────────────────────   │
-│               │                                                      │
-│  ★ Geral      │  E-mail                                              │
-│  ↓ Importaçõe │  pedro@livchat.ai                  [Alterar e-mail]  │
-│               │                                                      │
-└───────────────┴─────────────────────────────────────────────────────┘
+┌───────────────────────────┬──────────────────────────────────────────────────────┐
+│                           │                                                      │
+│  👤 Pedro Nascimento      │              Perfil                                  │
+│  ─────────────────────    │              ┌────────┐                              │
+│                           │              │ Avatar │  Pedro Nascimento            │
+│  👤 Perfil                │              └────────┘  pedro@buildzero.ai          │
+│  🔑 Chave de API          │                                                      │
+│  🎨 Aparência             │              ─────────────────────────────────────   │
+│                           │                                                      │
+│                           │              Chave de API                            │
+│                           │              Use esta chave para autenticar...       │
+│                           │                                                      │
+│                           │              ┌─────────────────────┐ [👁] [📋]       │
+│                           │              │ lc_live_abc1●●●xyz9 │                 │
+│                           │              └─────────────────────┘                 │
+│                           │              Criada em 15 de dezembro de 2024        │
+│                           │                                                      │
+│                           │              [🔄 Regenerar chave]                    │
+│                           │                                                      │
+│                           │              ─────────────────────────────────────   │
+│                           │                                                      │
+│                           │              Aparência                               │
+│                           │              [☀️ Claro] [🌙 Escuro] [💻 Sistema]     │
+│                           │                                                      │
+└───────────────────────────┴──────────────────────────────────────────────────────┘
+     260px                              Conteúdo centralizado (max 580px)
 ```
 
-### 1.3 Abordagem em 2 Fases
+### 1.3 Decisões de Design
 
-| Fase | Objetivo | Entrega |
-|------|----------|---------|
-| **Fase 1** | UI Completa com Mocks | Visual perfeito para avaliação |
-| **Fase 2** | Integração Real | Funcionalidade completa |
+| Decisão | Escolha |
+|---------|---------|
+| Navegação | Lateral com scroll-spy (não tabs) |
+| API Keys | UMA única key (não lista) |
+| Segurança | Removida (gerenciado pelo Clerk) |
+| Aparência | 3 opções: Claro/Escuro/Sistema |
+| Perfil | Read-only (avatar, nome, email do Clerk) |
 
 ---
 
-## 2. Seções do Modal
+## 2. Fase 1: UI com Mocks ✅ CONCLUÍDA
 
-### 2.1 Estrutura de Navegação
-
-```
-CONTA
-├── Perfil            # Avatar, nome, email
-└── Segurança         # Trocar senha (via Clerk)
-
-API
-├── Chaves de API     # Lista de keys, copiar, revelar, revogar
-
-PREFERÊNCIAS
-└── Aparência         # Tema (claro/escuro/sistema)
-```
-
-### 2.2 Detalhamento por Seção
-
-#### 📋 Perfil
-- **Avatar** com preview e link "Crie seu retrato" (abre Clerk)
-- **Nome** (read-only, vem do Clerk)
-- **E-mail** (read-only + botão "Alterar" abre Clerk)
-
-#### 🔐 Segurança
-- **Alterar senha** (botão abre Clerk user management)
-- **Verificação em duas etapas** (link para Clerk)
-- **Excluir conta** (botão destructive com confirmação)
-
-#### 🔑 Chaves de API (Foco Principal)
-
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│  Chaves de API                                                       │
-│  ─────────────────────────────────────────────────────────────────── │
-│                                                                      │
-│  As chaves são criadas automaticamente ao conectar uma instância    │
-│  WhatsApp. Use-as para autenticar chamadas à API.                   │
-│                                                                      │
-│  ┌─────────────────────────────────────────────────────────────────┐│
-│  │  📱 Meu WhatsApp Pessoal                                        ││
-│  │  lc_live_abc1 ●●●●●●●●●●●●●●●●●●●●●●●●●●●● xyz9                 ││
-│  │                                                                  ││
-│  │  Criada em 15/12/2024 • Última uso: há 2 horas                  ││
-│  │                                                    [👁] [📋] [🗑]││
-│  └─────────────────────────────────────────────────────────────────┘│
-│                                                                      │
-│  ┌─────────────────────────────────────────────────────────────────┐│
-│  │  📱 WhatsApp Suporte                                            ││
-│  │  lc_live_def2 ●●●●●●●●●●●●●●●●●●●●●●●●●●●● wxy8                 ││
-│  │                                                                  ││
-│  │  Criada em 20/12/2024 • Nunca usada                             ││
-│  │                                                    [👁] [📋] [🗑]││
-│  └─────────────────────────────────────────────────────────────────┘│
-│                                                                      │
-└─────────────────────────────────────────────────────────────────────┘
-```
-
-**Funcionalidades:**
-- **Máscara inteligente**: `lc_live_abc1` + `●●●●...●●●●` + `xyz9` (4 primeiros após prefixo + 4 últimos)
-- **Revelar (👁)**: Toggle mostra/esconde key completa
-- **Copiar (📋)**: Copia key completa com toast de feedback
-- **Revogar (🗑)**: Soft delete com confirmação
-
-#### 🎨 Aparência
-- **Tema**: Radio group (Claro / Escuro / Sistema)
-- Preview visual de cada tema
-
----
-
-## 3. Componentes Necessários
-
-### 3.1 Componentes Existentes (shadcn/ui)
-
-| Componente | Status | Uso |
-|------------|--------|-----|
-| `Dialog` | ✅ Instalado | Container do modal |
-| `Button` | ✅ Instalado | Ações |
-| `Input` | ✅ Instalado | Campos editáveis |
-| `Avatar` | ✅ Instalado | Foto do usuário |
-| `Tabs` | ✅ Instalado | Navegação lateral (adaptado) |
-| `ScrollArea` | ✅ Instalado | Scroll na lista de keys |
-| `Separator` | ✅ Instalado | Divisores de seção |
-| `RadioGroup` | ⚠️ Verificar | Seletor de tema |
-| `Tooltip` | ⚠️ Verificar | Hints nos botões |
-
-### 3.2 Componentes a Criar
+### 2.1 Arquivos Criados
 
 ```
 src/components/settings/
-├── settings-dialog.tsx           # Modal principal
-├── settings-nav.tsx              # Navegação lateral
-├── settings-section.tsx          # Container de seção
-├── settings-row.tsx              # Linha label + value + action
-├── sections/
-│   ├── profile-section.tsx       # Seção Perfil
-│   ├── security-section.tsx      # Seção Segurança
-│   ├── api-keys-section.tsx      # Seção Chaves de API
-│   └── appearance-section.tsx    # Seção Aparência
-├── api-key-card.tsx              # Card individual de API key
-└── api-key-display.tsx           # Input mascarado com reveal/copy
-```
+├── settings-dialog.tsx     ✅ Modal completo (350 linhas)
+├── api-key-display.tsx     ✅ Componente de API key (obsoleto, inline agora)
+└── index.ts                ✅ Exports
 
-### 3.3 Hooks a Criar
-
-```
 src/hooks/
-├── use-copy-to-clipboard.ts      # Copy com feedback
-└── use-settings-dialog.ts        # Estado global do dialog (zustand ou context)
+└── use-copy-to-clipboard.ts ✅ Hook de copiar
 ```
 
----
+### 2.2 Arquivos Modificados
 
-## 4. Fase 1: UI com Mocks
-
-### 4.1 Objetivo
-
-Criar toda a interface visual com dados mockados para avaliação de UI/UX antes de integrar com o backend.
-
-### 4.2 Dados Mock
-
-```typescript
-// src/components/settings/mock-data.ts
-
-export const mockUser = {
-  id: "user_123",
-  name: "Pedro Nascimento",
-  email: "pedro@livchat.ai",
-  avatarUrl: "https://github.com/pedronascimento.png",
-};
-
-export const mockApiKeys = [
-  {
-    id: "key_1",
-    name: "Meu WhatsApp Pessoal",
-    token: "lc_live_abc1defghijklmnopqrstuvwxyz1234xyz9",
-    instanceName: "WhatsApp Pessoal",
-    createdAt: new Date("2024-12-15"),
-    lastUsedAt: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2h ago
-    isActive: true,
-  },
-  {
-    id: "key_2",
-    name: "WhatsApp Suporte",
-    token: "lc_live_def2ghijklmnopqrstuvwxyz5678wxy8",
-    instanceName: "Suporte Técnico",
-    createdAt: new Date("2024-12-20"),
-    lastUsedAt: null,
-    isActive: true,
-  },
-];
+```
+src/components/layout/user-dropdown-menu.tsx  ✅ Integrado com SettingsDialog
+src/components/ui/dialog.tsx                  ✅ Overlay melhorado (bg-black/65 + blur)
 ```
 
-### 4.3 Tarefas Fase 1
+### 2.3 Funcionalidades Implementadas
 
-#### 4.3.1 Setup Base
-- [ ] Instalar `RadioGroup` do shadcn/ui (se necessário)
-- [ ] Instalar `Tooltip` do shadcn/ui (se necessário)
-- [ ] Criar estrutura de pastas `src/components/settings/`
+| Feature | Status |
+|---------|--------|
+| Modal estilo Notion (1000x650px) | ✅ |
+| Navegação lateral (260px) | ✅ |
+| Scroll-spy com IntersectionObserver | ✅ |
+| Seção Perfil (mock do Clerk) | ✅ |
+| Seção API Key com mask/reveal/copy | ✅ |
+| Seção Aparência (tema funcional) | ✅ |
+| Botão regenerar (placeholder) | ✅ |
+| Overlay melhorado em todos dialogs | ✅ |
 
-#### 4.3.2 Componentes Base
-- [ ] Criar `settings-dialog.tsx` - Modal com layout split (nav + content)
-- [ ] Criar `settings-nav.tsx` - Navegação lateral com ícones
-- [ ] Criar `settings-section.tsx` - Wrapper de seção com título
-- [ ] Criar `settings-row.tsx` - Layout flexbox (label + value + action)
+### 2.4 Specs de Layout
 
-#### 4.3.3 Seções com Mock
-- [ ] Criar `profile-section.tsx` - Avatar + nome + email (mock)
-- [ ] Criar `security-section.tsx` - Botões placeholder
-- [ ] Criar `api-keys-section.tsx` - Lista de keys mock
-- [ ] Criar `appearance-section.tsx` - Tema toggle funcional
-
-#### 4.3.4 Componente de API Key
-- [ ] Criar `api-key-card.tsx` - Card visual da key
-- [ ] Criar `api-key-display.tsx` - Input com máscara + reveal + copy
-- [ ] Criar `use-copy-to-clipboard.ts` - Hook de copiar
-
-#### 4.3.5 Integração UI
-- [ ] Criar `use-settings-dialog.ts` - Estado do dialog (open/close)
-- [ ] Atualizar `user-dropdown-menu.tsx` - Abrir dialog ao clicar em Configurações
-- [ ] Testar responsividade mobile
-
-### 4.4 Design Specs
-
-#### Cores e Espaçamentos
 ```css
 /* Modal */
---settings-width: min(94vw, 800px);
---settings-max-height: 85vh;
+width: 1000px (max)
+height: 650px
 
-/* Navegação */
---nav-width: 220px;
---nav-item-height: 36px;
---nav-item-radius: 6px;
+/* Sidebar */
+width: 260px
+padding: 24px (p-6)
+background: muted/30
 
-/* Seções */
---section-gap: 32px;
---row-gap: 16px;
-
-/* API Key Card */
---card-padding: 16px;
---card-radius: 8px;
---card-border: 1px solid hsl(var(--border));
-```
-
-#### Animações
-```css
-/* Dialog enter */
-animation: dialog-in 200ms ease-out;
-
-/* Nav item hover */
-transition: background-color 150ms ease;
-
-/* Reveal key */
-transition: opacity 200ms ease;
+/* Content */
+max-width: 580px
+padding: 40px (p-10)
+centered: flex justify-center
+gap: 56px (space-y-14)
 ```
 
 ---
 
-## 5. Fase 2: Integração Real
+## 3. Fase 2: Integração Real 🔄 EM ANDAMENTO
 
-### 5.1 Objetivo
+### 3.1 Investigação Concluída ✅
 
-Conectar a UI com dados reais do Clerk (usuário) e tRPC (API keys).
-
-### 5.2 Tarefas Fase 2
-
-#### 5.2.1 Integração Clerk (Perfil)
-- [ ] Substituir mock por `useUser()` do Clerk
-- [ ] Implementar "Alterar e-mail" → `user.createEmailAddress()`
-- [ ] Implementar "Crie seu retrato" → redirect Clerk user profile
-
-#### 5.2.2 Integração tRPC (API Keys)
-- [ ] Usar `api.apiKeys.list.useQuery()` para listar keys
-- [ ] Implementar revelar key (já vem masked do backend, precisa endpoint novo?)
-- [ ] Implementar copiar key completa
-- [ ] Implementar revogar key → `api.apiKeys.revoke.useMutation()`
-- [ ] Implementar deletar key → `api.apiKeys.delete.useMutation()`
-
-#### 5.2.3 Integração Tema
-- [ ] Usar `useTheme()` do next-themes (já funciona)
-- [ ] Persistir preferência
-
-#### 5.2.4 Polimento
-- [ ] Loading states (Skeleton)
-- [ ] Error states
-- [ ] Empty states
-- [ ] Toast de feedback para todas ações
-- [ ] Animações de transição
-
-### 5.3 Endpoints tRPC Necessários
-
-| Endpoint | Status | Descrição |
-|----------|--------|-----------|
-| `apiKeys.list` | ✅ Existe | Lista keys masked |
-| `apiKeys.revoke` | ✅ Existe | Soft delete |
-| `apiKeys.delete` | ✅ Existe | Hard delete |
-| `apiKeys.reveal` | ❌ **CRIAR** | Retorna token completo |
-
-#### Novo Endpoint: `apiKeys.reveal`
+#### 3.1.1 Schema da Tabela `apiKeys`
 
 ```typescript
-// src/server/api/routers/apiKeys.ts
+// src/server/db/schema.ts (linhas 191-265)
+export const apiKeys = pgTable("api_keys", {
+  id: uuid("id").primaryKey().defaultRandom(),
 
-reveal: protectedProcedure
-  .input(z.object({ id: z.string().uuid() }))
-  .query(async ({ ctx, input }) => {
-    const key = await ctx.db.query.apiKeys.findFirst({
-      where: and(
-        eq(apiKeys.id, input.id),
-        eq(apiKeys.organizationId, ctx.user.organizationId)
-      ),
-    });
+  // Ownership (sistema de claiming)
+  organizationId: uuid("organization_id"),      // NULL = órfã, SET = claimed
+  instanceId: uuid("instance_id").notNull(),    // 1:1 com instance
 
-    if (!key) throw new TRPCError({ code: "NOT_FOUND" });
+  // Token
+  name: text("name").notNull().default("Default"),
+  token: text("token").notNull().unique(),      // Formato: lc_live_xxx (40 chars)
 
-    return { token: key.token }; // Token completo, não masked
-  }),
+  // Permissões
+  scopes: text("scopes").array().default(['whatsapp:*']),
+  isActive: boolean("is_active").notNull().default(true),
+
+  // Timestamps
+  lastUsedAt: timestamp("last_used_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
 ```
 
----
+**Descoberta importante:** API Keys são **1:1 com Instances**. Cada instance do WhatsApp gera automaticamente uma key quando conecta.
 
-## 6. Arquivos Impactados
+#### 3.1.2 Endpoints Disponíveis
 
-### Fase 1 (Criar)
-```
-src/components/settings/
-├── settings-dialog.tsx
-├── settings-nav.tsx
-├── settings-section.tsx
-├── settings-row.tsx
-├── mock-data.ts
-├── sections/
-│   ├── profile-section.tsx
-│   ├── security-section.tsx
-│   ├── api-keys-section.tsx
-│   └── appearance-section.tsx
-├── api-key-card.tsx
-└── api-key-display.tsx
+| Endpoint | Tipo | Descrição |
+|----------|------|-----------|
+| `apiKeys.list` | Query | Lista keys da org (tokens mascarados) |
+| `apiKeys.revoke` | Mutation | Desativa key (soft delete) |
+| `apiKeys.delete` | Mutation | Deleta permanentemente |
 
-src/hooks/
-├── use-copy-to-clipboard.ts
-└── use-settings-dialog.ts
-```
+**⚠️ NÃO existe endpoint de "regenerar"** - keys são criadas automaticamente com instances.
 
-### Fase 1 (Modificar)
-```
-src/components/layout/user-dropdown-menu.tsx  # Abrir dialog
-```
-
-### Fase 2 (Modificar)
-```
-src/server/api/routers/apiKeys.ts  # Adicionar endpoint reveal
-src/components/settings/sections/profile-section.tsx  # Integrar Clerk
-src/components/settings/sections/api-keys-section.tsx  # Integrar tRPC
-```
-
----
-
-## 7. UX Details
-
-### 7.1 Máscara de API Key
+#### 3.1.3 Formato do Token
 
 ```typescript
-function maskApiKey(token: string): string {
-  // token: "lc_live_abc1defghijklmnopqrstuvwxyz1234xyz9"
-  // output: "lc_live_abc1 ●●●●●●●●●●●●●●●●●●●●●●●●●●●● xyz9"
-
-  const prefix = "lc_live_";
-  const withoutPrefix = token.slice(prefix.length);
-  const first4 = withoutPrefix.slice(0, 4);
-  const last4 = withoutPrefix.slice(-4);
-  const maskedMiddle = "●".repeat(Math.max(0, withoutPrefix.length - 8));
-
-  return `${prefix}${first4} ${maskedMiddle} ${last4}`;
+// Geração: src/server/lib/api-key.ts
+function generateApiKeyToken(env: "live" | "test" = "live"): string {
+  return `lc_${env}_${random32chars}`;  // Total: 40 caracteres
 }
+
+// Masking do backend (sempre retorna mascarado após criação)
+// Formato: lc_live_****************************4d5e
 ```
 
-### 7.2 Copy Feedback
+#### 3.1.4 Relação Organization → Keys
+
+```
+Organization (1)
+    └── Instances (N)
+           └── API Key (1:1)
+```
+
+- Cada user tem 1 organization (no MVP)
+- Organization pode ter N instances
+- Cada instance gera exatamente 1 API key
+- **Resultado:** pode haver múltiplas keys por organização
+
+### 3.2 Dados Mock Atuais (a remover)
 
 ```typescript
-// Hook
-const { copy, copied } = useCopyToClipboard();
-
-// UI
-<Button onClick={() => copy(token)}>
-  {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-</Button>
-
-// Toast
-toast.success("Chave copiada para a área de transferência");
+const MOCK_API_KEY = {
+  token: "lc_live_abc1defghijklmnopqrstuvwxyz1234xyz9",
+  createdAt: new Date("2024-12-15"),
+};
 ```
 
-### 7.3 Keyboard Shortcuts
+### 3.3 Integração Necessária
 
-| Atalho | Ação |
-|--------|------|
-| `Esc` | Fechar modal |
-| `↑/↓` | Navegar seções |
-| `Enter` | Selecionar seção |
+#### 3.3.1 Perfil (Clerk) - ✅ JÁ FUNCIONA
+- `useUser()` do Clerk já está integrado
+- Avatar, nome e email são reais
 
-### 7.4 Mobile Behavior
+#### 3.3.2 API Key (tRPC) - 🔄 EM PROGRESSO
 
-Em telas < 768px:
-- Navegação vira tabs horizontais no topo
-- Ou drawer lateral que fecha ao selecionar
+**Query necessária:**
+```typescript
+const { data, isLoading, isError, refetch } = api.apiKeys.list.useQuery(
+  undefined,
+  { enabled: open }  // Só buscar quando dialog aberto
+);
+```
+
+**Retorno do endpoint:**
+```typescript
+Array<{
+  id: string;
+  name: string;
+  maskedToken: string;        // lc_live_****...4d5e
+  scopes: string[];
+  instanceId: string;
+  isActive: boolean;
+  lastUsedAt: string | null;
+  createdAt: string;
+}>
+```
+
+#### 3.3.3 Aparência (next-themes) - ✅ JÁ FUNCIONA
+- `useTheme()` já está integrado
+- Tema persiste corretamente
+
+### 3.4 Ajustes de Design Necessários
+
+| Item | Antes (Mock) | Depois (Real) |
+|------|--------------|---------------|
+| API Key | Uma key hardcoded | Primeira key ativa da lista |
+| Botão Revelar | Mostra token completo | **Remover** (backend só retorna mascarado) |
+| Botão Regenerar | Placeholder | **Remover** (não existe endpoint) |
+| Empty State | N/A | Mensagem: "Conecte uma instância para gerar" |
 
 ---
 
-## 8. Testes
+## 4. Tarefas Fase 2
 
-### 8.1 Teste Visual (Fase 1)
-- [ ] Modal abre corretamente
-- [ ] Navegação funciona
-- [ ] Todas seções renderizam
-- [ ] Tema toggle funciona
-- [ ] API key mask/reveal/copy funciona (com mock)
-- [ ] Responsivo mobile
+### 4.1 Investigação ✅ CONCLUÍDA
+- [x] Ler `src/server/db/schema.ts` - tabela apiKeys
+- [x] Ler `src/server/api/routers/apiKeys.ts` - endpoints
+- [x] Entender relação org → instance → apiKey
+- [x] Verificar se existe endpoint de regenerar → **NÃO EXISTE**
 
-### 8.2 Teste Integração (Fase 2)
-- [ ] Dados do Clerk carregam
-- [ ] Lista de API keys carrega
-- [ ] Revelar key funciona
-- [ ] Copiar key funciona
-- [ ] Revogar key funciona
-- [ ] Toast de feedback aparece
+### 4.2 Implementação ✅ CONCLUÍDA
+- [x] Adicionar `api.apiKeys.list.useQuery()` no settings-dialog
+- [x] Remover `MOCK_API_KEY` e usar dados reais
+- [x] Remover botão "Revelar" (token já vem mascarado)
+- [x] Remover botão "Regenerar" (não existe endpoint)
+- [x] Adicionar loading state (skeleton)
+- [x] Adicionar error state com retry
+- [x] Adicionar empty state (sem keys)
+
+### 4.3 Polimento ✅ CONCLUÍDO
+- [x] Skeleton loading durante fetch
+- [x] Empty state com mensagem informativa
+- [x] Toast feedback em ações (copiar)
+- [ ] Considerar mostrar múltiplas keys (futuro - não necessário agora)
 
 ---
 
-## 9. Referências
+## 5. Checklist Final
 
-### Arquivos de Referência
+### Fase 1: UI Mock ✅
+- [x] Estrutura de pastas criada
+- [x] settings-dialog.tsx completo
+- [x] use-copy-to-clipboard.ts criado
+- [x] Integração com user-dropdown-menu
+- [x] Tema toggle funcional
+- [x] Scroll-spy funcionando
+- [x] Layout responsivo
+
+### Fase 2: Integração ✅
+- [x] Dados reais do Clerk (perfil)
+- [x] Tema funcional (next-themes)
+- [x] Investigação da API (schema, router, relações)
+- [x] API Key real via `api.apiKeys.list`
+- [x] Loading state (skeleton)
+- [x] Error state (retry button)
+- [x] Empty state (sem keys)
+- [x] ~~Regenerar key~~ → **REMOVIDO** (não existe endpoint)
+
+---
+
+## 6. Referências
 
 | Recurso | Path |
 |---------|------|
-| SettingsPanel (base) | `/home/pedro/dev/sandbox/buildzero/references/saas-template/src/lib/ui/settings/settings-panel.tsx` |
-| UserDropdownMenu | `/home/pedro/dev/sandbox/livchat/app/src/components/layout/user-dropdown-menu.tsx` |
-| Dialog existente | `/home/pedro/dev/sandbox/livchat/app/src/components/ui/dialog.tsx` |
-| API Keys schema | `/home/pedro/dev/sandbox/livchat/app/src/server/db/schema.ts:191-265` |
-| API Keys router | `/home/pedro/dev/sandbox/livchat/app/src/server/api/routers/apiKeys.ts` |
-
-### Design Inspiration
-- Notion Settings Modal (referência visual)
-- Linear Settings
-- Vercel Dashboard Settings
+| Settings Dialog | `src/components/settings/settings-dialog.tsx` |
+| Copy Hook | `src/hooks/use-copy-to-clipboard.ts` |
+| User Dropdown | `src/components/layout/user-dropdown-menu.tsx` |
+| Dialog UI | `src/components/ui/dialog.tsx` |
+| API Keys Schema | `src/server/db/schema.ts` (linhas 191-265) |
+| API Keys Router | `src/server/api/routers/apiKeys.ts` |
+| API Keys Lib | `src/server/lib/api-key.ts` |
+| tRPC Client | `src/trpc/react.tsx` |
 
 ---
 
-## 10. Checklist Final
+**Status Final:** ✅ PLANO CONCLUÍDO
 
-### Fase 1: UI Mock
-- [ ] Estrutura de pastas criada
-- [ ] Componentes base implementados
-- [ ] Todas seções com dados mock
-- [ ] API key display com mask/reveal/copy
-- [ ] Integração com user-dropdown-menu
-- [ ] Tema toggle funcional
-- [ ] Responsivo testado
-- [ ] **ENTREGA: Modal bonito para avaliação**
-
-### Fase 2: Integração
-- [ ] Dados reais do Clerk
-- [ ] Dados reais de API keys (tRPC)
-- [ ] Endpoint `apiKeys.reveal` criado
-- [ ] Todas ações funcionais
-- [ ] Loading/error states
-- [ ] Testes passando
-- [ ] **ENTREGA: Modal 100% funcional**
-
----
-
-## 11. Estimativas
-
-| Fase | Complexidade | Arquivos |
-|------|--------------|----------|
-| Fase 1 | Média | ~12 arquivos novos |
-| Fase 2 | Baixa | ~4 arquivos modificados |
-
----
-
-**Próximo passo:** Iniciar Fase 1, criando a estrutura de componentes e o modal com dados mockados.
+Implementação completa do Settings Modal estilo Notion com:
+- Perfil via Clerk (real)
+- API Key via tRPC (real)
+- Tema via next-themes (real)
+- Loading/Error/Empty states
