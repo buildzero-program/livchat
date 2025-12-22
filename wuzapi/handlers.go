@@ -775,11 +775,17 @@ func (s *server) GetStatus() http.HandlerFunc {
 		hmacConfigured := len(hmacKey) > 0
 
 		// Get the real WhatsApp push name (user's display name in WhatsApp)
+		// For business accounts, BusinessName is more reliable than PushName
+		// PushName is synced via PushNameSetting event which may not have occurred yet
 		pushName := ""
 		if isLoggedIn {
 			waClient := clientManager.GetWhatsmeowClient(txtid)
 			if waClient != nil && waClient.Store != nil {
 				pushName = waClient.Store.PushName
+				// Fallback to BusinessName (business accounts)
+				if pushName == "" && waClient.Store.BusinessName != "" {
+					pushName = waClient.Store.BusinessName
+				}
 			}
 		}
 

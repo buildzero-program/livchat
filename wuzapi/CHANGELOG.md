@@ -2,11 +2,20 @@
 
 All notable changes to this fork of WuzAPI for LivChat.
 
+## 2025-12-22
+
+### Fixed
+- **pushName fallback for Business accounts** - Uses `BusinessName` when `PushName` is empty
+  - `handlers.go:777-790` - Added fallback logic
+  - Problem: `Store.PushName` is synced via `PushNameSetting` event which may not occur after restart
+  - Solution: For business accounts, `Store.BusinessName` is more reliable (always persisted in DB)
+  - Now works correctly for both personal and business WhatsApp accounts
+
 ## 2025-12-20
 
 ### Added
 - **pushName in /session/status** - Real WhatsApp user name now exposed in API
-  - `handlers.go:777-784` - Gets pushName from `waClient.Store.PushName`
+  - `handlers.go:777-790` - Gets pushName from `waClient.Store.PushName` with BusinessName fallback
   - Returns both `name` (instance ID) and `pushName` (WhatsApp display name)
   - Example response:
     ```json

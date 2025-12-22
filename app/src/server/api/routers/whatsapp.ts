@@ -887,14 +887,16 @@ export const whatsappRouter = createTRPCRouter({
             // Get usage from Redis
             const messagesUsed = await getQuotaUsage(instance.id);
 
-            // Usa pushName do WuzAPI como fallback (exibe imediatamente mesmo antes do sync)
-            const displayName = instance.whatsappName ?? status.data.pushName ?? null;
+            // pushName do WuzAPI como fallback para exibir imediatamente (antes do sync)
+            const whatsappDisplayName = instance.whatsappName ?? status.data.pushName ?? null;
 
             return {
               id: instance.id,
-              name: displayName ?? instance.name, // Usa pushName se disponível, senão nome do banco
+              // name: Nome editável pelo usuário (syncInstanceStatus só atualiza se era default)
+              // whatsappName: Nome provisório do WhatsApp (sempre atualizado)
+              name: instance.name,
               phoneNumber: extractPhoneFromJID(instance.whatsappJid ?? undefined),
-              whatsappName: displayName,
+              whatsappName: whatsappDisplayName,
               pictureUrl: instance.whatsappPictureUrl,
               status: deriveInstanceStatus(status.data.connected, status.data.loggedIn),
               connectedSince: instance.lastConnectedAt?.toISOString() ?? null,
