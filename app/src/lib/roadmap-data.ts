@@ -45,15 +45,151 @@ export const ROADMAP_STATUS_CONFIG: Record<
 
 export const ROADMAP_ITEMS: RoadmapItem[] = [
   // ═══════════════════════════════════════════════════════════════════════════
-  // Em Revisão - Ideias da comunidade, ainda não priorizadas
+  // LANÇADO - v1.0.0 (22 Dez 2024)
   // ═══════════════════════════════════════════════════════════════════════════
   {
-    id: "chatwoot-integration",
-    title: "Integração Chatwoot",
-    description: "Conecte LivChat como canal de API no Chatwoot para gerenciar conversas.",
-    status: "review",
+    id: "whatsapp-api",
+    title: "WhatsApp API",
+    description: "Envio de texto, imagens, vídeos, áudios, documentos e localização.",
+    status: "launched",
+    votes: 0,
+    version: "v1.0.0",
+  },
+  {
+    id: "zero-friction",
+    title: "Zero Friction",
+    description: "Conecte WhatsApp e teste a API antes de criar conta.",
+    status: "launched",
+    votes: 0,
+    version: "v1.0.0",
+  },
+  {
+    id: "multi-instance",
+    title: "Multi-Instance",
+    description: "Gerencie múltiplas conexões WhatsApp em uma única conta.",
+    status: "launched",
+    votes: 0,
+    version: "v1.0.0",
+  },
+  {
+    id: "api-keys",
+    title: "API Keys",
+    description: "Chaves geradas automaticamente com reveal, regenerate e revoke.",
+    status: "launched",
+    votes: 0,
+    version: "v1.0.0",
+  },
+  {
+    id: "user-webhooks",
+    title: "User Webhooks",
+    description: "Receba eventos em tempo real com HMAC signing e custom headers.",
+    status: "launched",
+    votes: 0,
+    version: "v1.0.0",
+  },
+  {
+    id: "quota-system",
+    title: "Quota System",
+    description: "Controle de uso em tempo real com Redis e reset diário.",
+    status: "launched",
+    votes: 0,
+    version: "v1.0.0",
+  },
+  {
+    id: "dashboard",
+    title: "Dashboard",
+    description: "Métricas, instâncias, quota e atividade em tempo real.",
+    status: "launched",
+    votes: 0,
+    version: "v1.0.0",
+  },
+  {
+    id: "settings-modal",
+    title: "Settings",
+    description: "Gerencie perfil, API key e aparência em modal estilo Notion.",
+    status: "launched",
+    votes: 0,
+    version: "v1.0.0",
+  },
+  {
+    id: "ivy-assistant",
+    title: "Assistente AI (Ivy)",
+    description: "Chat integrado com streaming em tempo real via LangGraph.",
+    status: "launched",
+    votes: 0,
+    version: "v1.0.0",
+  },
+  {
+    id: "multimodal",
+    title: "Multimodal",
+    description: "Envie imagens, grave áudios e anexe PDFs nas conversas com Ivy.",
+    status: "launched",
+    votes: 0,
+    version: "v1.0.0",
+  },
+  {
+    id: "api-docs",
+    title: "API Docs",
+    description: "Documentação interativa completa em docs.livchat.ai.",
+    status: "launched",
+    votes: 0,
+    version: "v1.0.0",
+  },
+  {
+    id: "roadmap-votes",
+    title: "Roadmap Público",
+    description: "Vote nas features que você mais quer ver implementadas.",
+    status: "launched",
+    votes: 0,
+    version: "v1.0.0",
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // EM PROGRESSO - Sendo desenvolvido agora
+  // ═══════════════════════════════════════════════════════════════════════════
+  {
+    id: "ai-workflows-api",
+    title: "AI Workflows API",
+    description: "API pública para criar e executar workflows de AI personalizados via api.livchat.ai.",
+    status: "in_progress",
     votes: 0,
   },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PLANEJADO - Próximas features confirmadas
+  // ═══════════════════════════════════════════════════════════════════════════
+  {
+    id: "ivy-actions",
+    title: "Ivy Actions",
+    description: "Ivy poderá executar ações reais: enviar mensagens, gerenciar instâncias.",
+    status: "planned",
+    votes: 0,
+  },
+  {
+    id: "ai-billing",
+    title: "AI Billing",
+    description: "Contabilização de tokens com suporte a BYOK (Bring Your Own Key).",
+    status: "planned",
+    votes: 0,
+  },
+  {
+    id: "inbox",
+    title: "Inbox",
+    description: "Caixa de entrada unificada para todas as conversas WhatsApp.",
+    status: "planned",
+    votes: 0,
+  },
+  {
+    id: "chat-widget",
+    title: "Chat Widget",
+    description: "Widget de chat para embedar em sites e landing pages.",
+    status: "planned",
+    votes: 0,
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // EM REVISÃO - Ideias da comunidade
+  // ═══════════════════════════════════════════════════════════════════════════
   {
     id: "n8n-integration",
     title: "Integração n8n",
@@ -76,6 +212,13 @@ export const ROADMAP_ITEMS: RoadmapItem[] = [
     votes: 0,
   },
   {
+    id: "chatwoot-integration",
+    title: "Integração Chatwoot",
+    description: "Conecte LivChat como canal no Chatwoot.",
+    status: "review",
+    votes: 0,
+  },
+  {
     id: "sdk-python",
     title: "SDK Python",
     description: "SDK oficial para Django, FastAPI e Python vanilla.",
@@ -91,15 +234,15 @@ export const ROADMAP_ITEMS: RoadmapItem[] = [
   },
   {
     id: "bulk-send",
-    title: "Bulk Send API",
-    description: "Envio em massa com rate limiting inteligente e relatórios.",
+    title: "Bulk Send",
+    description: "Envio em massa com rate limiting inteligente.",
     status: "review",
     votes: 0,
   },
   {
     id: "message-templates",
-    title: "Message Templates",
-    description: "Templates pré-aprovados para mensagens de marketing.",
+    title: "Templates",
+    description: "Templates pré-configurados para mensagens.",
     status: "review",
     votes: 0,
   },
@@ -109,130 +252,5 @@ export const ROADMAP_ITEMS: RoadmapItem[] = [
     description: "Agendar envio de mensagens para horários específicos.",
     status: "review",
     votes: 0,
-  },
-  {
-    id: "contacts-api",
-    title: "Contacts API",
-    description: "Gerenciar contatos e listas de broadcast via API.",
-    status: "review",
-    votes: 0,
-  },
-  {
-    id: "cli-tool",
-    title: "CLI Tool",
-    description: "Gerenciar instâncias e enviar mensagens direto do terminal.",
-    status: "review",
-    votes: 0,
-  },
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // Planejado - Próximas features confirmadas
-  // ═══════════════════════════════════════════════════════════════════════════
-  {
-    id: "ai-agents",
-    title: "Agentes AI",
-    description: "Crie e conecte agentes AI (LangChain, LangGraph) aos seus números WhatsApp.",
-    status: "planned",
-    votes: 0,
-  },
-  {
-    id: "ai-assistant",
-    title: "Assistente AI Interno",
-    description: "Assistente AI nativo do LivChat para ajudar na plataforma.",
-    status: "planned",
-    votes: 0,
-  },
-  {
-    id: "chat-widget",
-    title: "Chat Widget",
-    description: "Widget de chat para embedar em sites e landing pages.",
-    status: "planned",
-    votes: 0,
-  },
-  {
-    id: "inbox",
-    title: "Inbox / Caixa de Entrada",
-    description: "Acompanhe todas as conversas dos seus números em um só lugar.",
-    status: "planned",
-    votes: 0,
-  },
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // Em Progresso - Sendo desenvolvido agora
-  // ═══════════════════════════════════════════════════════════════════════════
-  {
-    id: "dashboard-widgets",
-    title: "Dashboard com Dados Reais",
-    description: "Widgets de instâncias, métricas, quota e atividade com dados em tempo real.",
-    status: "in_progress",
-    votes: 0,
-  },
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // Lançado - Features já disponíveis
-  // ═══════════════════════════════════════════════════════════════════════════
-  {
-    id: "roadmap-votes",
-    title: "Sistema de Votos",
-    description: "Vote nas features que você mais quer ver implementadas.",
-    status: "launched",
-    votes: 0,
-    version: "v1.2.0",
-  },
-  {
-    id: "user-webhooks",
-    title: "User Webhooks",
-    description: "Configure endpoints para receber eventos WhatsApp em tempo real com HMAC.",
-    status: "launched",
-    votes: 0,
-    version: "v1.2.0",
-  },
-  {
-    id: "api-docs",
-    title: "Documentação API",
-    description: "Documentação interativa completa em docs.livchat.ai.",
-    status: "launched",
-    votes: 0,
-    version: "v1.1.0",
-  },
-  {
-    id: "public-api",
-    title: "Public API",
-    description: "REST API completa em api.livchat.ai com autenticação HMAC.",
-    status: "launched",
-    votes: 0,
-    version: "v1.1.0",
-  },
-  {
-    id: "zero-friction",
-    title: "Zero Friction Auth",
-    description: "Conecte WhatsApp e teste a API antes de criar conta.",
-    status: "launched",
-    votes: 0,
-    version: "v1.0.0",
-  },
-  {
-    id: "multi-device",
-    title: "Multi-Device Support",
-    description: "Suporte ao protocolo WhatsApp Web multi-dispositivo.",
-    status: "launched",
-    votes: 0,
-    version: "v1.0.0",
-  },
-  {
-    id: "text-media",
-    title: "Text & Media Messages",
-    description: "Envio de texto, imagens, vídeos, áudios e documentos.",
-    status: "launched",
-    votes: 0,
-    version: "v1.0.0",
-  },
-  {
-    id: "quota-system",
-    title: "Sistema de Quotas",
-    description: "Limites por instância com Redis e reset diário automático.",
-    status: "launched",
-    votes: 0,
-    version: "v1.0.0",
   },
 ];
