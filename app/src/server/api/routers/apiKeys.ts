@@ -7,6 +7,7 @@ import {
   deleteApiKey,
   getApiKeyToken,
   regenerateApiKey,
+  claimOrphanKeysForOrganization,
 } from "~/server/lib/api-key";
 import { LogActions } from "~/server/lib/logger";
 
@@ -17,11 +18,22 @@ export const apiKeysRouter = createTRPCRouter({
    *
    * NOTE: API keys are created automatically when WhatsApp connects.
    * There is no manual create endpoint - keys follow the instance lifecycle.
+   *
+   * AUTO-HEAL: Before listing, claims any orphan keys from org's instances.
+   * This handles edge cases where keys were created but not properly claimed.
    */
   list: protectedProcedure.query(async ({ ctx }) => {
     const { user, log } = ctx;
 
     try {
+      // Auto-heal: claim orphan keys from org's instances (fire-and-forget style but awaited)
+      const claimed = await claimOrphanKeysForOrganization(user.organizationId);
+      if (claimed > 0) {
+        log.info(LogActions.API_KEY_USE, "Auto-healed orphan API keys", {
+          claimed,
+        });
+      }
+
       const keys = await listApiKeys(user.organizationId);
 
       log.debug(LogActions.API_KEY_USE, "Listed API keys", {

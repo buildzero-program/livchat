@@ -552,3 +552,63 @@ export async function regenerateApiKey(
     maskedToken: maskApiKeyToken(newToken),
   };
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// AUTO-HEAL: Claim órfãs por instância (fallback para fluxo quebrado)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Claim API Keys órfãs das instâncias da organização
+ *
+ * Este é um mecanismo de "auto-heal" para casos onde:
+ * - Instance foi criada pelo dashboard (sem deviceId)
+ * - API key foi criada mas ficou órfã por algum bug
+ * - claimDeviceApiKeys não conseguiu fazer o claim (deviceId null)
+ *
+ * @param organizationId - ID da organização
+ * @returns Quantidade de keys claimed
+ */
+export async function claimOrphanKeysForOrganization(
+  organizationId: string
+): Promise<number> {
+  // 1. Buscar IDs das instâncias da organização
+  const orgInstances = await db.query.instances.findMany({
+    where: eq(instances.organizationId, organizationId),
+    columns: { id: true },
+  });
+
+  if (orgInstances.length === 0) {
+    return 0;
+  }
+
+  // 2. Claim keys órfãs dessas instâncias (loop por instância)
+  let totalClaimed = 0;
+
+  for (const inst of orgInstances) {
+    const claimed = await db
+      .update(apiKeys)
+      .set({
+        organizationId,
+        claimedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(apiKeys.instanceId, inst.id),
+          isNull(apiKeys.organizationId)
+        )
+      )
+      .returning();
+
+    totalClaimed += claimed.length;
+  }
+
+  if (totalClaimed > 0) {
+    logger.info(LogActions.API_KEY_USE, "Orphan API keys auto-claimed", {
+      organizationId,
+      count: totalClaimed,
+    });
+  }
+
+  return totalClaimed;
+}
