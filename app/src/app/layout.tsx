@@ -23,7 +23,12 @@ export const metadata: Metadata = {
   title: "LivChat.ai - WhatsApp API para Desenvolvedores",
   description:
     "Envie fácil. Escale rápido. WhatsApp API para devs, martech e AI agents.",
-  icons: [{ rel: "icon", url: "/icon.svg", type: "image/svg+xml" }],
+  icons: [
+    // Light mode (navegador claro) → ícone dark (vibrante) para contraste
+    { rel: "icon", url: "/icon-dark.svg", type: "image/svg+xml", media: "(prefers-color-scheme: light)" },
+    // Dark mode (navegador escuro) → ícone light (pastel) para contraste
+    { rel: "icon", url: "/icon-light.svg", type: "image/svg+xml", media: "(prefers-color-scheme: dark)" },
+  ],
   openGraph: {
     title: "LivChat.ai - WhatsApp API para Desenvolvedores",
     description:
