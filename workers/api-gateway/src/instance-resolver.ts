@@ -34,9 +34,14 @@ export function resolveInstanceByFrom(
   const byPhone = allowedInstances.find((inst) => {
     if (!inst.whatsappJid) return false;
 
-    // Extract phone from JID: "5585912345678@s.whatsapp.net" -> "5585912345678"
+    // Extract phone from JID: "5585912345678:23@s.whatsapp.net" -> "5585912345678"
+    // JID format: phone[:device]@s.whatsapp.net
     const atIndex = inst.whatsappJid.indexOf("@");
-    const jidNumber = atIndex > 0 ? inst.whatsappJid.slice(0, atIndex) : inst.whatsappJid;
+    const beforeAt = atIndex > 0 ? inst.whatsappJid.slice(0, atIndex) : inst.whatsappJid;
+
+    // Remove device suffix if present (e.g., ":23" for multi-device)
+    const colonIndex = beforeAt.indexOf(":");
+    const jidNumber = colonIndex > 0 ? beforeAt.slice(0, colonIndex) : beforeAt;
 
     // Match against normalized input (digits only)
     return jidNumber === normalizedFrom;
