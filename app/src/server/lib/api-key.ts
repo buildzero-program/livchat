@@ -1,6 +1,6 @@
 import { db } from "~/server/db";
 import { apiKeys, instances } from "~/server/db/schema";
-import { eq, and, or, isNull, gt } from "drizzle-orm";
+import { eq, and, or, isNull, isNotNull, gt } from "drizzle-orm";
 import { logger, LogActions } from "./logger";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -326,7 +326,7 @@ export async function validateAndResolveInstance(
 
 /**
  * Get all instances for an organization (for multi-instance support)
- * Only returns connected instances for API usage
+ * Returns all instances with whatsappJid (WuzAPI handles disconnected errors)
  */
 export async function getOrganizationInstances(
   organizationId: string
@@ -334,7 +334,7 @@ export async function getOrganizationInstances(
   const orgInstances = await db.query.instances.findMany({
     where: and(
       eq(instances.organizationId, organizationId),
-      eq(instances.status, "connected")
+      isNotNull(instances.whatsappJid)
     ),
     columns: {
       id: true,
