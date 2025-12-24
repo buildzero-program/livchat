@@ -324,7 +324,7 @@ export const events = pgTable(
       onDelete: "cascade",
     }),
     instanceId: uuid("instance_id").references(() => instances.id, {
-      onDelete: "cascade",
+      onDelete: "set null",
     }),
     apiKeyId: uuid("api_key_id").references(() => apiKeys.id, {
       onDelete: "set null",
