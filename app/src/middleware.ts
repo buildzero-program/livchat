@@ -9,6 +9,7 @@ const isPublicRoute = createRouteMatcher([
   "/changelog",           // Changelog público
   "/terms",               // Termos de uso
   "/sso-callback",        // OAuth callback
+  "/connect/(.*)",        // Conexão remota de WhatsApp (link compartilhável)
   "/api/health",          // Health check (Docker/K8s)
   "/api/trpc(.*)",        // tRPC API (tem própria autenticação)
   "/api/webhooks(.*)",    // Webhooks externos
