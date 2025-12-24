@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { TRPCError } from "@trpc/server";
 import { db } from "~/server/db";
@@ -419,13 +419,14 @@ export const webhooksRouter = createTRPCRouter({
 
   /**
    * webhooks.logs
-   * Get delivery logs for a webhook
+   * Get delivery logs for a webhook with proper SQL filtering and pagination
    */
   logs: protectedProcedure
     .input(z.object({
       webhookId: z.string().uuid(),
       status: z.enum(["all", "success", "failed"]).default("all"),
       limit: z.number().min(1).max(100).default(50),
+      cursor: z.string().uuid().optional(), // For cursor-based pagination
     }))
     .query(async ({ ctx, input }) => {
       const { user, log } = ctx;
@@ -446,8 +447,7 @@ export const webhooksRouter = createTRPCRouter({
       }
 
       try {
-        // Query events where metadata contains this webhookId
-        // and event type is webhook.delivered or webhook.failed
+        // Determine event types based on status filter
         const eventTypes =
           input.status === "success"
             ? [EventTypes.WEBHOOK_DELIVERED]
@@ -455,46 +455,75 @@ export const webhooksRouter = createTRPCRouter({
               ? [EventTypes.WEBHOOK_FAILED]
               : [EventTypes.WEBHOOK_DELIVERED, EventTypes.WEBHOOK_FAILED];
 
-        const result = await db.query.events.findMany({
-          where: and(
-            eq(events.organizationId, user.organizationId),
-            // Note: In production, you'd want to use a JSON query here
-            // For now we filter in memory
-          ),
-          orderBy: [desc(events.createdAt)],
-          limit: input.limit * 2, // Get extra to filter
-        });
+        // Build WHERE conditions using SQL for JSONB filtering
+        const baseConditions = and(
+          eq(events.organizationId, user.organizationId),
+          sql`metadata->>'webhookId' = ${input.webhookId}`,
+          inArray(events.name, eventTypes)
+        );
 
-        // Filter by webhookId in metadata
-        const filtered = result
-          .filter((event) => {
-            const metadata = event.metadata as Record<string, unknown> | null;
-            return (
-              metadata?.webhookId === input.webhookId &&
-              eventTypes.includes(event.name as typeof EventTypes.WEBHOOK_DELIVERED)
-            );
+        // Add cursor condition for pagination
+        const whereConditions = input.cursor
+          ? and(
+              baseConditions,
+              sql`created_at < (SELECT created_at FROM events WHERE id = ${input.cursor})`
+            )
+          : baseConditions;
+
+        // Query items (limit + 1 to detect if there are more pages)
+        const items = await db
+          .select()
+          .from(events)
+          .where(whereConditions)
+          .orderBy(desc(events.createdAt))
+          .limit(input.limit + 1);
+
+        // Get total counts for all statuses (for badges in UI)
+        const [counts] = await db
+          .select({
+            total: sql<number>`COUNT(*)::int`,
+            success: sql<number>`COUNT(*) FILTER (WHERE name = ${EventTypes.WEBHOOK_DELIVERED})::int`,
+            failed: sql<number>`COUNT(*) FILTER (WHERE name = ${EventTypes.WEBHOOK_FAILED})::int`,
           })
-          .slice(0, input.limit);
+          .from(events)
+          .where(and(
+            eq(events.organizationId, user.organizationId),
+            sql`metadata->>'webhookId' = ${input.webhookId}`,
+            inArray(events.name, [EventTypes.WEBHOOK_DELIVERED, EventTypes.WEBHOOK_FAILED])
+          ));
+
+        // Determine pagination info
+        const hasMore = items.length > input.limit;
+        const data = hasMore ? items.slice(0, -1) : items;
+        const nextCursor = hasMore ? data[data.length - 1]?.id : null;
 
         log.debug("webhook.logs", "Retrieved webhook logs", {
           webhookId: input.webhookId,
-          count: filtered.length,
+          count: data.length,
+          totalCount: counts?.total ?? 0,
+          hasMore,
         });
 
-        return filtered.map((event) => {
-          const metadata = event.metadata as Record<string, unknown>;
-          return {
-            id: event.id,
-            eventType: (metadata?.sourceEventType as string) ?? "unknown",
-            status: event.name === EventTypes.WEBHOOK_DELIVERED ? "success" : "failed",
-            statusCode: (metadata?.statusCode as number) ?? null,
-            latencyMs: (metadata?.latencyMs as number) ?? null,
-            attempt: (metadata?.attempt as number) ?? 1,
-            error: (metadata?.error as string) ?? null,
-            payload: metadata?.requestPayload ?? {},
-            timestamp: event.createdAt,
-          };
-        });
+        return {
+          items: data.map((event) => {
+            const metadata = event.metadata as Record<string, unknown>;
+            return {
+              id: event.id,
+              eventType: (metadata?.sourceEventType as string) ?? "unknown",
+              status: event.name === EventTypes.WEBHOOK_DELIVERED ? "success" : "failed",
+              statusCode: (metadata?.statusCode as number) ?? null,
+              latencyMs: (metadata?.latencyMs as number) ?? null,
+              attempt: (metadata?.attempt as number) ?? 1,
+              error: (metadata?.error as string) ?? null,
+              payload: metadata?.requestPayload ?? {},
+              timestamp: event.createdAt,
+            };
+          }),
+          totalCount: counts?.total ?? 0,
+          successCount: counts?.success ?? 0,
+          failedCount: counts?.failed ?? 0,
+          nextCursor,
+        };
       } catch (error) {
         log.error("webhook.logs", "Failed to get webhook logs", error);
         throw new TRPCError({

@@ -21,7 +21,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "~/components/ui/dialog";
-import { ScrollArea } from "~/components/ui/scroll-area";
 import { Tabs, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { Button } from "~/components/ui/button";
 import { Badge } from "~/components/ui/badge";
@@ -42,11 +41,18 @@ export interface WebhookLog {
   timestamp: Date;
 }
 
+interface WebhookLogsCounts {
+  total: number;
+  success: number;
+  failed: number;
+}
+
 interface WebhookLogsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   webhookName: string;
   logs: WebhookLog[];
+  counts?: WebhookLogsCounts; // Real counts from backend
   onResend: (logId: string) => void;
   onSendTest: () => void;
   isResending?: string | null;
@@ -305,6 +311,7 @@ export function WebhookLogsDialog({
   onOpenChange,
   webhookName,
   logs,
+  counts,
   onResend,
   onSendTest,
   isResending,
@@ -313,13 +320,16 @@ export function WebhookLogsDialog({
 }: WebhookLogsDialogProps) {
   const [filter, setFilter] = useState<"all" | "success" | "failed">("all");
 
+  // Filter logs for display (client-side filter of loaded items)
   const filteredLogs = logs.filter((log) => {
     if (filter === "all") return true;
     return log.status === filter;
   });
 
-  const successCount = logs.filter((l) => l.status === "success").length;
-  const failedCount = logs.filter((l) => l.status === "failed").length;
+  // Use backend counts if available, otherwise fallback to client-side counts
+  const totalCount = counts?.total ?? logs.length;
+  const successCount = counts?.success ?? logs.filter((l) => l.status === "success").length;
+  const failedCount = counts?.failed ?? logs.filter((l) => l.status === "failed").length;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -333,18 +343,18 @@ export function WebhookLogsDialog({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="px-8 py-6 flex flex-col min-h-0">
+        <div className="px-8 py-6 flex flex-col flex-1 min-h-0 overflow-hidden">
           {/* Filter Tabs */}
           <Tabs
             value={filter}
             onValueChange={(v) => setFilter(v as typeof filter)}
-            className="mb-6"
+            className="mb-6 shrink-0"
           >
             <TabsList className="h-11">
               <TabsTrigger value="all" className="px-6 h-9">
                 Todos
                 <Badge variant="secondary" className="ml-2 h-5 px-2 text-xs">
-                  {logs.length}
+                  {totalCount}
                 </Badge>
               </TabsTrigger>
               <TabsTrigger value="success" className="px-6 h-9">
@@ -378,7 +388,7 @@ export function WebhookLogsDialog({
               Nenhum evento com esse filtro
             </div>
           ) : (
-            <ScrollArea className="flex-1 -mx-8 px-8" style={{ maxHeight: "calc(85vh - 220px)" }}>
+            <div className="flex-1 min-h-0 -mx-8 px-8 overflow-y-auto scrollbar-notion">
               <div className="space-y-3 pb-4">
                 {filteredLogs.map((log) => (
                   <LogItem
@@ -389,7 +399,7 @@ export function WebhookLogsDialog({
                   />
                 ))}
               </div>
-            </ScrollArea>
+            </div>
           )}
         </div>
       </DialogContent>

@@ -242,8 +242,8 @@ export function WebhooksList() {
     name: inst.name,
   }));
 
-  // Transform logs to WebhookLog format
-  const logs: WebhookLog[] = (logsData ?? []).map((log) => ({
+  // Transform logs to WebhookLog format (now comes from logsData.items)
+  const logs: WebhookLog[] = (logsData?.items ?? []).map((log) => ({
     id: log.id,
     eventType: log.eventType,
     status: log.status as "success" | "failed" | "pending",
@@ -254,6 +254,13 @@ export function WebhooksList() {
     payload: log.payload as object,
     timestamp: new Date(log.timestamp),
   }));
+
+  // Extract counts from backend (real totals, not client-side counts)
+  const logsCounts = {
+    total: logsData?.totalCount ?? 0,
+    success: logsData?.successCount ?? 0,
+    failed: logsData?.failedCount ?? 0,
+  };
 
   // ═══════════════════════════════════════════════════════════════════════════
   // Handlers
@@ -412,6 +419,7 @@ export function WebhooksList() {
         onOpenChange={setLogsDialogOpen}
         webhookName={viewingWebhook?.name ?? ""}
         logs={logs}
+        counts={logsCounts}
         onResend={handleResend}
         onSendTest={handleSendTest}
         isResending={resendingLogId}

@@ -8,6 +8,13 @@
       "when": 1766292276922,
       "tag": "0000_init",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1735004400000,
+      "tag": "0001_add_webhook_metadata_index",
+      "breakpoints": true
     }
   ]
 }
