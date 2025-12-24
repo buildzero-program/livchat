@@ -126,6 +126,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             await model_registry.initialize()
             log_timing("lifespan_model_registry_done", registry_start)
 
+            # Configure Workflow Graph Cache
+            from nodes.graph_cache import workflow_graph_cache
+
+            logger.warning("⏱️ [lifespan_graph_cache_config] Configuring workflow graph cache...")
+            workflow_graph_cache.configure(checkpointer=saver, store=store)
+
             log_timing("lifespan_total", lifespan_start)
             yield
     except Exception as e:

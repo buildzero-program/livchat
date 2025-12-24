@@ -59,7 +59,15 @@ curl -X POST https://api.livchat.ai/v1/messages \\
 
 
 def _get_ivy_workflow_data() -> dict:
-    """Returns the Ivy workflow data structure."""
+    """
+    Returns the Ivy workflow data structure.
+
+    The workflow has two nodes:
+    1. manual_trigger - Entry point for manual/HTTP invocation
+    2. agent - The Ivy agent that processes messages
+
+    Flow: manual_trigger → agent → END
+    """
     now = datetime.now(timezone.utc).isoformat()
     return {
         "id": IVY_WORKFLOW_ID,
@@ -68,10 +76,17 @@ def _get_ivy_workflow_data() -> dict:
         "flowData": {
             "nodes": [
                 {
+                    "id": "trigger-1",
+                    "name": "Manual Trigger",
+                    "type": "manual_trigger",
+                    "position": {"x": 100, "y": 100},
+                    "config": {},
+                },
+                {
                     "id": "agent-1",
                     "name": "Ivy Agent",
                     "type": "agent",
-                    "position": {"x": 100, "y": 100},
+                    "position": {"x": 300, "y": 100},
                     "config": {
                         "prompt": {
                             "system": IVY_SYSTEM_PROMPT,
@@ -88,9 +103,15 @@ def _get_ivy_workflow_data() -> dict:
                         },
                         "tools": [],
                     },
-                }
+                },
             ],
-            "edges": [],
+            "edges": [
+                {
+                    "id": "edge-1",
+                    "source": "trigger-1",
+                    "target": "agent-1",
+                },
+            ],
         },
         "isActive": True,
         "createdAt": now,

@@ -111,25 +111,25 @@ class TestAgentNodeConfig:
 
 
 class TestWorkflowNode:
-    """Tests for WorkflowNode schema."""
+    """Tests for WorkflowNode schema.
+
+    Note: config is now dict[str, Any] to support different node types
+    (agent, manual_trigger, whatsapp_message_trigger, etc.).
+    """
 
     def test_workflow_node_valid(self):
-        from schema.workflow_schema import (
-            WorkflowNode,
-            AgentNodeConfig,
-            PromptConfig,
-            LLMConfig,
-        )
+        from schema.workflow_schema import WorkflowNode
 
+        # Agent node with full config
         node = WorkflowNode(
             id="agent_1",
             type="agent",
             name="Test Agent",
             position={"x": 300, "y": 200},
-            config=AgentNodeConfig(
-                prompt=PromptConfig(system="You are helpful"),
-                llm=LLMConfig(),
-            ),
+            config={
+                "prompt": {"system": "You are helpful", "variables": []},
+                "llm": {"provider": "openai", "model": "gpt-4o-mini", "temperature": 0.7},
+            },
         )
         assert node.id == "agent_1"
         assert node.type == "agent"
@@ -137,23 +137,31 @@ class TestWorkflowNode:
         assert node.position == {"x": 300, "y": 200}
 
     def test_workflow_node_defaults(self):
-        from schema.workflow_schema import (
-            WorkflowNode,
-            AgentNodeConfig,
-            PromptConfig,
-            LLMConfig,
-        )
+        from schema.workflow_schema import WorkflowNode
 
+        # Trigger node with empty config (triggers don't need prompt/llm)
         node = WorkflowNode(
-            id="agent_1",
+            id="trigger_1",
+            type="manual_trigger",
             name="Test",
-            config=AgentNodeConfig(
-                prompt=PromptConfig(system="Hello"),
-                llm=LLMConfig(),
-            ),
+            config={},
         )
-        assert node.type == "agent"
+        assert node.type == "manual_trigger"
         assert node.position == {"x": 0, "y": 0}
+        assert node.config == {}
+
+    def test_workflow_node_trigger_type(self):
+        from schema.workflow_schema import WorkflowNode
+
+        # Test different trigger types work with empty config
+        for trigger_type in ["manual_trigger", "whatsapp_connection_trigger", "whatsapp_message_trigger"]:
+            node = WorkflowNode(
+                id=f"{trigger_type}_1",
+                type=trigger_type,
+                name=f"Test {trigger_type}",
+            )
+            assert node.type == trigger_type
+            assert node.config == {}
 
 
 class TestWorkflowEdge:
@@ -188,60 +196,54 @@ class TestFlowData:
     """Tests for FlowData schema."""
 
     def test_flow_data_with_nodes(self):
-        from schema.workflow_schema import (
-            FlowData,
-            WorkflowNode,
-            AgentNodeConfig,
-            PromptConfig,
-            LLMConfig,
-        )
+        from schema.workflow_schema import FlowData, WorkflowNode
 
+        # Now using dict config (flexible for different node types)
         flow = FlowData(
             nodes=[
                 WorkflowNode(
+                    id="trigger_1",
+                    type="manual_trigger",
+                    name="Trigger",
+                    config={},
+                ),
+                WorkflowNode(
                     id="agent_1",
-                    name="Test",
-                    config=AgentNodeConfig(
-                        prompt=PromptConfig(system="Hello"),
-                        llm=LLMConfig(),
-                    ),
-                )
+                    type="agent",
+                    name="Test Agent",
+                    config={
+                        "prompt": {"system": "Hello"},
+                        "llm": {"model": "gpt-4o-mini"},
+                    },
+                ),
             ],
         )
-        assert len(flow.nodes) == 1
+        assert len(flow.nodes) == 2
         assert flow.edges == []
 
     def test_flow_data_with_edges(self):
-        from schema.workflow_schema import (
-            FlowData,
-            WorkflowNode,
-            WorkflowEdge,
-            AgentNodeConfig,
-            PromptConfig,
-            LLMConfig,
-        )
+        from schema.workflow_schema import FlowData, WorkflowNode, WorkflowEdge
 
         flow = FlowData(
             nodes=[
                 WorkflowNode(
-                    id="agent_1",
-                    name="Agent 1",
-                    config=AgentNodeConfig(
-                        prompt=PromptConfig(system="Hello"),
-                        llm=LLMConfig(),
-                    ),
+                    id="trigger_1",
+                    type="manual_trigger",
+                    name="Trigger",
+                    config={},
                 ),
                 WorkflowNode(
-                    id="agent_2",
-                    name="Agent 2",
-                    config=AgentNodeConfig(
-                        prompt=PromptConfig(system="World"),
-                        llm=LLMConfig(),
-                    ),
+                    id="agent_1",
+                    type="agent",
+                    name="Agent 1",
+                    config={
+                        "prompt": {"system": "Hello"},
+                        "llm": {"model": "gpt-4o-mini"},
+                    },
                 ),
             ],
             edges=[
-                WorkflowEdge(source="agent_1", target="agent_2"),
+                WorkflowEdge(source="trigger_1", target="agent_1"),
             ],
         )
         assert len(flow.nodes) == 2
@@ -252,14 +254,7 @@ class TestWorkflowCreate:
     """Tests for WorkflowCreate schema."""
 
     def test_workflow_create_valid(self):
-        from schema.workflow_schema import (
-            WorkflowCreate,
-            FlowData,
-            WorkflowNode,
-            AgentNodeConfig,
-            PromptConfig,
-            LLMConfig,
-        )
+        from schema.workflow_schema import WorkflowCreate, FlowData, WorkflowNode
 
         workflow = WorkflowCreate(
             name="Test Workflow",
@@ -267,29 +262,29 @@ class TestWorkflowCreate:
             flowData=FlowData(
                 nodes=[
                     WorkflowNode(
+                        id="trigger_1",
+                        type="manual_trigger",
+                        name="Trigger",
+                        config={},
+                    ),
+                    WorkflowNode(
                         id="agent_1",
-                        name="Test",
-                        config=AgentNodeConfig(
-                            prompt=PromptConfig(system="Hello"),
-                            llm=LLMConfig(),
-                        ),
-                    )
+                        type="agent",
+                        name="Test Agent",
+                        config={
+                            "prompt": {"system": "Hello"},
+                            "llm": {"model": "gpt-4o-mini"},
+                        },
+                    ),
                 ],
             ),
         )
         assert workflow.name == "Test Workflow"
         assert workflow.description == "A test workflow"
-        assert len(workflow.flowData.nodes) == 1
+        assert len(workflow.flowData.nodes) == 2
 
     def test_workflow_create_empty_name_fails(self):
-        from schema.workflow_schema import (
-            WorkflowCreate,
-            FlowData,
-            WorkflowNode,
-            AgentNodeConfig,
-            PromptConfig,
-            LLMConfig,
-        )
+        from schema.workflow_schema import WorkflowCreate, FlowData, WorkflowNode
 
         with pytest.raises(ValidationError):
             WorkflowCreate(
@@ -297,26 +292,17 @@ class TestWorkflowCreate:
                 flowData=FlowData(
                     nodes=[
                         WorkflowNode(
-                            id="agent_1",
+                            id="trigger_1",
+                            type="manual_trigger",
                             name="Test",
-                            config=AgentNodeConfig(
-                                prompt=PromptConfig(system="Hello"),
-                                llm=LLMConfig(),
-                            ),
+                            config={},
                         )
                     ],
                 ),
             )
 
     def test_workflow_create_name_too_long_fails(self):
-        from schema.workflow_schema import (
-            WorkflowCreate,
-            FlowData,
-            WorkflowNode,
-            AgentNodeConfig,
-            PromptConfig,
-            LLMConfig,
-        )
+        from schema.workflow_schema import WorkflowCreate, FlowData, WorkflowNode
 
         with pytest.raises(ValidationError):
             WorkflowCreate(
@@ -324,38 +310,27 @@ class TestWorkflowCreate:
                 flowData=FlowData(
                     nodes=[
                         WorkflowNode(
-                            id="agent_1",
+                            id="trigger_1",
+                            type="manual_trigger",
                             name="Test",
-                            config=AgentNodeConfig(
-                                prompt=PromptConfig(system="Hello"),
-                                llm=LLMConfig(),
-                            ),
+                            config={},
                         )
                     ],
                 ),
             )
 
     def test_workflow_create_no_description(self):
-        from schema.workflow_schema import (
-            WorkflowCreate,
-            FlowData,
-            WorkflowNode,
-            AgentNodeConfig,
-            PromptConfig,
-            LLMConfig,
-        )
+        from schema.workflow_schema import WorkflowCreate, FlowData, WorkflowNode
 
         workflow = WorkflowCreate(
             name="Test",
             flowData=FlowData(
                 nodes=[
                     WorkflowNode(
-                        id="agent_1",
+                        id="trigger_1",
+                        type="manual_trigger",
                         name="Test",
-                        config=AgentNodeConfig(
-                            prompt=PromptConfig(system="Hello"),
-                            llm=LLMConfig(),
-                        ),
+                        config={},
                     )
                 ],
             ),
@@ -376,14 +351,7 @@ class TestWorkflowUpdate:
         assert update.isActive is None
 
     def test_workflow_update_all_fields(self):
-        from schema.workflow_schema import (
-            WorkflowUpdate,
-            FlowData,
-            WorkflowNode,
-            AgentNodeConfig,
-            PromptConfig,
-            LLMConfig,
-        )
+        from schema.workflow_schema import WorkflowUpdate, FlowData, WorkflowNode
 
         update = WorkflowUpdate(
             name="Updated",
@@ -392,13 +360,20 @@ class TestWorkflowUpdate:
             flowData=FlowData(
                 nodes=[
                     WorkflowNode(
+                        id="trigger_1",
+                        type="manual_trigger",
+                        name="Trigger",
+                        config={},
+                    ),
+                    WorkflowNode(
                         id="agent_1",
+                        type="agent",
                         name="Test",
-                        config=AgentNodeConfig(
-                            prompt=PromptConfig(system="Hello"),
-                            llm=LLMConfig(),
-                        ),
-                    )
+                        config={
+                            "prompt": {"system": "Hello"},
+                            "llm": {"model": "gpt-4o-mini"},
+                        },
+                    ),
                 ],
             ),
         )
@@ -413,14 +388,7 @@ class TestWorkflowResponse:
 
     def test_workflow_response_valid(self):
         from datetime import datetime
-        from schema.workflow_schema import (
-            WorkflowResponse,
-            FlowData,
-            WorkflowNode,
-            AgentNodeConfig,
-            PromptConfig,
-            LLMConfig,
-        )
+        from schema.workflow_schema import WorkflowResponse, FlowData, WorkflowNode
 
         now = datetime.now()
         response = WorkflowResponse(
@@ -430,13 +398,20 @@ class TestWorkflowResponse:
             flowData=FlowData(
                 nodes=[
                     WorkflowNode(
+                        id="trigger_1",
+                        type="manual_trigger",
+                        name="Trigger",
+                        config={},
+                    ),
+                    WorkflowNode(
                         id="agent_1",
+                        type="agent",
                         name="Test",
-                        config=AgentNodeConfig(
-                            prompt=PromptConfig(system="Hello"),
-                            llm=LLMConfig(),
-                        ),
-                    )
+                        config={
+                            "prompt": {"system": "Hello"},
+                            "llm": {"model": "gpt-4o-mini"},
+                        },
+                    ),
                 ],
             ),
             isActive=True,

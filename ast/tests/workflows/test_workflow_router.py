@@ -51,7 +51,7 @@ def mock_store():
 
 @pytest.fixture
 def sample_workflow():
-    """Sample workflow data."""
+    """Sample workflow data with trigger + agent nodes."""
     return {
         "id": "wf_test123abc",
         "name": "Test Workflow",
@@ -59,19 +59,28 @@ def sample_workflow():
         "flowData": {
             "nodes": [
                 {
+                    "id": "trigger_1",
+                    "type": "manual_trigger",
+                    "name": "Manual Trigger",
+                    "position": {"x": 0, "y": 0},
+                    "config": {},
+                },
+                {
                     "id": "agent_1",
                     "type": "agent",
                     "name": "Test Agent",
-                    "position": {"x": 0, "y": 0},
+                    "position": {"x": 200, "y": 0},
                     "config": {
                         "prompt": {"system": "You are helpful.", "variables": []},
                         "llm": {"provider": "openai", "model": "gpt-5-mini", "temperature": 0.7},
                         "memory": {"type": "buffer", "tokenLimit": 16000, "messageLimit": None},
                         "tools": [],
                     },
-                }
+                },
             ],
-            "edges": [],
+            "edges": [
+                {"id": "edge_1", "source": "trigger_1", "target": "agent_1"},
+            ],
         },
         "isActive": True,
         "createdAt": "2024-12-14T10:00:00",
@@ -81,12 +90,18 @@ def sample_workflow():
 
 @pytest.fixture
 def sample_create_payload():
-    """Sample payload for creating a workflow."""
+    """Sample payload for creating a workflow with trigger + agent."""
     return {
         "name": "New Workflow",
         "description": "A new workflow",
         "flowData": {
             "nodes": [
+                {
+                    "id": "trigger_1",
+                    "type": "manual_trigger",
+                    "name": "Manual Trigger",
+                    "config": {},
+                },
                 {
                     "id": "agent_1",
                     "type": "agent",
@@ -95,9 +110,11 @@ def sample_create_payload():
                         "prompt": {"system": "You are helpful."},
                         "llm": {"model": "gpt-5-mini"},
                     },
-                }
+                },
             ],
-            "edges": [],
+            "edges": [
+                {"id": "edge_1", "source": "trigger_1", "target": "agent_1"},
+            ],
         },
     }
 
@@ -297,22 +314,30 @@ def test_invoke_workflow_success(client, auth_header, mock_store, sample_workflo
 
     with patch("service.workflow_router.get_agent") as mock_get_agent:
         with patch("service.workflow_router.get_workflow", new_callable=AsyncMock) as mock_get:
-            mock_agent = mock_get_agent_with_store(mock_store)
-            mock_agent.ainvoke = AsyncMock(
-                return_value=[("values", {"messages": [mock_response]})]
-            )
-            mock_get_agent.return_value = mock_agent
-            mock_get.return_value = sample_workflow
+            with patch(
+                "service.workflow_router.workflow_graph_cache.get_or_build", new_callable=AsyncMock
+            ) as mock_get_or_build:
+                # Setup agent mock for store/checkpointer access
+                mock_agent = mock_get_agent_with_store(mock_store)
+                mock_get_agent.return_value = mock_agent
+                mock_get.return_value = sample_workflow
 
-            response = client.post(
-                "/workflows/wf_test123abc/invoke",
-                json={"message": "Hello", "threadId": "thread-123"},
-                headers=auth_header,
-            )
+                # Mock the compiled graph
+                mock_graph = AsyncMock()
+                mock_graph.ainvoke = AsyncMock(
+                    return_value={"messages": [mock_response], "agent_response": "Hello!"}
+                )
+                mock_get_or_build.return_value = mock_graph
 
-            assert response.status_code == 200
-            data = response.json()
-            assert "message" in data
+                response = client.post(
+                    "/workflows/wf_test123abc/invoke",
+                    json={"message": "Hello", "threadId": "thread-123"},
+                    headers=auth_header,
+                )
+
+                assert response.status_code == 200
+                data = response.json()
+                assert "message" in data
 
 
 def test_invoke_workflow_not_found(client, auth_header, mock_store):
@@ -410,15 +435,23 @@ def test_invoke_workflow_internal_error(client, auth_header, mock_store, sample_
     """Should return 500 on internal error."""
     with patch("service.workflow_router.get_agent") as mock_get_agent:
         with patch("service.workflow_router.get_workflow", new_callable=AsyncMock) as mock_get:
-            mock_agent = mock_get_agent_with_store(mock_store)
-            mock_agent.ainvoke = AsyncMock(side_effect=Exception("Internal error"))
-            mock_get_agent.return_value = mock_agent
-            mock_get.return_value = sample_workflow
+            with patch(
+                "service.workflow_router.workflow_graph_cache.get_or_build", new_callable=AsyncMock
+            ) as mock_get_or_build:
+                # Setup agent mock for store/checkpointer access
+                mock_agent = mock_get_agent_with_store(mock_store)
+                mock_get_agent.return_value = mock_agent
+                mock_get.return_value = sample_workflow
 
-            response = client.post(
-                "/workflows/wf_test123abc/invoke",
-                json={"message": "Hello", "threadId": "thread-123"},
-                headers=auth_header,
-            )
+                # Mock the graph to raise an error
+                mock_graph = AsyncMock()
+                mock_graph.ainvoke = AsyncMock(side_effect=Exception("Internal error"))
+                mock_get_or_build.return_value = mock_graph
 
-            assert response.status_code == 500
+                response = client.post(
+                    "/workflows/wf_test123abc/invoke",
+                    json={"message": "Hello", "threadId": "thread-123"},
+                    headers=auth_header,
+                )
+
+                assert response.status_code == 500

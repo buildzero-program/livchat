@@ -2,6 +2,66 @@
 
 All notable changes to this fork of agent-service-toolkit for LivChat.
 
+## 2025-12-24
+
+### Added
+- **Workflow Nodes Infrastructure (Plan-22 Phase 1)** - StateGraph-based multi-node workflow execution
+  - `src/nodes/` - New module for workflow node implementations
+    - `base.py` - Abstract `BaseNode` class for all workflow nodes
+    - `registry.py` - `NodeRegistry` singleton with decorator-based registration
+    - `executor.py` - `build_workflow_graph()` function to compile StateGraph from workflow config
+  - **Trigger Nodes** (`src/nodes/triggers/`)
+    - `ManualTriggerNode` - Entry point for manual/HTTP invocations
+    - `WhatsAppConnectionTriggerNode` - Handles WA connection events (creates SystemMessage)
+    - `WhatsAppMessageTriggerNode` - Handles incoming WA messages (creates HumanMessage)
+  - **Action Nodes** (`src/nodes/actions/`)
+    - `AgentNode` - LLM invocation with prompt template, message trimming, model config
+  - **Tests** - 32 new tests for nodes infrastructure
+
+- **Workflow Graph Cache (Plan-22 Phase 2.1)** - Performance optimization
+  - `src/nodes/graph_cache.py` - Singleton cache for compiled StateGraphs
+    - Avoids recompiling graphs on every request
+    - Cache key: `{workflow_id}:{md5(flowData)[:12]}`
+    - Automatic invalidation on workflow update/delete
+    - Configured at startup with checkpointer and store
+  - **Tests** - 21 tests for cache behavior, concurrency, invalidation
+
+- **Router Node (Plan-22 Phase 2.2)** - Conditional routing
+  - `src/nodes/logic/router_node.py` - Routes based on state expression
+    - Uses LangGraph `Command(goto="node_id")` pattern
+    - Supports dot notation for nested field access
+    - Configurable outputs and default fallback
+  - **Tests** - 18 tests for routing logic, expression evaluation
+
+- **End Node (Plan-22 Phase 2.3)** - Terminal node
+  - `src/nodes/terminal/end_node.py` - Pass-through terminal node
+    - Marks workflow completion visually
+    - Optional label for logging/debugging
+  - **Tests** - 9 tests for end node behavior
+
+### Changed
+- **workflow_router.py** - Now uses cached graphs via `workflow_graph_cache`
+  - `invoke_workflow` and `stream_workflow` use `get_or_build()` for cache hits
+  - Cache invalidation on `update_workflow` and `delete_workflow`
+  - Better error handling for invalid workflows (400 for missing trigger)
+- **workflow_schema.py** - `WorkflowNode.config` is now `dict[str, Any]` (flexible for different node types)
+  - Supports trigger nodes with empty config, agent nodes with prompt/llm config
+- **seeds/__init__.py** - Ivy workflow now has proper structure:
+  - `manual_trigger` node as entry point
+  - `agent` node connected via edge
+  - Flow: `trigger-1 → agent-1 → END`
+- **service.py** - Graph cache configured at lifespan startup
+  - `workflow_graph_cache.configure(checkpointer, store)` called after store setup
+- **executor.py** - Router edge handling
+  - Skips edges from router nodes (they use Command pattern)
+  - Imports logic and terminal node modules for registration
+
+### Technical Notes
+- Lazy import pattern in `AgentNode` to avoid circular imports with `agents.workflow_agent`
+- Removed `tests/nodes/__init__.py` to fix package shadowing (pytest discovers tests by naming convention)
+- Updated all workflow schema tests to use new trigger+agent node structure
+- Graph cache uses per-key `asyncio.Lock` for concurrent builds of different workflows
+
 ## 2025-12-21
 
 ### Added

@@ -76,15 +76,27 @@ class AgentNodeConfig(BaseModel):
 
 
 class WorkflowNode(BaseModel):
-    """A node in the workflow graph."""
+    """A node in the workflow graph.
+
+    Different node types have different config requirements:
+    - manual_trigger: {} (empty config)
+    - whatsapp_connection_trigger: { phone?: str, event_type?: str }
+    - whatsapp_message_trigger: { event_type?: str }
+    - agent: { prompt: PromptConfig, llm: LLMConfig, memory?: MemoryConfig }
+    - router: { conditions: list } (future)
+    - respond_webhook: {} (future)
+    - send_whatsapp: { template?: str } (future)
+    """
 
     id: str = Field(..., description="Unique node identifier")
-    type: str = Field(default="agent", description="Node type (agent, condition, etc)")
+    type: str = Field(default="agent", description="Node type (agent, manual_trigger, etc)")
     name: str = Field(..., description="Display name for the node")
     position: dict[str, float] = Field(
         default={"x": 0, "y": 0}, description="Canvas position for visual editor"
     )
-    config: AgentNodeConfig = Field(..., description="Node configuration")
+    config: dict[str, Any] = Field(
+        default_factory=dict, description="Node-specific configuration (varies by type)"
+    )
 
 
 class WorkflowEdge(BaseModel):

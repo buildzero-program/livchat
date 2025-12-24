@@ -19,6 +19,7 @@ from langchain_core.runnables import RunnableConfig
 from agents import get_agent
 from core.profiling import log_timing, start_timer
 from core.settings import settings
+from nodes.graph_cache import workflow_graph_cache
 from schema.workflow_schema import (
     WorkflowCreate,
     WorkflowUpdate,
@@ -37,6 +38,8 @@ from workflows import (
 
 logger = logging.getLogger(__name__)
 
+# We still use workflow-agent to get the checkpointer and store
+# These are attached at startup in service.py lifespan
 WORKFLOW_AGENT_ID = "workflow-agent"
 
 
@@ -81,6 +84,12 @@ def _get_store():
             detail="Store not initialized",
         )
     return store
+
+
+def _get_checkpointer():
+    """Get the checkpointer from the workflow agent."""
+    agent = get_agent(WORKFLOW_AGENT_ID)
+    return agent.checkpointer
 
 
 # =============================================================================
@@ -236,6 +245,10 @@ async def update_workflow_endpoint(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Workflow {workflow_id} not found",
             )
+
+        # Invalidate cached graph for this workflow
+        workflow_graph_cache.invalidate(workflow_id)
+
         return WorkflowResponse(**updated)
     except HTTPException:
         raise
@@ -267,6 +280,10 @@ async def delete_workflow_endpoint(workflow_id: str) -> None:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Workflow {workflow_id} not found",
             )
+
+        # Invalidate cached graph for this workflow
+        workflow_graph_cache.invalidate(workflow_id)
+
     except HTTPException:
         raise
     except Exception as e:
@@ -290,6 +307,9 @@ async def invoke_workflow(
     """
     Invoke a workflow and get the final response.
 
+    Uses the new StateGraph-based executor that supports multiple node types
+    (triggers, agents, routers, etc.) defined in the workflow's flowData.
+
     Args:
         workflow_id: The workflow ID
         input_data: Message and thread ID
@@ -302,6 +322,7 @@ async def invoke_workflow(
     """
     total_start = start_timer()
     store = _get_store()
+    checkpointer = _get_checkpointer()
 
     # Verify workflow exists
     start = start_timer()
@@ -314,44 +335,57 @@ async def invoke_workflow(
             detail=f"Workflow {workflow_id} not found",
         )
 
-    agent = get_agent(WORKFLOW_AGENT_ID)
-
     try:
         run_id = uuid4()
         thread_id = input_data.threadId or str(uuid4())
 
+        # Get or build StateGraph from cache
+        start = start_timer()
+        graph = await workflow_graph_cache.get_or_build(workflow)
+        log_timing("router_get_or_build_graph", start)
+
         config = RunnableConfig(
             configurable={
-                "workflow_id": workflow_id,
                 "thread_id": thread_id,
             },
             run_id=run_id,
         )
 
+        # Invoke the compiled graph
         start = start_timer()
-        response_events = await agent.ainvoke(
+        response = await graph.ainvoke(
             input={"messages": [HumanMessage(content=input_data.message)]},
             config=config,
-            stream_mode=["updates", "values"],
         )
-        log_timing("router_agent_invoke", start)
+        log_timing("router_graph_invoke", start)
 
-        # Get the last response
-        response_type, response = response_events[-1]
-        if response_type == "values":
-            last_message = response["messages"][-1]
-            log_timing("router_invoke_total", total_start)
-            return {
-                "message": {
-                    "content": last_message.content,
-                    "type": "ai",
-                    "run_id": str(run_id),
-                },
-                "threadId": thread_id,
-            }
-        else:
-            raise ValueError(f"Unexpected response type: {response_type}")
+        # Get the response from state
+        last_message = response["messages"][-1]
+        log_timing("router_invoke_total", total_start)
 
+        return {
+            "message": {
+                "content": last_message.content,
+                "type": "ai",
+                "run_id": str(run_id),
+            },
+            "threadId": thread_id,
+        }
+
+    except KeyError as e:
+        # Unknown node type in workflow
+        logger.error(f"Invalid workflow configuration: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid workflow: {e}",
+        )
+    except ValueError as e:
+        # Missing trigger or other validation error
+        logger.error(f"Workflow validation error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
     except HTTPException:
         raise
     except Exception as e:
@@ -363,17 +397,17 @@ async def invoke_workflow(
 
 
 async def workflow_stream_generator(
-    workflow_id: str,
+    workflow: dict[str, Any],
     input_data: WorkflowStreamInput,
-    store,
 ) -> AsyncGenerator[str, None]:
     """
     Generate streaming workflow events using astream_events for token streaming.
 
+    Uses the cached StateGraph for multi-node workflow execution.
+
     Args:
-        workflow_id: The workflow ID
+        workflow: The workflow dict (already fetched)
         input_data: Message and thread ID
-        store: The store instance
 
     Yields:
         SSE-formatted events
@@ -382,21 +416,25 @@ async def workflow_stream_generator(
     first_token_logged = False
     first_event_logged = False
 
-    agent = get_agent(WORKFLOW_AGENT_ID)
     thread_id = input_data.threadId or str(uuid4())
 
     try:
         run_id = uuid4()
 
+        # Get or build StateGraph from cache
+        start = start_timer()
+        graph = await workflow_graph_cache.get_or_build(workflow)
+        log_timing("stream_get_or_build_graph", start)
+
         config = RunnableConfig(
             configurable={
-                "workflow_id": workflow_id,
                 "thread_id": thread_id,
             },
             run_id=run_id,
         )
 
         # Log config details for debugging
+        workflow_id = workflow.get("id", "unknown")
         logger.warning(f"⏱️ [stream_config_created] thread={thread_id}, workflow={workflow_id}")
 
         # Log time before calling astream_events (checkpoint loading happens here)
@@ -404,7 +442,7 @@ async def workflow_stream_generator(
         logger.warning("⏱️ [stream_calling_astream_events] About to call astream_events...")
 
         # Use astream_events for proper token streaming
-        async for event in agent.astream_events(
+        async for event in graph.astream_events(
             input={"messages": [HumanMessage(content=input_data.message)]},
             config=config,
             version="v2",
@@ -453,6 +491,8 @@ async def stream_workflow(
     """
     Stream workflow execution with Server-Sent Events.
 
+    Uses the cached StateGraph for multi-node workflow execution.
+
     Args:
         workflow_id: The workflow ID
         input_data: Message and thread ID
@@ -474,6 +514,6 @@ async def stream_workflow(
         )
 
     return StreamingResponse(
-        workflow_stream_generator(workflow_id, input_data, store),
+        workflow_stream_generator(workflow, input_data),
         media_type="text/event-stream",
     )
