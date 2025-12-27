@@ -372,23 +372,40 @@ export function WebhooksList() {
       {webhooks.length === 0 ? (
         <EmptyState onAdd={handleOpenAddDialog} />
       ) : (
-        <motion.div
-          className="space-y-3"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-        >
-          {webhooks.map((webhook) => (
-            <WebhookCard
-              key={webhook.id}
-              webhook={webhook}
-              instances={instances}
-              onRename={(name) => handleRename(webhook.id, name)}
-              onToggle={(isActive) => handleToggle(webhook.id, isActive)}
-              onEdit={() => handleOpenEditDialog(webhook)}
-              onDelete={() => handleOpenDeleteDialog(webhook)}
-              onViewLogs={() => handleOpenLogsDialog(webhook)}
-            />
-          ))}
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+          {view === "cards" ? (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {webhooks.map((webhook) => (
+                <WebhookCard
+                  key={webhook.id}
+                  webhook={webhook}
+                  instances={instances}
+                  variant="card"
+                  onRename={(name) => handleRename(webhook.id, name)}
+                  onToggle={(isActive) => handleToggle(webhook.id, isActive)}
+                  onEdit={() => handleOpenEditDialog(webhook)}
+                  onDelete={() => handleOpenDeleteDialog(webhook)}
+                  onViewLogs={() => handleOpenLogsDialog(webhook)}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {webhooks.map((webhook) => (
+                <WebhookCard
+                  key={webhook.id}
+                  webhook={webhook}
+                  instances={instances}
+                  variant="list"
+                  onRename={(name) => handleRename(webhook.id, name)}
+                  onToggle={(isActive) => handleToggle(webhook.id, isActive)}
+                  onEdit={() => handleOpenEditDialog(webhook)}
+                  onDelete={() => handleOpenDeleteDialog(webhook)}
+                  onViewLogs={() => handleOpenLogsDialog(webhook)}
+                />
+              ))}
+            </div>
+          )}
         </motion.div>
       )}
 

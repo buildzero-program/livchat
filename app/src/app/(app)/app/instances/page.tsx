@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { motion, type Variants } from "framer-motion";
+import { motion } from "framer-motion";
 import { Plus, Smartphone, Loader2 } from "lucide-react";
+import { pageVariants } from "~/lib/animations";
 import { Button } from "~/components/ui/button";
 import { ViewToggle, type ViewMode } from "~/components/shared/view-toggle";
 import { ListSectionHeader } from "~/components/shared/list-section-header";
@@ -11,25 +12,6 @@ import { InstanceCard, type Instance } from "~/components/instances/instance-car
 import { InstanceFormDialog } from "~/components/instances/instance-form-dialog";
 import { api } from "~/trpc/react";
 
-const containerVariants: Variants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.1,
-      delayChildren: 0.1,
-    },
-  },
-};
-
-const itemVariants: Variants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.4 },
-  },
-};
 
 function EmptyState({ onAdd }: { onAdd: () => void }) {
   return (
@@ -183,12 +165,12 @@ export default function InstancesPage() {
     <>
       <motion.div
         className="space-y-6"
-        variants={containerVariants}
+        variants={pageVariants.container}
         initial="hidden"
         animate="visible"
       >
         {/* Page Header */}
-        <motion.div variants={itemVariants}>
+        <motion.div variants={pageVariants.item}>
           <h1 className="text-2xl font-bold tracking-tight">Instâncias</h1>
           <p className="text-muted-foreground">
             Gerencie suas conexões WhatsApp
@@ -196,7 +178,7 @@ export default function InstancesPage() {
         </motion.div>
 
         {/* List Content */}
-        <motion.div variants={itemVariants}>
+        <motion.div variants={pageVariants.item}>
           {/* Section Header */}
           <ListSectionHeader
             title="Instâncias"

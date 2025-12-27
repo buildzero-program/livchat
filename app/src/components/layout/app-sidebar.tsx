@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   Server,
   Webhook,
+  GitBranch,
   BookOpen,
   Settings,
   MessageSquare,
@@ -45,6 +46,11 @@ const platformItems = [
     title: "Webhooks",
     href: "/app/webhooks",
     icon: Webhook,
+  },
+  {
+    title: "Workflows",
+    href: "/app/workflows",
+    icon: GitBranch,
   },
 ];
 

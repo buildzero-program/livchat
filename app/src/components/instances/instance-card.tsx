@@ -50,7 +50,7 @@ export function InstanceCard({
       className="group rounded-lg border bg-card p-4 transition-colors hover:bg-muted/30 cursor-pointer"
       onClick={onClick}
     >
-      {/* Header Row: Avatar + Name + Status Badge + Actions */}
+      {/* Layout: Avatar + Text block (2 lines) + Controls (vertically centered) */}
       <div className="flex items-center gap-3">
         {/* Avatar */}
         <Avatar className="h-10 w-10 rounded-lg flex-shrink-0">
@@ -64,24 +64,29 @@ export function InstanceCard({
           </AvatarFallback>
         </Avatar>
 
-        {/* Name (editable) + Status Badge */}
-        <div className="flex items-center gap-2 flex-1 min-w-0" onClick={(e) => e.stopPropagation()}>
-          <EditableName name={instance.name} onSave={onRename} />
-          <StatusBadge status={instance.status} />
+        {/* Text block - 2 lines */}
+        <div className="flex-1 min-w-0">
+          {/* Linha 1: Nome */}
+          <div className="flex" onClick={(e) => e.stopPropagation()}>
+            <EditableName name={instance.name} onSave={onRename} />
+          </div>
+
+          {/* Linha 2: Metadata - alinhado à esquerda */}
+          <p className="mt-1 text-xs text-muted-foreground/70">
+            {formatPhone(instance.phoneNumber)} · {getInstanceStatusText(instance.status, instance.messagesUsed)}
+          </p>
         </div>
 
-        {/* Action Buttons - Ghost style with hover */}
-        <div className="flex items-center gap-1">
-          {/* Disconnect Button (only when online) */}
+        {/* Controls - vertically centered */}
+        <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
+          <StatusBadge status={instance.status} className="mr-2" />
+
           {isOnline && (
             <Button
               variant="ghost"
               size="icon"
               className="h-8 w-8 text-muted-foreground hover:text-destructive"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDisconnect();
-              }}
+              onClick={onDisconnect}
               disabled={isDisconnecting}
               title="Desconectar"
               aria-label="Desconectar"
@@ -94,15 +99,11 @@ export function InstanceCard({
             </Button>
           )}
 
-          {/* Delete Button */}
           <Button
             variant="ghost"
             size="icon"
             className="h-8 w-8 text-muted-foreground hover:text-destructive"
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete();
-            }}
+            onClick={onDelete}
             disabled={isDeleting}
             title="Excluir"
             aria-label="Excluir"
@@ -114,16 +115,6 @@ export function InstanceCard({
             )}
           </Button>
         </div>
-      </div>
-
-      {/* Phone + Status Summary */}
-      <div className="mt-2 space-y-1">
-        <p className="text-sm text-muted-foreground truncate">
-          {formatPhone(instance.phoneNumber)}
-        </p>
-        <p className="text-xs text-muted-foreground/70">
-          {getInstanceStatusText(instance.status, instance.messagesUsed)}
-        </p>
       </div>
     </motion.div>
   );

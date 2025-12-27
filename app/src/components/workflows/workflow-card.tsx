@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { ClipboardList, Trash2 } from "lucide-react";
+import { Trash2, GitBranch, Bot } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { Switch } from "~/components/ui/switch";
 import { EditableName } from "~/components/shared/editable-name";
@@ -10,71 +10,57 @@ import { EditableName } from "~/components/shared/editable-name";
 // TYPES
 // ============================================
 
-export interface WebhookData {
+export interface WorkflowData {
   id: string;
   name: string;
-  url: string;
+  description: string | null;
   isActive: boolean;
-  instanceIds: string[] | null; // null = todas
-  subscriptions: string[] | null; // null = todos
-  signingSecret: string | null;
-  headers: Record<string, string> | null;
+  nodeCount: number;
+  model: string | null; // Primary model from first agent node
   createdAt: Date;
   updatedAt: Date;
 }
 
-export interface Instance {
-  id: string;
-  name: string;
-}
-
-interface WebhookCardProps {
-  webhook: WebhookData;
-  instances: Instance[];
+interface WorkflowCardProps {
+  workflow: WorkflowData;
   variant?: "list" | "card"; // Layout variant: horizontal list or vertical card
   onRename: (name: string) => void;
   onToggle: (isActive: boolean) => void;
   onEdit: () => void;
   onDelete: () => void;
-  onViewLogs: () => void;
 }
 
 // ============================================
-// WEBHOOK CARD
+// HELPERS
 // ============================================
 
-export function WebhookCard({
-  webhook,
+function getNodeSummary(nodeCount: number): string {
+  if (nodeCount === 0) return "Nenhum node";
+  if (nodeCount === 1) return "1 node";
+  return `${nodeCount} nodes`;
+}
+
+function formatModel(model: string | null): string {
+  if (!model) return "Sem modelo";
+  // Shorten long model names
+  if (model.length > 25) {
+    return model.slice(0, 22) + "...";
+  }
+  return model;
+}
+
+// ============================================
+// WORKFLOW CARD
+// ============================================
+
+export function WorkflowCard({
+  workflow,
   variant = "list",
   onRename,
   onToggle,
   onEdit,
   onDelete,
-  onViewLogs,
-}: WebhookCardProps) {
-  // Summary text for filters
-  const getFilterSummary = () => {
-    const parts: string[] = [];
-
-    if (webhook.instanceIds === null) {
-      parts.push("Todas instâncias");
-    } else {
-      parts.push(
-        `${webhook.instanceIds.length} instância${webhook.instanceIds.length > 1 ? "s" : ""}`
-      );
-    }
-
-    if (webhook.subscriptions === null) {
-      parts.push("todos eventos");
-    } else {
-      parts.push(
-        `${webhook.subscriptions.length} evento${webhook.subscriptions.length > 1 ? "s" : ""}`
-      );
-    }
-
-    return parts.join(" · ");
-  };
-
+}: WorkflowCardProps) {
   // CARD VIEW: Vertical layout with header, body, footer
   if (variant === "card") {
     return (
@@ -88,41 +74,38 @@ export function WebhookCard({
         {/* Header: Name + Switch */}
         <div className="flex items-center justify-between gap-3 px-4 pt-4 pb-2">
           <div className="flex-1 min-w-0" onClick={(e) => e.stopPropagation()}>
-            <EditableName name={webhook.name} onSave={onRename} />
+            <EditableName name={workflow.name} onSave={onRename} />
           </div>
           <div onClick={(e) => e.stopPropagation()}>
             <Switch
-              checked={webhook.isActive}
+              checked={workflow.isActive}
               onCheckedChange={onToggle}
-              aria-label={webhook.isActive ? "Desativar webhook" : "Ativar webhook"}
+              aria-label={workflow.isActive ? "Desativar workflow" : "Ativar workflow"}
             />
           </div>
         </div>
 
         {/* Body: Metadata vertical */}
         <div className="px-4 py-3 space-y-2 flex-1">
-          {webhook.url && (
-            <p className="text-xs text-muted-foreground break-all">
-              {webhook.url}
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <GitBranch className="h-3.5 w-3.5" />
+            <span>{getNodeSummary(workflow.nodeCount)}</span>
+          </div>
+          {workflow.model && (
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Bot className="h-3.5 w-3.5" />
+              <span className="break-all">{workflow.model}</span>
+            </div>
+          )}
+          {workflow.description && (
+            <p className="text-xs text-muted-foreground/70 line-clamp-2">
+              {workflow.description}
             </p>
           )}
-          <p className="text-xs text-muted-foreground/70">
-            {getFilterSummary()}
-          </p>
         </div>
 
-        {/* Footer: Action buttons */}
-        <div className="px-4 pb-3 pt-1 flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-muted-foreground hover:text-foreground"
-            onClick={onViewLogs}
-            title="Ver logs"
-          >
-            <ClipboardList className="h-4 w-4" />
-          </Button>
-
+        {/* Footer: Delete button */}
+        <div className="px-4 pb-3 pt-1 flex justify-end" onClick={(e) => e.stopPropagation()}>
           <Button
             variant="ghost"
             size="icon"
@@ -152,34 +135,37 @@ export function WebhookCard({
         <div className="flex-1 min-w-0">
           {/* Linha 1: Nome */}
           <div className="flex" onClick={(e) => e.stopPropagation()}>
-            <EditableName name={webhook.name} onSave={onRename} />
+            <EditableName name={workflow.name} onSave={onRename} />
           </div>
 
-          {/* Linha 2: Metadata (URL + filtros) - alinhado à esquerda */}
-          <p className="mt-1 text-xs text-muted-foreground/70 truncate" title={webhook.url}>
-            {webhook.url && <>{webhook.url} · </>}
-            {getFilterSummary()}
+          {/* Linha 2: Metadata - alinhado à esquerda */}
+          <p className="mt-1 flex items-center gap-2 text-xs text-muted-foreground/70">
+            <span className="inline-flex items-center gap-1">
+              <GitBranch className="h-3 w-3" />
+              {getNodeSummary(workflow.nodeCount)}
+            </span>
+            {workflow.model && (
+              <span className="inline-flex items-center gap-1">
+                <Bot className="h-3 w-3" />
+                {formatModel(workflow.model)}
+              </span>
+            )}
+            {workflow.description && (
+              <span className="truncate" title={workflow.description}>
+                · {workflow.description}
+              </span>
+            )}
           </p>
         </div>
 
         {/* Controls - vertically centered */}
         <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
           <Switch
-            checked={webhook.isActive}
+            checked={workflow.isActive}
             onCheckedChange={onToggle}
-            aria-label={webhook.isActive ? "Desativar webhook" : "Ativar webhook"}
+            aria-label={workflow.isActive ? "Desativar workflow" : "Ativar workflow"}
             className="mr-2"
           />
-
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-muted-foreground hover:text-foreground"
-            onClick={onViewLogs}
-            title="Ver logs"
-          >
-            <ClipboardList className="h-4 w-4" />
-          </Button>
 
           <Button
             variant="ghost"
