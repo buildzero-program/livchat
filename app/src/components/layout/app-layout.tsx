@@ -10,6 +10,7 @@ import {
   AiChatPanel,
   useAiChat,
 } from "~/components/ai-chat";
+import { HeaderProvider } from "./header-context";
 import { useIsMobile } from "~/hooks/use-mobile";
 import { useSidebarResize } from "~/hooks/use-sidebar-resize";
 import { cn } from "~/lib/utils";
@@ -162,7 +163,9 @@ function AppLayoutInner({ children }: AppLayoutProps) {
 export function AppLayout({ children }: AppLayoutProps) {
   return (
     <AiChatProvider>
-      <AppLayoutInner>{children}</AppLayoutInner>
+      <HeaderProvider>
+        <AppLayoutInner>{children}</AppLayoutInner>
+      </HeaderProvider>
     </AiChatProvider>
   );
 }

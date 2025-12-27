@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Plus, GitBranch } from "lucide-react";
 import { Button } from "~/components/ui/button";
@@ -96,11 +97,10 @@ function LoadingSkeleton() {
 // ============================================
 
 export default function WorkflowsPage() {
+  const router = useRouter();
   const [view, setView] = useState<ViewMode>("list");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [workflowToDelete, setWorkflowToDelete] = useState<WorkflowData | null>(null);
-  const [formDialogOpen, setFormDialogOpen] = useState(false);
-  const [workflowToEdit, setWorkflowToEdit] = useState<WorkflowData | null>(null);
 
   // TODO: Replace with tRPC query
   const [workflows, setWorkflows] = useState<WorkflowData[]>(MOCK_WORKFLOWS);
@@ -124,8 +124,7 @@ export default function WorkflowsPage() {
   };
 
   const handleEdit = (workflow: WorkflowData) => () => {
-    setWorkflowToEdit(workflow);
-    setFormDialogOpen(true);
+    router.push(`/app/workflows/${workflow.id}`);
   };
 
   const handleDelete = (workflow: WorkflowData) => () => {
@@ -142,8 +141,7 @@ export default function WorkflowsPage() {
   };
 
   const handleAddWorkflow = () => {
-    setWorkflowToEdit(null);
-    setFormDialogOpen(true);
+    router.push("/app/workflows/new");
   };
 
   // ============================================
@@ -235,27 +233,6 @@ export default function WorkflowsPage() {
           onConfirm={confirmDelete}
           isLoading={false}
         />
-      )}
-
-      {/* TODO: WorkflowFormDialog */}
-      {formDialogOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-background rounded-lg p-6 max-w-md w-full mx-4 shadow-lg">
-            <h2 className="text-lg font-semibold mb-4">
-              {workflowToEdit ? "Editar Workflow" : "Novo Workflow"}
-            </h2>
-            <p className="text-sm text-muted-foreground mb-4">
-              {workflowToEdit
-                ? `Editando: ${workflowToEdit.name}`
-                : "Formulário de criação em desenvolvimento..."}
-            </p>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setFormDialogOpen(false)}>
-                Fechar
-              </Button>
-            </div>
-          </div>
-        </div>
       )}
     </>
   );
