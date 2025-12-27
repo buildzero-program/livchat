@@ -14,7 +14,7 @@ from langchain_core.runnables import RunnableConfig
 from langgraph.func import entrypoint
 from langgraph.store.base import BaseStore
 
-from core.llm import get_model
+from core.llm import get_model_async
 from core.model_registry import model_registry
 from core.profiling import log_timing, start_timer
 from core.settings import settings
@@ -87,7 +87,7 @@ async def get_model_from_name(model_name: str):
     Get a model instance by string name using Model Registry.
 
     Uses Model Registry to validate and get provider info,
-    then instantiates the model via get_model().
+    then instantiates the model via get_model_async() for proper caching.
 
     Args:
         model_name: String name of the model (e.g., "gemini-3-flash-preview")
@@ -100,18 +100,18 @@ async def get_model_from_name(model_name: str):
 
     if model_info:
         # Found in registry - use provider from registry
-        return get_model(model_info.id, provider=model_info.provider.value)
+        return await get_model_async(model_info.id, provider=model_info.provider.value)
 
-    # Not in registry - try auto-detection via get_model()
+    # Not in registry - try auto-detection via get_model_async()
     try:
-        return get_model(model_name)  # Auto-detect provider
+        return await get_model_async(model_name)  # Auto-detect provider
     except ValueError:
         # Final fallback to default model
         logger.warning(
             f"Model '{model_name}' not found in registry and provider could not be detected. "
             f"Falling back to DEFAULT_MODEL: {settings.DEFAULT_MODEL}"
         )
-        return get_model(settings.DEFAULT_MODEL)
+        return await get_model_async(settings.DEFAULT_MODEL)
 
 
 @entrypoint()

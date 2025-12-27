@@ -3,8 +3,14 @@ LLM Model instantiation.
 
 Provides get_model() for creating LangChain chat model instances.
 Supports both string-based IDs (new) and enum-based names (deprecated).
+
+New async-safe API:
+- get_model_async() - Async function with proper locking for concurrent access
+- clear_model_cache() - Clear cached models
+- get_model_cache_stats() - Get cache statistics
 """
 
+import asyncio
 import logging
 from functools import cache
 from typing import TypeAlias
@@ -79,6 +85,43 @@ ModelT: TypeAlias = (
     | ChatOllama
     | FakeToolModel
 )
+
+
+# =============================================================================
+# ASYNC-SAFE MODEL CACHE
+# =============================================================================
+# Global cache for model instances with async lock for thread safety.
+# This prevents the blocking I/O issue documented in:
+# https://support.langchain.com/articles/8574277609
+
+_MODEL_CACHE: dict[str, ModelT] = {}
+_MODEL_CACHE_LOCK = asyncio.Lock()
+
+
+def clear_model_cache() -> int:
+    """
+    Clear all cached model instances.
+
+    Returns:
+        Number of entries removed
+    """
+    count = len(_MODEL_CACHE)
+    _MODEL_CACHE.clear()
+    logger.info(f"Model cache cleared: {count} entries")
+    return count
+
+
+def get_model_cache_stats() -> dict:
+    """
+    Get cache statistics.
+
+    Returns:
+        Dict with cache stats (entries count, model names)
+    """
+    return {
+        "entries": len(_MODEL_CACHE),
+        "models": list(_MODEL_CACHE.keys()),
+    }
 
 
 def _detect_provider(model_id: str) -> str:
@@ -358,3 +401,177 @@ def get_model(model_name: AllModelEnum | str, /, provider: str | None = None) ->
 
     log_timing(f"model_init_{model_name}", start)
     return model
+
+
+# =============================================================================
+# ASYNC-SAFE MODEL GETTER
+# =============================================================================
+
+
+def _create_model_sync(model_name: str, provider: str) -> ModelT:
+    """
+    Create a model instance synchronously.
+
+    This is the actual model creation logic, extracted to be called
+    from within the async lock in get_model_async().
+
+    Args:
+        model_name: Model identifier string
+        provider: Provider name
+
+    Returns:
+        Configured chat model instance
+    """
+    start = start_timer()
+    logger.warning(f"⏱️ [model_create] Creating {model_name} ({provider})...")
+
+    model: ModelT | None = None
+
+    match provider:
+        case "openai":
+            model = ChatOpenAI(model=model_name, streaming=True)
+
+        case "anthropic":
+            model = ChatAnthropic(model=model_name, temperature=0.5, streaming=True)
+
+        case "google":
+            model = ChatGoogleGenerativeAI(
+                model=model_name, temperature=0.5, streaming=True
+            )
+
+        case "groq":
+            if "llama-guard" in model_name.lower():
+                model = ChatGroq(model=model_name, temperature=0.0)  # type: ignore[call-arg]
+            else:
+                model = ChatGroq(model=model_name, temperature=0.5)  # type: ignore[call-arg]
+
+        case "xai":
+            model = ChatXAI(
+                model=model_name,
+                temperature=0.5,
+                streaming=True,
+                xai_api_key=settings.XAI_API_KEY,
+                search_parameters={
+                    "mode": "auto",
+                    "sources": [
+                        {"type": "web"},
+                        {"type": "x"},
+                        {"type": "news"},
+                    ],
+                    "max_search_results": 20,
+                    "return_citations": True,
+                },
+            )
+
+        case "deepseek":
+            model = ChatOpenAI(
+                model=model_name,
+                temperature=0.5,
+                streaming=True,
+                openai_api_base="https://api.deepseek.com",
+                openai_api_key=settings.DEEPSEEK_API_KEY,
+            )
+
+        case "aws":
+            model = ChatBedrock(model_id=model_name, temperature=0.5)
+
+        case "ollama":
+            actual_model = settings.OLLAMA_MODEL or model_name
+            if settings.OLLAMA_BASE_URL:
+                model = ChatOllama(
+                    model=actual_model,
+                    temperature=0.5,
+                    base_url=settings.OLLAMA_BASE_URL,
+                )
+            else:
+                model = ChatOllama(model=actual_model, temperature=0.5)
+
+        case "openrouter":
+            model = ChatOpenAI(
+                model=model_name,
+                temperature=0.5,
+                streaming=True,
+                base_url="https://openrouter.ai/api/v1/",
+                api_key=settings.OPENROUTER_API_KEY,
+            )
+
+        case "azure":
+            if not settings.AZURE_OPENAI_API_KEY or not settings.AZURE_OPENAI_ENDPOINT:
+                raise ValueError("Azure OpenAI API key and endpoint must be configured")
+            model = AzureChatOpenAI(
+                azure_endpoint=settings.AZURE_OPENAI_ENDPOINT,
+                deployment_name=model_name,
+                api_version=settings.AZURE_OPENAI_API_VERSION,
+                temperature=0.5,
+                streaming=True,
+            )
+
+        case "vertexai":
+            model = ChatVertexAI(model=model_name, temperature=0.5, streaming=True)
+
+        case "fake":
+            model = FakeToolModel(
+                responses=["This is a test response from the fake model."]
+            )
+
+        case _:
+            raise ValueError(f"Unsupported provider: {provider}")
+
+    if model is None:
+        raise ValueError(f"Failed to create model: {model_name}")
+
+    log_timing(f"model_create_{model_name}", start)
+    return model
+
+
+async def get_model_async(
+    model_name: str,
+    /,
+    provider: str | None = None,
+) -> ModelT:
+    """
+    Get a model instance with async-safe caching.
+
+    This is the recommended way to get models in async contexts.
+    Uses a global lock to prevent multiple concurrent initializations
+    of the same model, which would cause blocking I/O issues.
+
+    Args:
+        model_name: Model identifier string (e.g., "gemini-2.0-flash", "gpt-4o-mini")
+        provider: Provider name (optional, auto-detected if not specified)
+
+    Returns:
+        Cached or newly created model instance
+
+    Example:
+        model = await get_model_async("gemini-2.0-flash")
+        response = await model.ainvoke(messages)
+    """
+    # Auto-detect provider if not specified
+    if provider is None:
+        provider = _detect_provider(model_name)
+
+    cache_key = f"{provider}:{model_name}"
+
+    # Fast path: cache hit (no lock needed for read)
+    if cache_key in _MODEL_CACHE:
+        logger.debug(f"Model cache HIT: {cache_key}")
+        return _MODEL_CACHE[cache_key]
+
+    # Slow path: need to create model (with lock)
+    async with _MODEL_CACHE_LOCK:
+        # Double-check after acquiring lock (another task may have created it)
+        if cache_key in _MODEL_CACHE:
+            logger.debug(f"Model cache HIT (after lock): {cache_key}")
+            return _MODEL_CACHE[cache_key]
+
+        logger.info(f"Model cache MISS: {cache_key} - creating...")
+
+        # Create model (this is the slow part)
+        model = _create_model_sync(model_name, provider)
+
+        # Cache for future use
+        _MODEL_CACHE[cache_key] = model
+        logger.info(f"Model cached: {cache_key}")
+
+        return model

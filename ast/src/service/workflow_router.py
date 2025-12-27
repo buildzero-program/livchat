@@ -19,6 +19,7 @@ from langchain_core.runnables import RunnableConfig
 from agents import get_agent
 from core.profiling import log_timing, start_timer
 from core.settings import settings
+from service.utils import convert_message_content_to_string
 from nodes.graph_cache import workflow_graph_cache
 from schema.workflow_schema import (
     WorkflowCreate,
@@ -461,7 +462,9 @@ async def workflow_stream_generator(
                     if not first_token_logged:
                         log_timing("stream_first_token", stream_start)
                         first_token_logged = True
-                    yield f"data: {json.dumps({'type': 'token', 'content': chunk.content})}\n\n"
+                    # Convert content to string (handles array format from newer SDKs)
+                    content_str = convert_message_content_to_string(chunk.content)
+                    yield f"data: {json.dumps({'type': 'token', 'content': content_str})}\n\n"
 
             # Chain/Graph completion
             elif event_kind == "on_chain_end":
@@ -471,7 +474,9 @@ async def workflow_stream_generator(
                     if messages:
                         last_msg = messages[-1]
                         if hasattr(last_msg, "content"):
-                            yield f"data: {json.dumps({'type': 'complete', 'content': last_msg.content})}\n\n"
+                            # Convert content to string (handles array format from newer SDKs)
+                            content_str = convert_message_content_to_string(last_msg.content)
+                            yield f"data: {json.dumps({'type': 'complete', 'content': content_str})}\n\n"
 
     except Exception as e:
         logger.error(f"Error in workflow stream: {e}")

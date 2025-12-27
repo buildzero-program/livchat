@@ -28,7 +28,8 @@ dependencies = [
     "langchain-anthropic >=1.0.0",
     "langchain-aws >=1.0.0",
     "langchain-chroma >=1.0.0",
-    "langchain-google-genai >=3.0.0",
+    "langchain-google-genai >=4.1.0",
+    "google-genai[aiohttp]",  # Async performance for Gemini
     "langchain-google-vertexai >=3.0.3",
     "langchain-groq >=1.0.1",
     "langchain-ollama >=1.0.0",

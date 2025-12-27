@@ -2,6 +2,41 @@
 
 All notable changes to this fork of agent-service-toolkit for LivChat.
 
+## 2025-12-26
+
+### Added
+- **Async-Safe Model Cache (Plan-23)** - Fix cold start latency from ~20s to ~3-4s
+  - `src/core/llm.py` - New async-safe model caching system
+    - `get_model_async()` - Async function with proper locking for concurrent access
+    - `_MODEL_CACHE` - Global cache for model instances
+    - `_MODEL_CACHE_LOCK` - asyncio.Lock for thread-safe initialization
+    - `clear_model_cache()` - Clear cached models
+    - `get_model_cache_stats()` - Get cache statistics
+    - `_create_model_sync()` - Extracted sync model creation logic
+  - **Tests** - 9 new tests for async model caching in `tests/core/test_llm_async.py`
+
+### Changed
+- **workflow_agent.py** - Now uses `get_model_async()` for proper async caching
+  - Prevents blocking I/O during authentication (documented LangChain issue)
+  - Concurrent requests now share cached model instances safely
+- **Dependencies** - Updated for better performance
+  - `langchain-google-genai >=3.0.0` → `>=4.1.0` (new consolidated SDK)
+  - Added `google-genai[aiohttp]` for async HTTP performance
+
+### Fixed
+- **Cold Start Latency** - First request latency reduced from ~20s to ~3-4s
+  - Root cause: `functools.cache` not thread-safe for async + blocking I/O in auth
+  - Solution: Global cache with asyncio.Lock + proper concurrent initialization
+- **Stream Response Format** - Fixed `[object Object]` display in Ivy chat
+  - Root cause: `langchain-google-genai` v4.x changed `chunk.content` from string to array
+  - Solution: Use `convert_message_content_to_string()` in `workflow_router.py`
+- **compose.yaml** - Fixed healthcheck endpoint from `/info` (requires auth) to `/health` (public)
+
+### Technical Notes
+- `functools.cache` decorator is not suitable for async contexts - replaced with manual cache
+- LangChain docs recommend initializing ChatGoogleGenerativeAI in global scope to avoid blocking I/O
+- See: https://support.langchain.com/articles/8574277609
+
 ## 2025-12-24
 
 ### Added

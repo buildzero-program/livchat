@@ -149,7 +149,7 @@ async def test_get_model_from_name_openai():
     with patch("agents.workflow_agent.model_registry") as mock_registry:
         mock_registry.get_model_info = AsyncMock(return_value=None)
 
-        with patch("agents.workflow_agent.get_model") as mock_get_model:
+        with patch("agents.workflow_agent.get_model_async") as mock_get_model:
             mock_model = MagicMock()
             mock_get_model.return_value = mock_model
 
@@ -165,7 +165,7 @@ async def test_get_model_from_name_anthropic():
     with patch("agents.workflow_agent.model_registry") as mock_registry:
         mock_registry.get_model_info = AsyncMock(return_value=None)
 
-        with patch("agents.workflow_agent.get_model") as mock_get_model:
+        with patch("agents.workflow_agent.get_model_async") as mock_get_model:
             mock_model = MagicMock()
             mock_get_model.return_value = mock_model
 
@@ -181,7 +181,7 @@ async def test_get_model_from_name_groq():
     with patch("agents.workflow_agent.model_registry") as mock_registry:
         mock_registry.get_model_info = AsyncMock(return_value=None)
 
-        with patch("agents.workflow_agent.get_model") as mock_get_model:
+        with patch("agents.workflow_agent.get_model_async") as mock_get_model:
             mock_model = MagicMock()
             mock_get_model.return_value = mock_model
 
@@ -197,7 +197,7 @@ async def test_get_model_from_name_xai():
     with patch("agents.workflow_agent.model_registry") as mock_registry:
         mock_registry.get_model_info = AsyncMock(return_value=None)
 
-        with patch("agents.workflow_agent.get_model") as mock_get_model:
+        with patch("agents.workflow_agent.get_model_async") as mock_get_model:
             mock_model = MagicMock()
             mock_get_model.return_value = mock_model
 
@@ -213,7 +213,7 @@ async def test_get_model_from_name_unknown_uses_default():
     with patch("agents.workflow_agent.model_registry") as mock_registry:
         mock_registry.get_model_info = AsyncMock(return_value=None)
 
-        with patch("agents.workflow_agent.get_model") as mock_get_model:
+        with patch("agents.workflow_agent.get_model_async") as mock_get_model:
             with patch("agents.workflow_agent.settings") as mock_settings:
                 mock_settings.DEFAULT_MODEL = "fake-default"
                 mock_model = MagicMock()
