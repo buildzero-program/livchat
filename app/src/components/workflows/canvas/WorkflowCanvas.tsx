@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import {
   ReactFlow,
   Background,
@@ -10,11 +10,19 @@ import {
   type DefaultEdgeOptions,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
+import { MessageCircle } from "lucide-react";
+import { Button } from "~/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "~/components/ui/tooltip";
 
 import { nodeTypes } from "./nodes";
 import { edgeTypes } from "./edges";
 import { CanvasToolbar } from "./controls/CanvasToolbar";
 import { CanvasControls } from "./controls/CanvasControls";
+import { WorkflowChatWidget } from "./widgets";
 import { useWorkflowCanvas } from "./hooks/useWorkflowCanvas";
 import { GRID_SIZE } from "./types";
 
@@ -45,6 +53,10 @@ function WorkflowCanvasInner() {
     resetCanvas,
   } = useWorkflowCanvas();
 
+  // Chat widget state
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
   // Listen for edge delete events from custom edge component
   useEffect(() => {
     const handleDeleteEdge = (event: CustomEvent<{ edgeId: string }>) => {
@@ -70,12 +82,25 @@ function WorkflowCanvasInner() {
       if (event.key === "Delete" || event.key === "Backspace") {
         // React Flow handles this internally via onNodesChange/onEdgesChange
       }
+      // Close chat with Escape
+      if (event.key === "Escape" && isChatOpen) {
+        setIsChatOpen(false);
+      }
     },
-    []
+    [isChatOpen]
   );
 
+  const toggleChat = useCallback(() => {
+    setIsChatOpen((prev) => !prev);
+  }, []);
+
   return (
-    <div className="h-full w-full" onKeyDown={onKeyDown} tabIndex={0}>
+    <div
+      ref={containerRef}
+      className="relative h-full w-full"
+      onKeyDown={onKeyDown}
+      tabIndex={0}
+    >
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -117,7 +142,33 @@ function WorkflowCanvasInner() {
         <Panel position="bottom-left" className="!bottom-4 !left-4">
           <CanvasControls />
         </Panel>
+
+        {/* Chat toggle (top-right) */}
+        <Panel position="top-right" className="!top-4 !right-4">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant={isChatOpen ? "default" : "outline"}
+                size="icon"
+                onClick={toggleChat}
+                className="h-9 w-9 rounded-lg shadow-lg"
+              >
+                <MessageCircle className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="left">
+              {isChatOpen ? "Fechar Chat" : "Testar com Ivy"}
+            </TooltipContent>
+          </Tooltip>
+        </Panel>
       </ReactFlow>
+
+      {/* Floating Chat Widget */}
+      <WorkflowChatWidget
+        isOpen={isChatOpen}
+        onClose={() => setIsChatOpen(false)}
+        containerRef={containerRef}
+      />
     </div>
   );
 }
