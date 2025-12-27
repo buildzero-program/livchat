@@ -52,12 +52,13 @@ function WorkflowEdgeComponent({
         onMouseLeave={() => setIsHovered(false)}
       />
 
-      {/* Visible edge */}
+      {/* Visible edge - NO transition on path, only on stroke color */}
       <BaseEdge
         id={id}
         path={edgePath}
         className={cn(
-          "transition-all duration-200",
+          // Only transition stroke color, NOT the path position
+          "[transition:stroke_150ms_ease,stroke-width_150ms_ease]",
           selected || isHovered
             ? "!stroke-primary !stroke-[2.5px]"
             : "!stroke-muted-foreground/40 !stroke-2"

@@ -38,7 +38,9 @@ function AgentNodeComponent({ data, selected }: NodeProps<AgentNodeType>) {
   return (
     <div
       className={cn(
-        "relative rounded-lg border-2 bg-card shadow-md transition-all",
+        "relative rounded-lg border-2 bg-card shadow-md",
+        // Only transition visual properties, not transforms (which React Flow controls)
+        "[transition:border-color_150ms_ease,box-shadow_150ms_ease]",
         "min-w-[200px] px-4 py-3",
         selected
           ? "border-primary ring-2 ring-primary/20"
