@@ -190,10 +190,6 @@ export function formatBytes(bytes: number): string {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
 }
 
-export function formatPhoneNumber(jid: string): string {
-  const number = jid.replace("@s.whatsapp.net", "");
-  if (number.startsWith("55") && number.length === 13) {
-    return `+${number.slice(0, 2)} ${number.slice(2, 4)} ${number.slice(4, 9)}-${number.slice(9)}`;
-  }
-  return `+${number}`;
-}
+// Deprecated: use formatPhone from ~/lib/phone instead
+// Re-export for backward compatibility
+export { formatPhone as formatPhoneNumber } from "./phone";

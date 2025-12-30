@@ -117,7 +117,8 @@ describe("InstanceCard", () => {
       />
     );
 
-    expect(screen.getByText("Não conectado")).toBeDefined();
+    // Text is concatenated with status: "Não conectado · Online · X msgs"
+    expect(screen.getByText(/Não conectado/)).toBeDefined();
   });
 
   it("shows 'Conectando' status when connecting", () => {

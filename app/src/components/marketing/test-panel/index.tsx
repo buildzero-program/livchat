@@ -5,7 +5,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Send, Copy, Loader2, LogOut } from "lucide-react";
 
 import { Button } from "~/components/ui/button";
-import { cn, formatPhone } from "~/lib/utils";
+import { cn } from "~/lib/utils";
+import { formatPhone, isValidPhoneFormat } from "~/lib/phone";
 import { getApiBaseUrl } from "~/lib/api-url";
 import type { ValidationResult } from "~/server/api/routers/whatsapp";
 
@@ -59,11 +60,6 @@ function useDebounce<T>(value: T, delay: number): T {
   }, [value, delay]);
 
   return debouncedValue;
-}
-
-function isValidPhoneFormat(phone: string): boolean {
-  const cleaned = phone.replace(/\D/g, "");
-  return cleaned.length >= 10 && cleaned.length <= 15;
 }
 
 function maskToken(token: string): string {

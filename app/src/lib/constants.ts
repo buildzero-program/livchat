@@ -96,43 +96,6 @@ export function calculatePrice(instances: number): number {
   return instances * PRICING.INSTANCE_PRICE;
 }
 
-// Helper function to format phone
-export function formatPhone(phone: string): string {
-  const cleaned = phone.replace(/\D/g, "");
-  if (cleaned.length === 13) {
-    // 5511999999999
-    return `+${cleaned.slice(0, 2)} ${cleaned.slice(2, 4)} ${cleaned.slice(4, 9)}-${cleaned.slice(9)}`;
-  }
-  if (cleaned.length === 12) {
-    // 551199999999
-    return `+${cleaned.slice(0, 2)} ${cleaned.slice(2, 4)} ${cleaned.slice(4, 8)}-${cleaned.slice(8)}`;
-  }
-  return phone;
-}
-
-// Helper function to mask phone
-export function maskPhone(phone: string): string {
-  const cleaned = phone.replace(/\D/g, "");
-
-  // 13 digits: 5511999999999 (country + ddd + 9 + number)
-  if (cleaned.length === 13 && cleaned.startsWith("55")) {
-    return `+55 ${cleaned.slice(2, 4)} 9****-****`;
-  }
-
-  // 12 digits: 551199999999 (country + ddd + number without 9)
-  if (cleaned.length === 12 && cleaned.startsWith("55")) {
-    return `+55 ${cleaned.slice(2, 4)} 9****-****`;
-  }
-
-  // 11 digits: 11999999999 (ddd + 9 + number) - assume Brazil
-  if (cleaned.length === 11) {
-    return `+55 ${cleaned.slice(0, 2)} 9****-****`;
-  }
-
-  // 10 digits: 1199999999 (ddd + number without 9) - assume Brazil
-  if (cleaned.length === 10) {
-    return `+55 ${cleaned.slice(0, 2)} 9****-****`;
-  }
-
-  return phone;
-}
+// Phone utilities moved to ~/lib/phone.ts
+// Re-export for backward compatibility
+export { formatPhone, maskPhone } from "./phone";

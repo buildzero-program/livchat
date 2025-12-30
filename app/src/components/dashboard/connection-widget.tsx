@@ -13,11 +13,8 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
 import { Badge } from "~/components/ui/badge";
-import {
-  mockConnection,
-  formatRelativeTime,
-  formatPhoneNumber,
-} from "~/lib/mock-dashboard";
+import { mockConnection, formatRelativeTime } from "~/lib/mock-dashboard";
+import { formatPhone } from "~/lib/phone";
 
 export function ConnectionWidget() {
   const [uptime, setUptime] = useState("");
@@ -73,7 +70,7 @@ export function ConnectionWidget() {
             {/* Número conectado */}
             <div className="space-y-1">
               <p className="text-2xl font-bold tracking-tight">
-                {formatPhoneNumber(connection.jid)}
+                {formatPhone(connection.jid)}
               </p>
               <p className="text-xs text-muted-foreground">
                 {connection.deviceName}

@@ -19,6 +19,7 @@ import {
 import { Input } from "~/components/ui/input";
 import { Button } from "~/components/ui/button";
 import { api } from "~/trpc/react";
+import { isValidPhoneFormat, cleanPhoneNumber, formatPhone } from "~/lib/phone";
 
 // ============================================
 // TYPES
@@ -42,19 +43,6 @@ interface InstanceData {
   phoneNumber: string;
   whatsappName: string;
   pictureUrl: string | null;
-}
-
-// ============================================
-// HELPERS
-// ============================================
-
-function isValidPhoneFormat(phone: string): boolean {
-  const cleaned = phone.replace(/\D/g, "");
-  return cleaned.length >= 10 && cleaned.length <= 15;
-}
-
-function cleanPhoneNumber(phone: string): string {
-  return phone.replace(/\D/g, "");
 }
 
 // generateMockShareCode removido - usando API real agora
@@ -312,11 +300,6 @@ function QrPanel({ instanceId, initialQrCode, onSuccess, onError }: QrPanelProps
 // ============================================
 
 function SuccessStep({ data }: { data: InstanceData }) {
-  const formatPhone = (phone: string) => {
-    if (!phone || phone.length < 10) return phone;
-    return `+${phone.slice(0, 2)} ${phone.slice(2, 4)} ${phone.slice(4, 9)}-${phone.slice(9)}`;
-  };
-
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}

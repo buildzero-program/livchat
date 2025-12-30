@@ -18,21 +18,12 @@ import {
 } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
+import { isValidPhoneFormat, cleanPhoneNumber } from "~/lib/phone";
 
 type PageState = "loading" | "ready" | "connecting" | "success" | "error";
 
 interface PublicConnectPageProps {
   code: string;
-}
-
-// Helpers (mesmos do QrPanel)
-function isValidPhoneFormat(phone: string): boolean {
-  const cleaned = phone.replace(/\D/g, "");
-  return cleaned.length >= 10 && cleaned.length <= 15;
-}
-
-function cleanPhoneNumber(phone: string): string {
-  return phone.replace(/\D/g, "");
 }
 
 export function PublicConnectPage({ code }: PublicConnectPageProps) {

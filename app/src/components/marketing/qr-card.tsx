@@ -16,6 +16,7 @@ import Link from "next/link";
 
 import { Input } from "~/components/ui/input";
 import { Button } from "~/components/ui/button";
+import { isValidPhoneFormat } from "~/lib/phone";
 import type { ValidationResult } from "~/server/api/routers/whatsapp";
 
 // Status da validação
@@ -42,12 +43,6 @@ function useDebounce<T>(value: T, delay: number): T {
   }, [value, delay]);
 
   return debouncedValue;
-}
-
-// Regex para formato válido de telefone (10-15 dígitos)
-function isValidPhoneFormat(phone: string): boolean {
-  const cleaned = phone.replace(/\D/g, "");
-  return cleaned.length >= 10 && cleaned.length <= 15;
 }
 
 export function QrCard({
