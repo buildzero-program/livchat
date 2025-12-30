@@ -3,6 +3,20 @@
 // ===========================================
 
 /**
+ * Checks if running in production environment.
+ * Detection based on hostname (client-side) or env var (server-side).
+ */
+export function isProduction(): boolean {
+  // Client-side: check hostname
+  if (typeof window !== "undefined") {
+    const hostname = window.location.hostname;
+    return hostname === "livchat.ai" || hostname === "www.livchat.ai";
+  }
+  // Server-side: check NODE_ENV
+  return process.env.NODE_ENV === "production";
+}
+
+/**
  * Returns the API base URL based on environment.
  * Priority:
  * 1. NEXT_PUBLIC_API_URL env var (if set)

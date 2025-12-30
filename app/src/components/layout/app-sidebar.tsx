@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -28,16 +29,7 @@ import {
   SidebarSeparator,
 } from "~/components/ui/sidebar";
 import { UserDropdownMenu } from "./user-dropdown-menu";
-
-// =============================================================================
-// Feature Flags (baseado no ambiente)
-// =============================================================================
-// Vercel injeta NEXT_PUBLIC_VERCEL_ENV: "production" | "preview" | "development"
-// Em dev local, será undefined, então fallback para NODE_ENV
-const IS_PRODUCTION =
-  process.env.NEXT_PUBLIC_VERCEL_ENV === "production" ||
-  (process.env.NEXT_PUBLIC_VERCEL_ENV === undefined &&
-    process.env.NODE_ENV === "production");
+import { isProduction } from "~/lib/api-url";
 
 // =============================================================================
 // Navigation Items
@@ -75,11 +67,6 @@ const allPlatformItems: NavItem[] = [
   },
 ];
 
-// Filtra items baseado no ambiente
-const platformItems = allPlatformItems.filter(
-  (item) => !item.devOnly || !IS_PRODUCTION
-);
-
 const resourceItems: NavItem[] = [
   {
     title: "Documentação",
@@ -105,6 +92,12 @@ const resourceItems: NavItem[] = [
  */
 export function AppSidebar() {
   const pathname = usePathname();
+
+  // Filtra items baseado no ambiente (deve rodar no client)
+  const platformItems = useMemo(() => {
+    const isProd = isProduction();
+    return allPlatformItems.filter((item) => !item.devOnly || !isProd);
+  }, []);
 
   return (
     <Sidebar variant="inset" collapsible="icon">

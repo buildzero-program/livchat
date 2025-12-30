@@ -7,12 +7,7 @@ import { Button } from "~/components/ui/button";
 import { WorkflowCanvas } from "~/components/workflows/canvas";
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "~/components/ui/tooltip";
 import { useHeaderConfig } from "~/components/layout/header-context";
-
-// Feature flag: Workflows só disponível em dev/preview
-const IS_PRODUCTION =
-  process.env.NEXT_PUBLIC_VERCEL_ENV === "production" ||
-  (process.env.NEXT_PUBLIC_VERCEL_ENV === undefined &&
-    process.env.NODE_ENV === "production");
+import { isProduction } from "~/lib/api-url";
 
 // ============================================
 // PAGE
@@ -25,13 +20,13 @@ export default function WorkflowEditPage() {
 
   // Redireciona para dashboard se acessar em produção
   useEffect(() => {
-    if (IS_PRODUCTION) {
+    if (isProduction()) {
       router.replace("/app");
     }
   }, [router]);
 
   // Não renderiza nada em produção
-  if (IS_PRODUCTION) {
+  if (isProduction()) {
     return null;
   }
 

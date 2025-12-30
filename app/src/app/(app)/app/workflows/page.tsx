@@ -10,12 +10,7 @@ import { ListSectionHeader } from "~/components/shared/list-section-header";
 import { DeleteConfirmDialog } from "~/components/shared/delete-confirm-dialog";
 import { WorkflowCard, type WorkflowData } from "~/components/workflows/workflow-card";
 import { pageVariants } from "~/lib/animations";
-
-// Feature flag: Workflows só disponível em dev/preview
-const IS_PRODUCTION =
-  process.env.NEXT_PUBLIC_VERCEL_ENV === "production" ||
-  (process.env.NEXT_PUBLIC_VERCEL_ENV === undefined &&
-    process.env.NODE_ENV === "production");
+import { isProduction } from "~/lib/api-url";
 
 // ============================================
 // MOCK DATA (temporary until tRPC integration)
@@ -110,7 +105,7 @@ export default function WorkflowsPage() {
 
   // Redireciona para dashboard se acessar em produção
   useEffect(() => {
-    if (IS_PRODUCTION) {
+    if (isProduction()) {
       router.replace("/app");
     }
   }, [router]);
@@ -121,7 +116,7 @@ export default function WorkflowsPage() {
   const isEmpty = workflows.length === 0;
 
   // Não renderiza nada em produção (enquanto redireciona)
-  if (IS_PRODUCTION) {
+  if (isProduction()) {
     return null;
   }
 
