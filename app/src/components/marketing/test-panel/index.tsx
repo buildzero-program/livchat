@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Send, Copy, Loader2, LogOut } from "lucide-react";
 
 import { Button } from "~/components/ui/button";
-import { cn } from "~/lib/utils";
+import { cn, formatPhone } from "~/lib/utils";
 import { getApiBaseUrl } from "~/lib/api-url";
 import type { ValidationResult } from "~/server/api/routers/whatsapp";
 
@@ -78,13 +78,6 @@ function maskToken(token: string): string {
   return prefix + first4 + "*".repeat(maskedLength) + last4;
 }
 
-function formatPhone(jid: string): string {
-  const phone = jid.replace(/@.*$/, "");
-  if (phone.length === 13 && phone.startsWith("55")) {
-    return `+${phone.slice(0, 2)} ${phone.slice(2, 4)} ${phone.slice(4, 9)}-${phone.slice(9)}`;
-  }
-  return phone;
-}
 
 // ============================================================================
 // Sub Components

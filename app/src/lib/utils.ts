@@ -1,20 +1,37 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { parsePhoneNumber } from "libphonenumber-js"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
 /**
- * Format Brazilian phone number for display
+ * Format phone number for display (supports international numbers)
  * Input: "5511999999999" → Output: "+55 11 99999-9999"
+ * Input: "14155551234" → Output: "+1 415 555 1234"
+ * Input: "447911123456" → Output: "+44 7911 123456"
  */
 export function formatPhone(phone: string | undefined): string {
   if (!phone) return "Não conectado";
-  if (phone.length >= 12) {
-    return `+${phone.slice(0, 2)} ${phone.slice(2, 4)} ${phone.slice(4, 9)}-${phone.slice(9)}`;
+
+  // Remove WhatsApp JID suffix if present (@s.whatsapp.net, @c.us, etc)
+  const cleanPhone = phone.replace(/@.*$/, "");
+
+  // Ensure it starts with + for parsing
+  const phoneWithPlus = cleanPhone.startsWith("+") ? cleanPhone : `+${cleanPhone}`;
+
+  try {
+    const parsed = parsePhoneNumber(phoneWithPlus);
+    if (parsed) {
+      return parsed.formatInternational();
+    }
+  } catch {
+    // Fallback: basic formatting if parsing fails
   }
-  return phone;
+
+  // Fallback: add + prefix if not present
+  return cleanPhone.startsWith("+") ? cleanPhone : `+${cleanPhone}`;
 }
 
 /**
