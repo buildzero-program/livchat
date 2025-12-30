@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Plus, GitBranch } from "lucide-react";
@@ -10,6 +10,12 @@ import { ListSectionHeader } from "~/components/shared/list-section-header";
 import { DeleteConfirmDialog } from "~/components/shared/delete-confirm-dialog";
 import { WorkflowCard, type WorkflowData } from "~/components/workflows/workflow-card";
 import { pageVariants } from "~/lib/animations";
+
+// Feature flag: Workflows só disponível em dev/preview
+const IS_PRODUCTION =
+  process.env.NEXT_PUBLIC_VERCEL_ENV === "production" ||
+  (process.env.NEXT_PUBLIC_VERCEL_ENV === undefined &&
+    process.env.NODE_ENV === "production");
 
 // ============================================
 // MOCK DATA (temporary until tRPC integration)
@@ -102,10 +108,22 @@ export default function WorkflowsPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [workflowToDelete, setWorkflowToDelete] = useState<WorkflowData | null>(null);
 
+  // Redireciona para dashboard se acessar em produção
+  useEffect(() => {
+    if (IS_PRODUCTION) {
+      router.replace("/app");
+    }
+  }, [router]);
+
   // TODO: Replace with tRPC query
   const [workflows, setWorkflows] = useState<WorkflowData[]>(MOCK_WORKFLOWS);
   const isLoading = false;
   const isEmpty = workflows.length === 0;
+
+  // Não renderiza nada em produção (enquanto redireciona)
+  if (IS_PRODUCTION) {
+    return null;
+  }
 
   // ============================================
   // HANDLERS (mock implementations)

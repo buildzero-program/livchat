@@ -1,12 +1,18 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { X, Save } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { WorkflowCanvas } from "~/components/workflows/canvas";
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "~/components/ui/tooltip";
 import { useHeaderConfig } from "~/components/layout/header-context";
+
+// Feature flag: Workflows só disponível em dev/preview
+const IS_PRODUCTION =
+  process.env.NEXT_PUBLIC_VERCEL_ENV === "production" ||
+  (process.env.NEXT_PUBLIC_VERCEL_ENV === undefined &&
+    process.env.NODE_ENV === "production");
 
 // ============================================
 // PAGE
@@ -16,6 +22,18 @@ export default function WorkflowEditPage() {
   const params = useParams();
   const router = useRouter();
   const workflowId = params.id as string;
+
+  // Redireciona para dashboard se acessar em produção
+  useEffect(() => {
+    if (IS_PRODUCTION) {
+      router.replace("/app");
+    }
+  }, [router]);
+
+  // Não renderiza nada em produção
+  if (IS_PRODUCTION) {
+    return null;
+  }
 
   // TODO: Load workflow data from API based on workflowId
   const workflowName = workflowId === "new" ? "Novo Workflow" : "Ivy - Assistente";

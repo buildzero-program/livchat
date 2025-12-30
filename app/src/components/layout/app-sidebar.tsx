@@ -11,6 +11,7 @@ import {
   Settings,
   MessageSquare,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 import { APP_NAME } from "~/lib/constants";
 import {
@@ -28,10 +29,29 @@ import {
 } from "~/components/ui/sidebar";
 import { UserDropdownMenu } from "./user-dropdown-menu";
 
-/**
- * Navigation items for the sidebar
- */
-const platformItems = [
+// =============================================================================
+// Feature Flags (baseado no ambiente)
+// =============================================================================
+// Vercel injeta NEXT_PUBLIC_VERCEL_ENV: "production" | "preview" | "development"
+// Em dev local, será undefined, então fallback para NODE_ENV
+const IS_PRODUCTION =
+  process.env.NEXT_PUBLIC_VERCEL_ENV === "production" ||
+  (process.env.NEXT_PUBLIC_VERCEL_ENV === undefined &&
+    process.env.NODE_ENV === "production");
+
+// =============================================================================
+// Navigation Items
+// =============================================================================
+
+interface NavItem {
+  title: string;
+  href: string;
+  icon: LucideIcon;
+  devOnly?: boolean; // Se true, só aparece em dev/preview
+  external?: boolean;
+}
+
+const allPlatformItems: NavItem[] = [
   {
     title: "Dashboard",
     href: "/app",
@@ -51,10 +71,16 @@ const platformItems = [
     title: "Workflows",
     href: "/app/workflows",
     icon: GitBranch,
+    devOnly: true, // Em desenvolvimento
   },
 ];
 
-const resourceItems = [
+// Filtra items baseado no ambiente
+const platformItems = allPlatformItems.filter(
+  (item) => !item.devOnly || !IS_PRODUCTION
+);
+
+const resourceItems: NavItem[] = [
   {
     title: "Documentação",
     href: "https://docs.livchat.ai",
