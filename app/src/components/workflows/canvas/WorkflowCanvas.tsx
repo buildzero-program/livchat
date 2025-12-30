@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import {
   ReactFlow,
   Background,
@@ -8,6 +8,7 @@ import {
   Panel,
   ReactFlowProvider,
   type DefaultEdgeOptions,
+  type NodeMouseHandler,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { MessageCircle } from "lucide-react";
@@ -22,7 +23,12 @@ import { nodeTypes } from "./nodes";
 import { edgeTypes } from "./edges";
 import { CanvasToolbar } from "./controls/CanvasToolbar";
 import { CanvasControls } from "./controls/CanvasControls";
-import { WorkflowChatWidget } from "./widgets";
+import {
+  WidgetManagerProvider,
+  useWidgetManager,
+  ChatWidget,
+  NodeInspectorWidget,
+} from "./widgets";
 import { useWorkflowCanvas } from "./hooks/useWorkflowCanvas";
 import { GRID_SIZE } from "./types";
 
@@ -53,8 +59,14 @@ function WorkflowCanvasInner() {
     resetCanvas,
   } = useWorkflowCanvas();
 
-  // Chat widget state
-  const [isChatOpen, setIsChatOpen] = useState(false);
+  const {
+    widgets,
+    toggleWidget,
+    closeWidget,
+    openWidget,
+    setSelectedNode,
+  } = useWidgetManager();
+
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Listen for edge delete events from custom edge component
@@ -82,17 +94,39 @@ function WorkflowCanvasInner() {
       if (event.key === "Delete" || event.key === "Backspace") {
         // React Flow handles this internally via onNodesChange/onEdgesChange
       }
-      // Close chat with Escape
-      if (event.key === "Escape" && isChatOpen) {
-        setIsChatOpen(false);
+      // Close widgets with Escape
+      if (event.key === "Escape") {
+        if (widgets.nodeInspector.isOpen) {
+          closeWidget("nodeInspector");
+        } else if (widgets.chat.isOpen) {
+          closeWidget("chat");
+        }
       }
     },
-    [isChatOpen]
+    [widgets, closeWidget]
+  );
+
+  // Handle node double-click to open inspector
+  const onNodeDoubleClick: NodeMouseHandler = useCallback(
+    (_event, node) => {
+      // Extract label from node data
+      const label = (node.data as { label?: string })?.label ?? node.id;
+
+      setSelectedNode({
+        id: node.id,
+        type: node.type ?? "unknown",
+        label,
+      });
+
+      // Open node inspector docked to left
+      openWidget("nodeInspector", { dockPosition: "left" });
+    },
+    [setSelectedNode, openWidget]
   );
 
   const toggleChat = useCallback(() => {
-    setIsChatOpen((prev) => !prev);
-  }, []);
+    toggleWidget("chat");
+  }, [toggleWidget]);
 
   return (
     <div
@@ -107,6 +141,7 @@ function WorkflowCanvasInner() {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        onNodeDoubleClick={onNodeDoubleClick}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         defaultEdgeOptions={defaultEdgeOptions}
@@ -148,7 +183,7 @@ function WorkflowCanvasInner() {
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-                variant={isChatOpen ? "default" : "outline"}
+                variant={widgets.chat.isOpen ? "default" : "outline"}
                 size="icon"
                 onClick={toggleChat}
                 className="h-9 w-9 rounded-lg shadow-lg"
@@ -157,30 +192,29 @@ function WorkflowCanvasInner() {
               </Button>
             </TooltipTrigger>
             <TooltipContent side="left">
-              {isChatOpen ? "Fechar Chat" : "Testar com Ivy"}
+              {widgets.chat.isOpen ? "Fechar Chat" : "Testar com Ivy"}
             </TooltipContent>
           </Tooltip>
         </Panel>
       </ReactFlow>
 
-      {/* Floating Chat Widget */}
-      <WorkflowChatWidget
-        isOpen={isChatOpen}
-        onClose={() => setIsChatOpen(false)}
-        containerRef={containerRef}
-      />
+      {/* Floating Widgets */}
+      <ChatWidget containerRef={containerRef} />
+      <NodeInspectorWidget containerRef={containerRef} />
     </div>
   );
 }
 
 // ============================================
-// EXPORTED COMPONENT (with provider)
+// EXPORTED COMPONENT (with providers)
 // ============================================
 
 export function WorkflowCanvas() {
   return (
     <ReactFlowProvider>
-      <WorkflowCanvasInner />
+      <WidgetManagerProvider>
+        <WorkflowCanvasInner />
+      </WidgetManagerProvider>
     </ReactFlowProvider>
   );
 }
