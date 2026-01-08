@@ -1,7 +1,7 @@
 import "~/styles/globals.css";
 
 import { type Metadata } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { Inter, JetBrains_Mono, Sora, Plus_Jakarta_Sans } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 
 import { TRPCReactProvider } from "~/trpc/react";
@@ -16,6 +16,19 @@ const inter = Inter({
 const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
   variable: "--font-mono",
+  display: "swap",
+});
+
+// Fontes distintivas para LP B2B
+const sora = Sora({
+  subsets: ["latin"],
+  variable: "--font-sora",
+  display: "swap",
+});
+
+const plusJakarta = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  variable: "--font-jakarta",
   display: "swap",
 });
 
@@ -51,7 +64,7 @@ export default function RootLayout({
     <ClerkProvider>
       <html
         lang="pt-BR"
-        className={`${inter.variable} ${jetbrainsMono.variable}`}
+        className={`${inter.variable} ${jetbrainsMono.variable} ${sora.variable} ${plusJakarta.variable}`}
         suppressHydrationWarning
       >
         <body className="font-sans antialiased" suppressHydrationWarning>

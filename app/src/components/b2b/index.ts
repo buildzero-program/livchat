@@ -1,0 +1,9 @@
+export { NavbarB2B } from "./navbar-b2b";
+export { HeroB2B } from "./hero-b2b";
+export { SocialProofB2B } from "./social-proof-b2b";
+export { SolutionB2B } from "./solution-b2b";
+export { FeaturesB2B } from "./features-b2b";
+export { HowItWorksB2B } from "./how-it-works-b2b";
+export { FAQB2B } from "./faq-b2b";
+export { CTAFinalB2B } from "./cta-final-b2b";
+export { FooterB2B } from "./footer-b2b";
